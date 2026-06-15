@@ -8,6 +8,7 @@ import { ScoreSystem } from '../systems/ScoreSystem'
 import type { CollisionWorld } from '../engine/CollisionWorld'
 import { emptyInput, type PlayerInput, type Snapshot, type SessionEvent, type EntityState } from './protocol'
 import type { Vec3 } from '../types'
+import { zonedDamage, resolveZone } from '../systems/DamageZones'
 
 export const ARENA_SIZE = 30
 const LOCAL_ID = 'local'
@@ -27,6 +28,8 @@ export class GameSession {
   collisionWorld: CollisionWorld | null = null
   tick = 0
 
+  private shootRaycaster = new THREE.Raycaster()
+  private cameraQuat = new THREE.Quaternion()
   private inputs = new Map<string, PlayerInput>([[LOCAL_ID, emptyInput()]])
 
   applyInput(playerId: string, input: PlayerInput): void {
@@ -135,7 +138,62 @@ export class GameSession {
     return events
   }
 
-  private fireLocalWeapon(_events: SessionEvent[]): void {
-    // Implemented in the next task (Task 8).
+  private fireLocalWeapon(events: SessionEvent[]): void {
+    const weapon = this.weaponManager.current
+    // Forward from the player's full orientation (yaw + pitch), matching the camera.
+    this.cameraQuat.setFromEuler(this.player.rotation)
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.cameraQuat)
+    const pellets = weapon.type === 'shotgun' ? 6 : 1
+    for (let p = 0; p < pellets; p++) {
+      const dir = weapon.getSpreadDirection(forward)
+      this.resolveShot(this.player.position, dir, weapon.def.range, weapon.def.damage, events)
+    }
+  }
+
+  private resolveShot(origin: THREE.Vector3, direction: THREE.Vector3, range: number, baseDamage: number, events: SessionEvent[]): void {
+    this.shootRaycaster.set(origin, direction)
+    this.shootRaycaster.far = range
+
+    let nearest: Enemy | null = null
+    let nearestDist = Infinity
+    let hitObject: THREE.Object3D | null = null
+    let hitPoint: THREE.Vector3 | null = null
+
+    for (const enemy of this.enemies) {
+      if (enemy.isDead) continue
+      enemy.mesh.updateMatrixWorld(true)
+      const hits = this.shootRaycaster.intersectObject(enemy.mesh, true)
+      if (hits.length > 0 && hits[0].distance < nearestDist) {
+        nearestDist = hits[0].distance
+        nearest = enemy
+        hitObject = hits[0].object
+        hitPoint = hits[0].point
+      }
+    }
+
+    const wallDist = this.collisionWorld
+      ? this.collisionWorld.segmentBlocked(origin, origin.clone().addScaledVector(direction, range))
+      : null
+
+    if (nearest && hitPoint && (wallDist === null || nearestDist < wallDist)) {
+      const zone = resolveZone(hitObject)
+      const damage = zonedDamage(baseDamage, zone)
+      const killed = nearest.takeDamage(damage)
+      events.push({
+        type: 'playerHitEnemy',
+        enemyType: nearest.type,
+        hit: { targetId: nearest.type, zone, damage, killed, point: toVec3(hitPoint) },
+      })
+      if (killed) {
+        this.scoreSystem.addKill(nearest.def.scoreValue)
+        this.waveManager.onEnemyKilled()
+        events.push({ type: 'enemyKilled', enemyType: nearest.type, pos: toVec3(nearest.mesh.position), scoreValue: nearest.def.scoreValue })
+      }
+      return
+    }
+
+    if (wallDist !== null) {
+      events.push({ type: 'wallImpact', point: toVec3(origin.clone().addScaledVector(direction, wallDist)) })
+    }
   }
 }
