@@ -17,6 +17,7 @@ export class ParticleSystem {
   private pool: THREE.Mesh[] = []
   private impacts: ParticleHandle[] = []
   private explosions: ExplosionHandle[] = []
+  private tracers: { line: THREE.Line; mat: THREE.LineBasicMaterial; life: number; maxLife: number }[] = []
 
   constructor(scene: THREE.Scene) {
     this.scene = scene
@@ -75,6 +76,14 @@ export class ParticleSystem {
     createMuzzleFlash(this.scene, position, 0xffff00, 2, 5, 50)
   }
 
+  tracer(from: THREE.Vector3, to: THREE.Vector3) {
+    const geo = new THREE.BufferGeometry().setFromPoints([from.clone(), to.clone()])
+    const mat = new THREE.LineBasicMaterial({ color: 0xffdd66, transparent: true, opacity: 0.9 })
+    const line = new THREE.Line(geo, mat)
+    this.scene.add(line)
+    this.tracers.push({ line, mat, life: 0.12, maxLife: 0.12 })
+  }
+
   bulletImpact(position: THREE.Vector3) {
     this.emit(position, 8, 0xffaa00, 3, 0.3, 0.5)
     const handle = createSparkBurst(this.scene, position)
@@ -126,6 +135,19 @@ export class ParticleSystem {
         this.explosions.splice(i, 1)
       }
     }
+
+    // Update tracers
+    for (let i = this.tracers.length - 1; i >= 0; i--) {
+      const t = this.tracers[i]
+      t.life -= dt
+      t.mat.opacity = Math.max(0, t.life / t.maxLife) * 0.9
+      if (t.life <= 0) {
+        this.scene.remove(t.line)
+        t.line.geometry.dispose()
+        t.mat.dispose()
+        this.tracers.splice(i, 1)
+      }
+    }
   }
 
   clear() {
@@ -149,6 +171,13 @@ export class ParticleSystem {
       disposeExplosion(handle)
     }
     this.explosions = []
+
+    for (const t of this.tracers) {
+      this.scene.remove(t.line)
+      t.line.geometry.dispose()
+      t.mat.dispose()
+    }
+    this.tracers = []
   }
 }
 
