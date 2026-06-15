@@ -6,6 +6,9 @@ import type { CollisionWorld } from '../engine/CollisionWorld'
 
 const RADIUS = 0.6
 const EYE_HEIGHT = 1.5
+const MUZZLE_HEIGHT = 1.4
+const MUZZLE_FORWARD = 0.6
+const MELEE_RATE = 1 // seconds between melee strikes
 
 export class Enemy {
   type: string
@@ -42,7 +45,7 @@ export class Enemy {
   update(dt: number, playerPosition: THREE.Vector3, world?: CollisionWorld): EnemyAction | null {
     if (this.isDead) {
       this.deathTimer -= dt
-      this.mesh.scale.multiplyScalar(0.9)
+      if (this.deathTimer > 0) this.mesh.scale.multiplyScalar(0.9)
       return null
     }
     return this.def.attackType === 'ranged'
@@ -62,7 +65,7 @@ export class Enemy {
       this.attackTimer = 0
     } else {
       this.attackTimer += dt
-      if (this.attackTimer >= 1) {
+      if (this.attackTimer >= MELEE_RATE) {
         this.attackTimer = 0
         return { type: 'melee', damage: this.def.damage }
       }
@@ -108,8 +111,9 @@ export class Enemy {
     if (this.telegraphTimer >= this.def.telegraphTime && this.attackTimer <= 0) {
       this.telegraphTimer = 0
       this.attackTimer = this.def.fireRate
+      this.isAiming = false // re-telegraph before the next shot
       const hit = Math.random() < this.def.accuracy
-      const muzzle = this.mesh.position.clone().setY(1.4).addScaledVector(flatDir, 0.6)
+      const muzzle = this.mesh.position.clone().setY(MUZZLE_HEIGHT).addScaledVector(flatDir, MUZZLE_FORWARD)
       return { type: 'shoot', damage: this.def.damage, from: muzzle, to: playerPosition.clone(), hit }
     }
     return null

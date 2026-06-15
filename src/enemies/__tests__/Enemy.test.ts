@@ -56,6 +56,15 @@ describe('Enemy', () => {
     expect(result?.type).toBe('shoot')
   })
 
+  it('re-telegraphs before each subsequent shot', () => {
+    const enemy = new Enemy('rifleman', new THREE.Vector3(0, 0, 0))
+    const playerPos = new THREE.Vector3(10, 2, 0)
+    const first = enemy.update(0.6, playerPos) // fires after telegraph
+    expect(first?.type).toBe('shoot')
+    enemy.update(0.1, playerPos) // begins aiming for the next shot
+    expect(enemy.telegraphCue).toBe(true)
+  })
+
   it('ranged enemy holds fire when a wall blocks line of sight', () => {
     const enemy = new Enemy('rifleman', new THREE.Vector3(0, 0, 0))
     const playerPos = new THREE.Vector3(10, 2, 0)
