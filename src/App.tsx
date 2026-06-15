@@ -43,6 +43,12 @@ function App() {
   const [damageIndicator, setDamageIndicator] = useState<DamageIndicatorState | null>(null)
   const [showWaveAnnounce, setShowWaveAnnounce] = useState(false)
   const lastWaveRef = useRef(0)
+  const gameStateRef = useRef<GameState>('menu')
+
+  const updateGameState = useCallback((state: GameState) => {
+    gameStateRef.current = state
+    setGameState(state)
+  }, [])
 
   const gameDataRef = useRef({
     player: new Player(),
@@ -66,10 +72,12 @@ function App() {
     data.enemies = []
     data.pickups = []
     data.scoreSystem.reset()
-    data.waveManager = new WaveManager()
     data.waveManager.currentWave = 0
     data.waveManager.waveActive = false
     data.waveManager.wavePauseTimer = 2
+    data.waveManager.enemiesRemaining = 0
+    data.waveManager.spawnTimer = 0
+    data.waveManager.spawnQueue = []
     data.time = 0
     data.damageIndicator = createDamageIndicatorState()
 
@@ -92,8 +100,8 @@ function App() {
 
     data.audio.init()
     data.audio.loadSounds()
-    setGameState('playing')
-  }, [])
+    updateGameState('playing')
+  }, [updateGameState])
 
   useEffect(() => {
     const container = containerRef.current
@@ -106,6 +114,7 @@ function App() {
     const data = gameDataRef.current
     data.particleSystem = new ParticleSystem(engine.scene)
     data.controls = new Controls(container)
+    data.controls.onMouseMove = onMouseMove
 
     data.waveManager.onEnemySpawned = (enemy) => {
       data.enemies.push(enemy)
@@ -152,10 +161,6 @@ function App() {
       engine.camera.rotation.copy(player.rotation)
       data.audio.updateListenerPosition(player.position.x, player.position.y, player.position.z)
 
-      if (document.pointerLockElement === container) {
-        document.addEventListener('mousemove', onMouseMove)
-      }
-
       weaponManager.update(dt)
 
       if (controls.shoot && weaponManager.current.canShoot()) {
@@ -183,10 +188,7 @@ function App() {
       setAmmo(weaponManager.current.ammo)
       setWeaponName(weaponManager.current.def.name)
 
-      const newEnemy = waveManager.update(dt, ARENA_SIZE)
-      if (newEnemy) {
-        engine.scene.add(newEnemy.mesh)
-      }
+      waveManager.update(dt, ARENA_SIZE)
 
       setWaveActive(waveManager.waveActive)
       setWave(waveManager.currentWave)
@@ -231,7 +233,7 @@ function App() {
             data.scoreSystem.saveHighScore()
             setHighScore(data.scoreSystem.highScore)
             engine.stop()
-            setGameState('gameover')
+            updateGameState('gameover')
             return
           }
         }
@@ -315,12 +317,12 @@ function App() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const data = gameDataRef.current
-      if (e.code === 'Escape' && gameState === 'playing') {
+      if (e.code === 'Escape' && gameStateRef.current === 'playing') {
         engineRef.current?.pause()
-        setGameState('paused')
-      } else if (e.code === 'Escape' && gameState === 'paused') {
+        updateGameState('paused')
+      } else if (e.code === 'Escape' && gameStateRef.current === 'paused') {
         engineRef.current?.resume()
-        setGameState('playing')
+        updateGameState('playing')
       }
 
       if (e.code === 'KeyM') {
@@ -347,7 +349,7 @@ function App() {
       data.controls?.destroy()
       engine.stop()
     }
-  }, [gameState])
+  }, [updateGameState])
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -381,11 +383,11 @@ function App() {
         <PauseMenu
           onResume={() => {
             engineRef.current?.resume()
-            setGameState('playing')
+            updateGameState('playing')
           }}
           onMainMenu={() => {
             engineRef.current?.stop()
-            setGameState('menu')
+            updateGameState('menu')
           }}
         />
       )}
@@ -398,7 +400,7 @@ function App() {
           onRestart={startGame}
           onMenu={() => {
             engineRef.current?.stop()
-            setGameState('menu')
+            updateGameState('menu')
           }}
         />
       )}
