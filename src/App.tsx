@@ -347,8 +347,8 @@ function App() {
           money={money}
           onBuy={(type) => {
             const data = gameDataRef.current
-            const item = STORE_CATALOG.find(i => i.type === type)!
-            if (data.money >= item.price) {
+            const item = STORE_CATALOG.find(i => i.type === type)
+            if (item && data.money >= item.price) {
               data.money -= item.price
               setMoney(data.money)
               data.session.weaponManager.switchTo(type)
