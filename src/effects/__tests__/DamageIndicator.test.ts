@@ -15,7 +15,6 @@ describe('DamageIndicator', () => {
   })
 
   it('triggers damage with flash and direction', () => {
-    const state = createDamageIndicatorState()
     const playerPos = new THREE.Vector3(0, 2, 0)
     const enemyPos = new THREE.Vector3(5, 2, 0) // to the right
 

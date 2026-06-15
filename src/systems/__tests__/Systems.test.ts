@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { HealthSystem } from '../HealthSystem'
 import { AmmoSystem } from '../AmmoSystem'
 import { ScoreSystem } from '../ScoreSystem'
-import type { WeaponType } from '../../types'
+
 
 describe('HealthSystem', () => {
   it('initializes with max health', () => {

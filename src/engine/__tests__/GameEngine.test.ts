@@ -130,7 +130,7 @@ describe('GameEngine', () => {
 
   it('appends renderer domElement to container', () => {
     const container = createContainer()
-    const engine = new GameEngine(container)
+    new GameEngine(container)
     expect(container.children.length).toBeGreaterThan(0)
   })
 

@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import * as THREE from 'three'
 import { WaveManager } from '../WaveManager'
 
 describe('WaveManager', () => {
@@ -96,9 +95,10 @@ describe('WaveManager', () => {
     manager.startWave()
     manager.update(1.1, 28)
 
-    const enemy = manager.update(1.1, 28)
+    const result = manager.update(1.1, 28)
     // Should return an enemy or null depending on timing
     // At minimum, the first call after delay should spawn
+    expect(result).toBeDefined()
     expect(manager.spawnQueue.length).toBeLessThan(5)
   })
 
