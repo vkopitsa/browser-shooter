@@ -17,10 +17,16 @@ function toVec3(v: THREE.Vector3): Vec3 {
   return { x: v.x, y: v.y, z: v.z }
 }
 
+export interface PlayerEntity {
+  id: string
+  name: string
+  player: Player
+  weapons: WeaponManager
+}
+
 export class GameSession {
   readonly localId = LOCAL_ID
-  player = new Player()
-  weaponManager = new WeaponManager()
+  private playerMap = new Map<string, PlayerEntity>()
   enemies: Enemy[] = []
   waveManager = new WaveManager()
   scoreSystem = new ScoreSystem()
@@ -30,7 +36,40 @@ export class GameSession {
 
   private shootRaycaster = new THREE.Raycaster()
   private cameraQuat = new THREE.Quaternion()
-  private inputs = new Map<string, PlayerInput>([[LOCAL_ID, emptyInput()]])
+  private inputs = new Map<string, PlayerInput>()
+
+  constructor() {
+    this.addPlayer(LOCAL_ID, 'You')
+  }
+
+  addPlayer(id: string, name: string): PlayerEntity {
+    const entity: PlayerEntity = { id, name, player: new Player(), weapons: new WeaponManager() }
+    this.playerMap.set(id, entity)
+    this.inputs.set(id, emptyInput())
+    return entity
+  }
+
+  removePlayer(id: string): void {
+    this.playerMap.delete(id)
+    this.inputs.delete(id)
+  }
+
+  getPlayer(id: string): PlayerEntity | undefined {
+    return this.playerMap.get(id)
+  }
+
+  playerIds(): string[] {
+    return [...this.playerMap.keys()]
+  }
+
+  /** Backward-compatible accessors for the local player (single-player code paths). */
+  get player(): Player {
+    return this.playerMap.get(LOCAL_ID)!.player
+  }
+
+  get weaponManager(): WeaponManager {
+    return this.playerMap.get(LOCAL_ID)!.weapons
+  }
 
   applyInput(playerId: string, input: PlayerInput): void {
     this.inputs.set(playerId, input)
