@@ -6,6 +6,8 @@ import { Player } from './player/Player'
 import { Controls } from './player/Controls'
 import { WeaponManager } from './weapons/WeaponManager'
 import { Enemy } from './enemies/Enemy'
+import { Viewmodel } from './weapons/Viewmodel'
+import type { CollisionWorld } from './engine/CollisionWorld'
 import { WaveManager } from './enemies/WaveManager'
 import { ScoreSystem } from './systems/ScoreSystem'
 import { Pickup } from './systems/Pickup'
@@ -59,6 +61,8 @@ function App() {
     scoreSystem: new ScoreSystem(),
     pickups: [] as Pickup[],
     particleSystem: null as ParticleSystem | null,
+    collisionWorld: null as CollisionWorld | null,
+    viewmodel: null as Viewmodel | null,
     audio: new SoundEffects(new AudioManager()),
     time: 0,
     weaponIndex: 0,
@@ -88,6 +92,7 @@ function App() {
     setHealth(100)
     setAmmo(60)
     setWeaponName('Pistol')
+    gameDataRef.current.viewmodel?.setWeapon('pistol')
     setWaveActive(false)
     setEnemiesRemaining(0)
     setEnemyPositions([])
@@ -109,9 +114,10 @@ function App() {
 
     const engine = new GameEngine(container)
     engineRef.current = engine
-    createArena(engine.scene)
-
     const data = gameDataRef.current
+    data.collisionWorld = createArena(engine.scene)
+    engine.scene.add(engine.camera) // so the camera-parented viewmodel renders
+    data.viewmodel = new Viewmodel(engine.camera)
     data.particleSystem = new ParticleSystem(engine.scene)
     data.controls = new Controls(container)
     data.controls.onMouseMove = onMouseMove
@@ -155,16 +161,22 @@ function App() {
 
       if (!controls) return
 
-      player.update(dt, controls.getMovement(), ARENA_SIZE)
+      const movement = controls.getMovement()
+      player.update(dt, movement, ARENA_SIZE)
+      if (data.collisionWorld) data.collisionWorld.resolve(player.position, 0.5)
 
       engine.camera.position.copy(player.position)
       engine.camera.rotation.copy(player.rotation)
       data.audio.updateListenerPosition(player.position.x, player.position.y, player.position.z)
 
+      const isMoving = movement.forward || movement.backward || movement.left || movement.right
+      data.viewmodel?.update(dt, isMoving)
+
       weaponManager.update(dt)
 
       if (controls.shoot && weaponManager.current.canShoot()) {
         weaponManager.current.shoot()
+        data.viewmodel?.fire()
         data.audio.playWeaponShoot(weaponManager.current.type, player.position)
 
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(engine.camera.quaternion)
@@ -203,7 +215,7 @@ function App() {
       const enemyPosArr: THREE.Vector3[] = []
       for (let i = data.enemies.length - 1; i >= 0; i--) {
         const enemy = data.enemies[i]
-        const result = enemy.update(dt, player.position)
+        const result = enemy.update(dt, player.position, data.collisionWorld ?? undefined)
 
         if (enemy.isDead) {
           if (enemy.deathTimer <= 0) {
@@ -216,17 +228,41 @@ function App() {
 
         enemyPosArr.push(enemy.mesh.position)
 
-        if (result) {
-          player.takeDamage(result.damage)
-          data.audio.playPlayerHit()
-          setHealth(player.health)
-
-          data.damageIndicator = triggerDamage(
-            enemy.mesh.position.clone(),
-            player.position.clone(),
-            player.rotation.y
+        // Telegraph cue: brief muzzle flash when a ranged enemy starts aiming.
+        if (enemy.telegraphCue) {
+          particleSystem.muzzleFlash(
+            enemy.mesh.position.clone().setY(1.35),
+            new THREE.Vector3(0, 0, -1)
           )
-          setDamageIndicator({ ...data.damageIndicator })
+        }
+
+        if (result) {
+          if (result.type === 'shoot') {
+            data.audio.playWeaponShoot('rifle', result.from)
+            const endpoint = result.hit ? player.position.clone() : result.to
+            particleSystem.tracer(result.from, endpoint)
+            if (result.hit) {
+              player.takeDamage(result.damage)
+              data.audio.playPlayerHit()
+              setHealth(player.health)
+              data.damageIndicator = triggerDamage(
+                enemy.mesh.position.clone(),
+                player.position.clone(),
+                player.rotation.y
+              )
+              setDamageIndicator({ ...data.damageIndicator })
+            }
+          } else {
+            player.takeDamage(result.damage)
+            data.audio.playPlayerHit()
+            setHealth(player.health)
+            data.damageIndicator = triggerDamage(
+              enemy.mesh.position.clone(),
+              player.position.clone(),
+              player.rotation.y
+            )
+            setDamageIndicator({ ...data.damageIndicator })
+          }
 
           if (player.isDead) {
             document.exitPointerLock()
@@ -286,33 +322,45 @@ function App() {
       data: typeof gameDataRef.current,
       engine: GameEngine
     ) {
+      void engine
       shootRaycaster.set(origin, direction)
       shootRaycaster.far = range
 
+      let nearestEnemy: Enemy | null = null
+      let nearestDist = Infinity
+      let hitPoint: THREE.Vector3 | null = null
+
       for (const enemy of data.enemies) {
         if (enemy.isDead) continue
-        const intersects = shootRaycaster.intersectObject(enemy.mesh)
-        if (intersects.length > 0) {
-          const killed = enemy.takeDamage(data.weaponManager.current.def.damage)
-          if (killed) {
-            data.scoreSystem.addKill(enemy.def.scoreValue)
-            setScore(data.scoreSystem.score)
-            data.waveManager.onEnemyKilled()
-            data.particleSystem!.explosion(enemy.mesh.position.clone(), enemy.type)
-            data.audio.playEnemyDeath(enemy.mesh.position.clone())
-          } else {
-            data.particleSystem!.bloodSplatter(intersects[0].point)
-            data.audio.playEnemyHit(intersects[0].point)
-          }
-          return
+        const intersects = shootRaycaster.intersectObject(enemy.mesh, true)
+        if (intersects.length > 0 && intersects[0].distance < nearestDist) {
+          nearestDist = intersects[0].distance
+          nearestEnemy = enemy
+          hitPoint = intersects[0].point
         }
       }
 
-      if (shootRaycaster.intersectObjects(engine.scene.children).length > 0) {
-        const hitPoint = shootRaycaster.intersectObjects(engine.scene.children)[0]?.point
-        if (hitPoint) {
-          data.particleSystem!.bulletImpact(hitPoint)
+      const wallDist = data.collisionWorld
+        ? data.collisionWorld.segmentBlocked(origin, origin.clone().addScaledVector(direction, range))
+        : null
+
+      if (nearestEnemy && (wallDist === null || nearestDist < wallDist)) {
+        const killed = nearestEnemy.takeDamage(data.weaponManager.current.def.damage)
+        if (killed) {
+          data.scoreSystem.addKill(nearestEnemy.def.scoreValue)
+          setScore(data.scoreSystem.score)
+          data.waveManager.onEnemyKilled()
+          data.particleSystem!.explosion(nearestEnemy.mesh.position.clone(), nearestEnemy.type)
+          data.audio.playEnemyDeath(nearestEnemy.mesh.position.clone())
+        } else if (hitPoint) {
+          data.particleSystem!.bloodSplatter(hitPoint)
+          data.audio.playEnemyHit(hitPoint)
         }
+        return
+      }
+
+      if (wallDist !== null) {
+        data.particleSystem!.bulletImpact(origin.clone().addScaledVector(direction, wallDist))
       }
     }
 
@@ -340,6 +388,7 @@ function App() {
         data.weaponManager.switchByIndex(weaponKeys[e.code])
         setWeaponName(data.weaponManager.current.def.name)
         setAmmo(data.weaponManager.current.ammo)
+        data.viewmodel?.setWeapon(data.weaponManager.current.type)
       }
     }
 
