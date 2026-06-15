@@ -4,10 +4,10 @@ import type { WaveDef } from '../types'
 
 const WAVE_DEFS: WaveDef[] = [
   { number: 1, enemies: [{ type: 'grunt', count: 5 }], spawnDelay: 1 },
-  { number: 2, enemies: [{ type: 'grunt', count: 8 }], spawnDelay: 0.8 },
-  { number: 3, enemies: [{ type: 'grunt', count: 6 }, { type: 'runner', count: 3 }], spawnDelay: 0.7 },
-  { number: 4, enemies: [{ type: 'runner', count: 6 }, { type: 'grunt', count: 4 }], spawnDelay: 0.6 },
-  { number: 5, enemies: [{ type: 'tank', count: 2 }, { type: 'grunt', count: 6 }], spawnDelay: 0.5 },
+  { number: 2, enemies: [{ type: 'grunt', count: 6 }, { type: 'runner', count: 2 }], spawnDelay: 0.8 },
+  { number: 3, enemies: [{ type: 'grunt', count: 4 }, { type: 'runner', count: 2 }, { type: 'rifleman', count: 3 }], spawnDelay: 0.7 },
+  { number: 4, enemies: [{ type: 'runner', count: 4 }, { type: 'rifleman', count: 4 }, { type: 'sniper', count: 1 }], spawnDelay: 0.6 },
+  { number: 5, enemies: [{ type: 'tank', count: 2 }, { type: 'rifleman', count: 4 }, { type: 'sniper', count: 2 }, { type: 'grunt', count: 4 }], spawnDelay: 0.5 },
 ]
 
 export class WaveManager {
