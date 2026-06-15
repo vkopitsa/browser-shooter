@@ -79,16 +79,30 @@ export class GameSession {
     return this.inputs.get(playerId) ?? emptyInput()
   }
 
+  nearestPlayer(point: THREE.Vector3): PlayerEntity | null {
+    let best: PlayerEntity | null = null
+    let bestDist = Infinity
+    for (const entity of this.playerMap.values()) {
+      if (entity.player.isDead) continue
+      const d = entity.player.position.distanceToSquared(point)
+      if (d < bestDist) { bestDist = d; best = entity }
+    }
+    return best
+  }
+
   getSnapshot(): Snapshot {
-    const players: EntityState[] = [{
-      id: LOCAL_ID,
+    const players: EntityState[] = [...this.playerMap.values()].map((e) => ({
+      id: e.id,
       kind: 'player',
       type: 'player',
-      position: toVec3(this.player.position),
-      rotationY: this.player.rotation.y,
-      health: this.player.health,
-      isDead: this.player.isDead,
-    }]
+      position: toVec3(e.player.position),
+      rotationY: e.player.rotation.y,
+      rotationX: e.player.rotation.x,
+      health: e.player.health,
+      isDead: e.player.isDead,
+      weaponType: e.weapons.current.type,
+      name: e.name,
+    }))
     const enemies: EntityState[] = this.enemies.map((e, i) => ({
       id: `enemy-${i}`,
       kind: 'enemy',
@@ -120,12 +134,14 @@ export class GameSession {
       }
     }
 
-    // Waves + enemies (enemy AI targets the local player).
-    const player = this.player
+    // Waves + enemies (enemy AI targets the nearest living player).
     this.waveManager.update(dt, ARENA_SIZE)
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i]
-      const action = enemy.update(dt, player.position, this.collisionWorld ?? undefined)
+      const target = this.nearestPlayer(enemy.mesh.position)
+      if (!target) break
+      const targetPlayer = target.player
+      const action = enemy.update(dt, targetPlayer.position, this.collisionWorld ?? undefined)
 
       if (enemy.isDead) {
         if (enemy.deathTimer <= 0) this.enemies.splice(i, 1) // App removes/disposes the mesh
@@ -142,31 +158,34 @@ export class GameSession {
 
       if (action) {
         if (action.type === 'shoot') {
-          if (action.hit) player.takeDamage(action.damage)
+          if (action.hit) targetPlayer.takeDamage(action.damage)
           events.push({
             type: 'enemyShoot',
             from: toVec3(action.from),
-            to: action.hit ? toVec3(player.position) : toVec3(action.to),
+            to: action.hit ? toVec3(targetPlayer.position) : toVec3(action.to),
             hit: action.hit,
             damage: action.damage,
           })
         } else {
-          player.takeDamage(action.damage)
+          targetPlayer.takeDamage(action.damage)
           events.push({ type: 'enemyMelee', damage: action.damage, enemyPos: toVec3(enemy.mesh.position) })
         }
-        if (player.isDead) {
-          events.push({ type: 'playerDied' })
-          return events
+        if (targetPlayer.isDead) {
+          if (target.id === this.localId) {
+            events.push({ type: 'playerDied' })
+            return events
+          }
         }
       }
     }
 
-    // Pickups.
+    // Pickups (local player only in M1).
+    const localPlayer = this.player
     for (let i = this.pickups.length - 1; i >= 0; i--) {
       const pickup = this.pickups[i]
       pickup.update(dt, this.tick * dt)
-      if (pickup.checkCollision(player.position)) {
-        if (pickup.type === 'health') player.heal(pickup.value)
+      if (pickup.checkCollision(localPlayer.position)) {
+        if (pickup.type === 'health') localPlayer.heal(pickup.value)
         else this.weaponManager.addAmmo(this.weaponManager.current.type, pickup.value)
         events.push({ type: 'pickup', pickupType: pickup.type, value: pickup.value })
         this.pickups.splice(i, 1) // App removes/disposes the mesh
