@@ -73,7 +73,16 @@ function App() {
     const data = gameDataRef.current
     data.player = new Player()
     data.weaponManager = new WeaponManager()
+    const scene = engineRef.current?.scene
+    for (const enemy of data.enemies) {
+      scene?.remove(enemy.mesh)
+      enemy.dispose()
+    }
     data.enemies = []
+    for (const pickup of data.pickups) {
+      scene?.remove(pickup.mesh)
+      pickup.dispose()
+    }
     data.pickups = []
     data.scoreSystem.reset()
     data.waveManager.currentWave = 0
@@ -226,7 +235,7 @@ function App() {
           continue
         }
 
-        enemyPosArr.push(enemy.mesh.position)
+        enemyPosArr.push(enemy.mesh.position.clone())
 
         // Telegraph cue: brief muzzle flash when a ranged enemy starts aiming.
         if (enemy.telegraphCue) {
