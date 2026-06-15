@@ -28,7 +28,17 @@ export function buildSoldier(type: string): THREE.Group {
   const gun = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.7), gunMat)
   gun.position.set(0.42, 1.3, -0.35)
 
-  for (const part of [lLeg, rLeg, torso, head, lArm, rArm, gun]) {
+  const zoned: [THREE.Mesh, 'head' | 'body' | 'legs'][] = [
+    [lLeg, 'legs'],
+    [rLeg, 'legs'],
+    [torso, 'body'],
+    [head, 'head'],
+    [lArm, 'body'],
+    [rArm, 'body'],
+    [gun, 'body'],
+  ]
+  for (const [part, zone] of zoned) {
+    part.userData.zone = zone
     part.castShadow = true
     group.add(part)
   }
