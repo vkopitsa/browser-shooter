@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { LoopbackTransport } from '../Transport'
+import { LoopbackTransport, createLinkedTransports } from '../Transport'
 
 describe('LoopbackTransport', () => {
   it('delivers sent messages to registered handlers', () => {
@@ -18,5 +18,19 @@ describe('LoopbackTransport', () => {
     t.send({ type: 'snapshot', snapshot: { tick: 0, players: [], enemies: [] } })
     expect(a).toHaveBeenCalledOnce()
     expect(b).toHaveBeenCalledOnce()
+  })
+})
+
+describe('createLinkedTransports', () => {
+  it('delivers a.send to b only (no self-echo)', () => {
+    const [a, b] = createLinkedTransports()
+    const aGot: unknown[] = []
+    const bGot: unknown[] = []
+    a.onMessage(m => aGot.push(m))
+    b.onMessage(m => bGot.push(m))
+
+    a.send({ type: 'join', name: 'Ann' })
+    expect(bGot).toEqual([{ type: 'join', name: 'Ann' }])
+    expect(aGot).toEqual([])
   })
 })

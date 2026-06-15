@@ -17,3 +17,18 @@ export class LoopbackTransport implements Transport {
     this.handlers.push(cb)
   }
 }
+
+/** Two cross-wired endpoints: each one's send() reaches only the other's handlers. */
+export function createLinkedTransports(): [Transport, Transport] {
+  const aHandlers: ((msg: NetMessage) => void)[] = []
+  const bHandlers: ((msg: NetMessage) => void)[] = []
+  const a: Transport = {
+    send: (msg) => bHandlers.forEach(h => h(msg)),
+    onMessage: (cb) => { aHandlers.push(cb) },
+  }
+  const b: Transport = {
+    send: (msg) => aHandlers.forEach(h => h(msg)),
+    onMessage: (cb) => { bHandlers.push(cb) },
+  }
+  return [a, b]
+}
