@@ -1,0 +1,393 @@
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
+import { HUD } from '../HUD'
+import { Minimap } from '../Minimap'
+import { WaveAnnounce } from '../WaveAnnounce'
+import { MainMenu } from '../MainMenu'
+import { GameOver } from '../GameOver'
+import { PauseMenu } from '../PauseMenu'
+import * as THREE from 'three'
+
+afterEach(cleanup)
+
+describe('HUD', () => {
+  it('renders health bar with correct values', () => {
+    render(
+      <HUD
+        health={75}
+        maxHealth={100}
+        ammo={30}
+        maxAmmo={60}
+        weaponName="Pistol"
+        score={1500}
+        wave={3}
+        waveActive={true}
+        enemiesRemaining={5}
+      />
+    )
+    expect(screen.getByText('HP')).toBeInTheDocument()
+    expect(screen.getByText('75 / 100')).toBeInTheDocument()
+  })
+
+  it('renders ammo counter', () => {
+    render(
+      <HUD
+        health={100}
+        maxHealth={100}
+        ammo={25}
+        maxAmmo={60}
+        weaponName="Rifle"
+        score={0}
+        wave={1}
+        waveActive={true}
+        enemiesRemaining={3}
+      />
+    )
+    expect(screen.getByText('25')).toBeInTheDocument()
+    expect(screen.getByText('/ 60')).toBeInTheDocument()
+    expect(screen.getByText('Rifle')).toBeInTheDocument()
+  })
+
+  it('renders score display', () => {
+    render(
+      <HUD
+        health={100}
+        maxHealth={100}
+        ammo={60}
+        maxAmmo={60}
+        weaponName="Pistol"
+        score={12500}
+        wave={2}
+        waveActive={true}
+        enemiesRemaining={8}
+      />
+    )
+    expect(screen.getByText('SCORE')).toBeInTheDocument()
+    expect(screen.getByText('12,500')).toBeInTheDocument()
+  })
+
+  it('renders wave number', () => {
+    render(
+      <HUD
+        health={100}
+        maxHealth={100}
+        ammo={60}
+        maxAmmo={60}
+        weaponName="Pistol"
+        score={0}
+        wave={5}
+        waveActive={true}
+        enemiesRemaining={10}
+      />
+    )
+    expect(screen.getByText('WAVE')).toBeInTheDocument()
+    expect(screen.getByText('5')).toBeInTheDocument()
+  })
+
+  it('renders enemies remaining when wave is active', () => {
+    render(
+      <HUD
+        health={100}
+        maxHealth={100}
+        ammo={60}
+        maxAmmo={60}
+        weaponName="Pistol"
+        score={0}
+        wave={2}
+        waveActive={true}
+        enemiesRemaining={7}
+      />
+    )
+    expect(screen.getByText('7 enemies remaining')).toBeInTheDocument()
+  })
+
+  it('renders crosshair', () => {
+    render(
+      <HUD
+        health={100}
+        maxHealth={100}
+        ammo={60}
+        maxAmmo={60}
+        weaponName="Pistol"
+        score={0}
+        wave={1}
+        waveActive={true}
+        enemiesRemaining={3}
+      />
+    )
+    expect(screen.getByText('+')).toBeInTheDocument()
+  })
+
+  it('shows low health color', () => {
+    const { container } = render(
+      <HUD
+        health={20}
+        maxHealth={100}
+        ammo={60}
+        maxAmmo={60}
+        weaponName="Pistol"
+        score={0}
+        wave={1}
+        waveActive={true}
+        enemiesRemaining={3}
+      />
+    )
+    const healthBar = container.querySelector('[style*="width: 20%"]')
+    expect(healthBar).toBeInTheDocument()
+  })
+})
+
+describe('Minimap', () => {
+  it('renders a canvas element', () => {
+    const { container } = render(
+      <Minimap
+        playerPosition={new THREE.Vector3(0, 0, 0)}
+        playerRotation={0}
+        enemies={[]}
+        arenaSize={30}
+      />
+    )
+    const canvas = container.querySelector('canvas')
+    expect(canvas).toBeInTheDocument()
+    expect(canvas?.getAttribute('width')).toBe('150')
+    expect(canvas?.getAttribute('height')).toBe('150')
+  })
+
+  it('renders with enemy positions', () => {
+    const { container } = render(
+      <Minimap
+        playerPosition={new THREE.Vector3(0, 0, 0)}
+        playerRotation={0}
+        enemies={[new THREE.Vector3(5, 0, 5), new THREE.Vector3(-3, 0, 8)]}
+        arenaSize={30}
+      />
+    )
+    const canvas = container.querySelector('canvas')
+    expect(canvas).toBeInTheDocument()
+  })
+})
+
+describe('WaveAnnounce', () => {
+  it('renders wave announcement when visible', () => {
+    render(<WaveAnnounce wave={3} visible={true} />)
+    expect(screen.getByText('WAVE')).toBeInTheDocument()
+    expect(screen.getByText('3')).toBeInTheDocument()
+  })
+
+  it('shows "GET READY!" for wave 2', () => {
+    render(<WaveAnnounce wave={2} visible={true} />)
+    expect(screen.getByText('GET READY!')).toBeInTheDocument()
+  })
+
+  it('shows "INCOMING!" for wave 3', () => {
+    render(<WaveAnnounce wave={3} visible={true} />)
+    expect(screen.getByText('INCOMING!')).toBeInTheDocument()
+  })
+
+  it('shows "DANGER!" for wave 5+', () => {
+    render(<WaveAnnounce wave={5} visible={true} />)
+    expect(screen.getByText('DANGER!')).toBeInTheDocument()
+  })
+
+  it('renders nothing when not visible', () => {
+    const { container } = render(<WaveAnnounce wave={3} visible={false} />)
+    expect(container.innerHTML).toBe('')
+  })
+
+  it('renders nothing for wave 0', () => {
+    const { container } = render(<WaveAnnounce wave={0} visible={true} />)
+    expect(container.innerHTML).toBe('')
+  })
+})
+
+describe('MainMenu', () => {
+  it('renders game title', () => {
+    render(<MainMenu onStart={() => {}} />)
+    expect(screen.getByText('BROWSER SHOOTER')).toBeInTheDocument()
+  })
+
+  it('renders start button', () => {
+    render(<MainMenu onStart={() => {}} />)
+    expect(screen.getByText('START GAME')).toBeInTheDocument()
+  })
+
+  it('renders controls info', () => {
+    render(<MainMenu onStart={() => {}} />)
+    expect(screen.getByText('WASD')).toBeInTheDocument()
+    expect(screen.getByText('Move')).toBeInTheDocument()
+    expect(screen.getByText('Mouse')).toBeInTheDocument()
+    expect(screen.getByText('Look')).toBeInTheDocument()
+    expect(screen.getByText('Click')).toBeInTheDocument()
+    expect(screen.getByText('Shoot')).toBeInTheDocument()
+    expect(screen.getByText('ESC')).toBeInTheDocument()
+    expect(screen.getByText('Pause')).toBeInTheDocument()
+  })
+
+  it('calls onStart when start button is clicked', () => {
+    const onStart = vi.fn()
+    render(<MainMenu onStart={onStart} />)
+    screen.getByText('START GAME').click()
+    expect(onStart).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('GameOver', () => {
+  it('renders game over title', () => {
+    render(
+      <GameOver
+        score={5000}
+        wave={4}
+        highScore={3000}
+        onRestart={() => {}}
+        onMenu={() => {}}
+      />
+    )
+    expect(screen.getByText('GAME OVER')).toBeInTheDocument()
+  })
+
+  it('renders final score', () => {
+    render(
+      <GameOver
+        score={5000}
+        wave={4}
+        highScore={3000}
+        onRestart={() => {}}
+        onMenu={() => {}}
+      />
+    )
+    expect(screen.getByText('5,000')).toBeInTheDocument()
+  })
+
+  it('renders wave reached', () => {
+    render(
+      <GameOver
+        score={5000}
+        wave={4}
+        highScore={3000}
+        onRestart={() => {}}
+        onMenu={() => {}}
+      />
+    )
+    expect(screen.getByText('4')).toBeInTheDocument()
+  })
+
+  it('renders high score', () => {
+    render(
+      <GameOver
+        score={5000}
+        wave={4}
+        highScore={3000}
+        onRestart={() => {}}
+        onMenu={() => {}}
+      />
+    )
+    expect(screen.getByText('3,000')).toBeInTheDocument()
+  })
+
+  it('shows new high score when beaten', () => {
+    render(
+      <GameOver
+        score={5000}
+        wave={4}
+        highScore={3000}
+        onRestart={() => {}}
+        onMenu={() => {}}
+      />
+    )
+    expect(screen.getByText('NEW HIGH SCORE!')).toBeInTheDocument()
+  })
+
+  it('does not show new high score when not beaten', () => {
+    render(
+      <GameOver
+        score={2000}
+        wave={4}
+        highScore={3000}
+        onRestart={() => {}}
+        onMenu={() => {}}
+      />
+    )
+    expect(screen.queryByText('NEW HIGH SCORE!')).not.toBeInTheDocument()
+  })
+
+  it('renders restart and menu buttons', () => {
+    render(
+      <GameOver
+        score={5000}
+        wave={4}
+        highScore={3000}
+        onRestart={() => {}}
+        onMenu={() => {}}
+      />
+    )
+    expect(screen.getByText('PLAY AGAIN')).toBeInTheDocument()
+    expect(screen.getByText('MAIN MENU')).toBeInTheDocument()
+  })
+
+  it('calls onRestart when play again is clicked', () => {
+    const onRestart = vi.fn()
+    render(
+      <GameOver
+        score={5000}
+        wave={4}
+        highScore={3000}
+        onRestart={onRestart}
+        onMenu={() => {}}
+      />
+    )
+    screen.getByText('PLAY AGAIN').click()
+    expect(onRestart).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onMenu when main menu is clicked', () => {
+    const onMenu = vi.fn()
+    render(
+      <GameOver
+        score={5000}
+        wave={4}
+        highScore={3000}
+        onRestart={() => {}}
+        onMenu={onMenu}
+      />
+    )
+    screen.getByText('MAIN MENU').click()
+    expect(onMenu).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('PauseMenu', () => {
+  it('renders paused title', () => {
+    render(<PauseMenu onResume={() => {}} onMainMenu={() => {}} />)
+    expect(screen.getByText('PAUSED')).toBeInTheDocument()
+  })
+
+  it('renders resume button', () => {
+    render(<PauseMenu onResume={() => {}} onMainMenu={() => {}} />)
+    expect(screen.getByText('RESUME')).toBeInTheDocument()
+  })
+
+  it('renders main menu button', () => {
+    render(<PauseMenu onResume={() => {}} onMainMenu={() => {}} />)
+    expect(screen.getByText('MAIN MENU')).toBeInTheDocument()
+  })
+
+  it('calls onResume when resume is clicked', () => {
+    const onResume = vi.fn()
+    render(<PauseMenu onResume={onResume} onMainMenu={() => {}} />)
+    screen.getByText('RESUME').click()
+    expect(onResume).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onMainMenu when main menu is clicked', () => {
+    const onMainMenu = vi.fn()
+    render(<PauseMenu onResume={() => {}} onMainMenu={onMainMenu} />)
+    screen.getByText('MAIN MENU').click()
+    expect(onMainMenu).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders controls reminder', () => {
+    render(<PauseMenu onResume={() => {}} onMainMenu={() => {}} />)
+    expect(screen.getByText('WASD - Move')).toBeInTheDocument()
+    expect(screen.getByText('ESC - Pause')).toBeInTheDocument()
+  })
+})

@@ -12,11 +12,16 @@ import { Pickup } from './systems/Pickup'
 import type { PickupType } from './systems/Pickup'
 import { ParticleSystem } from './effects/ParticleSystem'
 import { AudioManager } from './audio/AudioManager'
+import { SoundEffects } from './audio/SoundEffects'
+import { createDamageIndicatorState, triggerDamage, updateDamageIndicator, type DamageIndicatorState } from './effects/DamageIndicator'
 import type { GameState } from './types'
 import { HUD } from './ui/HUD'
 import { Minimap } from './ui/Minimap'
+import { WaveAnnounce } from './ui/WaveAnnounce'
 import { MainMenu } from './ui/MainMenu'
 import { GameOver } from './ui/GameOver'
+import { PauseMenu } from './ui/PauseMenu'
+import { DamageOverlay } from './ui/DamageOverlay'
 
 const ARENA_SIZE = 30
 
@@ -35,6 +40,9 @@ function App() {
   const [playerRot, setPlayerRot] = useState(0)
   const [enemyPositions, setEnemyPositions] = useState<THREE.Vector3[]>([])
   const [highScore, setHighScore] = useState(0)
+  const [damageIndicator, setDamageIndicator] = useState<DamageIndicatorState | null>(null)
+  const [showWaveAnnounce, setShowWaveAnnounce] = useState(false)
+  const lastWaveRef = useRef(0)
 
   const gameDataRef = useRef({
     player: new Player(),
@@ -45,9 +53,10 @@ function App() {
     scoreSystem: new ScoreSystem(),
     pickups: [] as Pickup[],
     particleSystem: null as ParticleSystem | null,
-    audio: new AudioManager(),
+    audio: new SoundEffects(new AudioManager()),
     time: 0,
     weaponIndex: 0,
+    damageIndicator: createDamageIndicatorState(),
   })
 
   const startGame = useCallback(() => {
@@ -62,6 +71,7 @@ function App() {
     data.waveManager.waveActive = false
     data.waveManager.wavePauseTimer = 2
     data.time = 0
+    data.damageIndicator = createDamageIndicatorState()
 
     if (data.particleSystem) data.particleSystem.clear()
 
@@ -73,6 +83,7 @@ function App() {
     setWaveActive(false)
     setEnemiesRemaining(0)
     setEnemyPositions([])
+    setDamageIndicator(null)
 
     const engine = engineRef.current
     if (engine) {
@@ -80,6 +91,7 @@ function App() {
     }
 
     data.audio.init()
+    data.audio.loadSounds()
     setGameState('playing')
   }, [])
 
@@ -138,6 +150,7 @@ function App() {
 
       engine.camera.position.copy(player.position)
       engine.camera.rotation.copy(player.rotation)
+      data.audio.updateListenerPosition(player.position.x, player.position.y, player.position.z)
 
       if (document.pointerLockElement === container) {
         document.addEventListener('mousemove', onMouseMove)
@@ -147,7 +160,7 @@ function App() {
 
       if (controls.shoot && weaponManager.current.canShoot()) {
         weaponManager.current.shoot()
-        data.audio.playShoot(weaponManager.current.type)
+        data.audio.playWeaponShoot(weaponManager.current.type, player.position)
 
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(engine.camera.quaternion)
         const spreadDir = weaponManager.current.getSpreadDirection(forward)
@@ -179,6 +192,12 @@ function App() {
       setWave(waveManager.currentWave)
       setEnemiesRemaining(waveManager.enemiesRemaining)
 
+      if (waveManager.currentWave > lastWaveRef.current) {
+        lastWaveRef.current = waveManager.currentWave
+        setShowWaveAnnounce(true)
+        setTimeout(() => setShowWaveAnnounce(false), 2600)
+      }
+
       const enemyPosArr: THREE.Vector3[] = []
       for (let i = data.enemies.length - 1; i >= 0; i--) {
         const enemy = data.enemies[i]
@@ -200,7 +219,15 @@ function App() {
           data.audio.playPlayerHit()
           setHealth(player.health)
 
+          data.damageIndicator = triggerDamage(
+            enemy.mesh.position.clone(),
+            player.position.clone(),
+            player.rotation.y
+          )
+          setDamageIndicator({ ...data.damageIndicator })
+
           if (player.isDead) {
+            data.audio.playPlayerDeath()
             data.scoreSystem.saveHighScore()
             setHighScore(data.scoreSystem.highScore)
             engine.stop()
@@ -233,6 +260,13 @@ function App() {
       }
 
       particleSystem.update(dt)
+
+      data.damageIndicator = updateDamageIndicator(data.damageIndicator, dt)
+      if (data.damageIndicator.active) {
+        setDamageIndicator({ ...data.damageIndicator })
+      } else if (damageIndicator !== null) {
+        setDamageIndicator(null)
+      }
     })
 
     function onMouseMove(e: MouseEvent) {
@@ -261,11 +295,11 @@ function App() {
             data.scoreSystem.addKill(enemy.def.scoreValue)
             setScore(data.scoreSystem.score)
             data.waveManager.onEnemyKilled()
-            data.particleSystem!.explosion(enemy.mesh.position.clone())
-            data.audio.playEnemyDeath()
+            data.particleSystem!.explosion(enemy.mesh.position.clone(), enemy.type)
+            data.audio.playEnemyDeath(enemy.mesh.position.clone())
           } else {
             data.particleSystem!.bloodSplatter(intersects[0].point)
-            data.audio.playHit()
+            data.audio.playEnemyHit(intersects[0].point)
           }
           return
         }
@@ -338,40 +372,22 @@ function App() {
             enemies={enemyPositions}
             arenaSize={ARENA_SIZE}
           />
+          <WaveAnnounce wave={wave} visible={showWaveAnnounce} />
+          <DamageOverlay indicator={damageIndicator} />
         </>
       )}
 
       {gameState === 'paused' && (
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'rgba(0, 0, 0, 0.7)',
-          color: 'white',
-          fontFamily: 'monospace',
-        }}>
-          <h1 style={{ fontSize: 48, marginBottom: 30 }}>PAUSED</h1>
-          <button
-            onClick={() => {
-              engineRef.current?.resume()
-              setGameState('playing')
-            }}
-            style={{
-              padding: '14px 36px',
-              fontSize: 18,
-              background: '#ff6600',
-              color: 'white',
-              border: 'none',
-              borderRadius: 8,
-              cursor: 'pointer',
-            }}
-          >
-            RESUME
-          </button>
-        </div>
+        <PauseMenu
+          onResume={() => {
+            engineRef.current?.resume()
+            setGameState('playing')
+          }}
+          onMainMenu={() => {
+            engineRef.current?.stop()
+            setGameState('menu')
+          }}
+        />
       )}
 
       {gameState === 'gameover' && (
