@@ -1,41 +1,64 @@
 import * as THREE from 'three'
+import { HealthSystem } from '../systems/HealthSystem'
 
 export class Player {
   position: THREE.Vector3
   velocity: THREE.Vector3
   rotation: THREE.Euler
-  health: number = 100
-  maxHealth: number = 100
   speed: number = 12
   jumpHeight: number = 8
   isGrounded: boolean = true
-  isDead: boolean = false
-  invincibleTimer: number = 0
   private yVelocity: number = 0
+
+  private healthSystem: HealthSystem
 
   constructor() {
     this.position = new THREE.Vector3(0, 2, 0)
     this.velocity = new THREE.Vector3()
     this.rotation = new THREE.Euler(0, 0, 0, 'YXZ')
+    this.healthSystem = new HealthSystem()
   }
 
-  takeDamage(amount: number) {
-    if (this.invincibleTimer > 0 || this.isDead) return
-    this.health = Math.max(0, this.health - amount)
-    this.invincibleTimer = 0.5
-    if (this.health <= 0) {
-      this.isDead = true
-    }
+  get health(): number {
+    return this.healthSystem.health
+  }
+
+  set health(value: number) {
+    this.healthSystem.health = value
+  }
+
+  get maxHealth(): number {
+    return this.healthSystem.maxHealth
+  }
+
+  get isDead(): boolean {
+    return this.healthSystem.isDead
+  }
+
+  get invincibleTimer(): number {
+    return this.healthSystem.invincibleTimer
+  }
+
+  set invincibleTimer(value: number) {
+    this.healthSystem.invincibleTimer = value
+  }
+
+  takeDamage(amount: number): boolean {
+    return this.healthSystem.takeDamage(amount)
   }
 
   heal(amount: number) {
-    this.health = Math.min(this.maxHealth, this.health + amount)
+    this.healthSystem.heal(amount)
+  }
+
+  resetHealth() {
+    this.healthSystem.reset()
   }
 
   update(dt: number, input: { forward: boolean; backward: boolean; left: boolean; right: boolean; jump: boolean }, arenaSize: number = 28) {
     if (this.isDead) return
 
-    this.invincibleTimer = Math.max(0, this.invincibleTimer - dt)
+    this.healthSystem.update(dt)
 
     const direction = new THREE.Vector3()
     const forward = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(0, this.rotation.y, 0))

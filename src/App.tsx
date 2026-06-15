@@ -7,7 +7,6 @@ import { Controls } from './player/Controls'
 import { WeaponManager } from './weapons/WeaponManager'
 import { Enemy } from './enemies/Enemy'
 import { WaveManager } from './enemies/WaveManager'
-import { HealthSystem } from './systems/HealthSystem'
 import { ScoreSystem } from './systems/ScoreSystem'
 import { Pickup } from './systems/Pickup'
 import type { PickupType } from './systems/Pickup'
@@ -43,7 +42,6 @@ function App() {
     weaponManager: new WeaponManager(),
     enemies: [] as Enemy[],
     waveManager: new WaveManager(),
-    healthSystem: new HealthSystem(),
     scoreSystem: new ScoreSystem(),
     pickups: [] as Pickup[],
     particleSystem: null as ParticleSystem | null,
@@ -58,7 +56,6 @@ function App() {
     data.weaponManager = new WeaponManager()
     data.enemies = []
     data.pickups = []
-    data.healthSystem.reset()
     data.scoreSystem.reset()
     data.waveManager = new WaveManager()
     data.waveManager.currentWave = 0
@@ -200,8 +197,6 @@ function App() {
 
         if (result) {
           player.takeDamage(result.damage)
-          data.healthSystem.health = player.health
-          data.healthSystem.invincibleTimer = player.invincibleTimer
           data.audio.playPlayerHit()
           setHealth(player.health)
 
