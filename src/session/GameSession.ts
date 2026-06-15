@@ -59,8 +59,83 @@ export class GameSession {
     return { tick: this.tick, players, enemies }
   }
 
-  // step(dt) added in later tasks.
-  step(_dt: number): SessionEvent[] {
-    return []
+  step(dt: number): SessionEvent[] {
+    const events: SessionEvent[] = []
+    this.tick++
+    const input = this.getInput(LOCAL_ID)
+    const player = this.player
+
+    // Look (yaw/pitch are absolute, set by the input producer).
+    player.rotation.y = input.yaw
+    player.rotation.x = THREE.MathUtils.clamp(input.pitch, -Math.PI / 2, Math.PI / 2)
+
+    // Movement + collision.
+    player.update(dt, input, ARENA_SIZE)
+    if (this.collisionWorld) this.collisionWorld.resolve(player.position, 0.5)
+
+    // Weapons.
+    this.weaponManager.update(dt)
+    if (input.shoot && this.weaponManager.current.canShoot()) {
+      this.weaponManager.current.shoot()
+      this.fireLocalWeapon(events)
+    }
+
+    // Waves + enemies.
+    this.waveManager.update(dt, ARENA_SIZE)
+    for (let i = this.enemies.length - 1; i >= 0; i--) {
+      const enemy = this.enemies[i]
+      const action = enemy.update(dt, player.position, this.collisionWorld ?? undefined)
+
+      if (enemy.isDead) {
+        if (enemy.deathTimer <= 0) this.enemies.splice(i, 1) // App removes/disposes the mesh
+        continue
+      }
+
+      if (enemy.telegraphCue) {
+        events.push({
+          type: 'enemyTelegraph',
+          enemyPos: toVec3(enemy.mesh.position),
+          facing: toVec3(new THREE.Vector3(0, 0, -1).applyQuaternion(enemy.mesh.quaternion)),
+        })
+      }
+
+      if (action) {
+        if (action.type === 'shoot') {
+          if (action.hit) player.takeDamage(action.damage)
+          events.push({
+            type: 'enemyShoot',
+            from: toVec3(action.from),
+            to: action.hit ? toVec3(player.position) : toVec3(action.to),
+            hit: action.hit,
+            damage: action.damage,
+          })
+        } else {
+          player.takeDamage(action.damage)
+          events.push({ type: 'enemyMelee', damage: action.damage, enemyPos: toVec3(enemy.mesh.position) })
+        }
+        if (player.isDead) {
+          events.push({ type: 'playerDied' })
+          return events
+        }
+      }
+    }
+
+    // Pickups.
+    for (let i = this.pickups.length - 1; i >= 0; i--) {
+      const pickup = this.pickups[i]
+      pickup.update(dt, this.tick * dt)
+      if (pickup.checkCollision(player.position)) {
+        if (pickup.type === 'health') player.heal(pickup.value)
+        else this.weaponManager.addAmmo(this.weaponManager.current.type, pickup.value)
+        events.push({ type: 'pickup', pickupType: pickup.type, value: pickup.value })
+        this.pickups.splice(i, 1) // App removes/disposes the mesh
+      }
+    }
+
+    return events
+  }
+
+  private fireLocalWeapon(_events: SessionEvent[]): void {
+    // Implemented in the next task (Task 8).
   }
 }
