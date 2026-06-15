@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { Weapon } from '../Weapon'
-import { WEAPON_DEFS } from '../WeaponDefs'
 
 describe('Weapon', () => {
   it('initializes with correct stats', () => {

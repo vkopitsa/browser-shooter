@@ -55,7 +55,8 @@ export class ParticleSystem {
     }
   }
 
-  muzzleFlash(position: THREE.Vector3, _direction: THREE.Vector3) {
+  muzzleFlash(position: THREE.Vector3, direction: THREE.Vector3) {
+    void direction
     this.emit(position, 5, 0xffff00, 10, 0.1, 0.3)
     const flash = new THREE.PointLight(0xffff00, 2, 5)
     flash.position.copy(position)

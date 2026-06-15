@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import * as THREE from 'three'
 import { Enemy } from '../Enemy'
-import { ENEMY_DEFS } from '../EnemyDefs'
 import { WaveManager } from '../WaveManager'
 
 describe('Enemy', () => {
