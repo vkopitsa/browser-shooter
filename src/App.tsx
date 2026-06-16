@@ -261,7 +261,7 @@ function App() {
 
   const leaveMultiplayer = useCallback(() => {
     resetNetworking()
-    setRoomCode(null); setLobbyPlayers([]); setIsHost(false)
+    setRoomCode(null); setLobbyPlayers([]); setIsHost(false); setServers([])
     updateGameState('menu')
   }, [updateGameState, resetNetworking])
 

@@ -26,13 +26,24 @@ export class HostDirectory {
     this.entry = entry
     await this.connect()
     this.client?.register(entry)
-    this.timer = setInterval(() => {
-      if (this.entry) this.client?.heartbeat(this.entry.roomCode, this.entry.players, this.entry.status)
-    }, HEARTBEAT_MS)
+    this.timer = setInterval(() => this.sendHeartbeat(), HEARTBEAT_MS)
   }
 
-  setPlayers(n: number): void { if (this.entry) this.entry.players = n }
-  setStatus(s: ServerStatus): void { if (this.entry) this.entry.status = s }
+  setPlayers(n: number): void {
+    if (!this.entry) return
+    this.entry.players = n
+    this.sendHeartbeat()
+  }
+
+  setStatus(s: ServerStatus): void {
+    if (!this.entry) return
+    this.entry.status = s
+    this.sendHeartbeat()
+  }
+
+  private sendHeartbeat(): void {
+    if (this.entry) this.client?.heartbeat(this.entry.roomCode, this.entry.players, this.entry.status)
+  }
 
   stop(): void {
     this.stopped = true
@@ -68,6 +79,20 @@ export class HostDirectory {
     this.dialPeer = null
     this.client = null
     await this.connect()
+    if (this.stopped) {
+      // Left multiplayer while the re-election handshake was in flight: tear down the
+      // peer connect() just created and do not re-register.
+      // dialPeer is narrowed to null from the explicit assignment above; snapshot through
+      // the declared type (same technique used below for client) to re-widen before destroy.
+      const ownedPeer = this.ownedPeer as Peer | null
+      ownedPeer?.destroy()
+      this.ownedPeer = null
+      const dialPeer = this.dialPeer as Peer | null
+      dialPeer?.destroy()
+      this.dialPeer = null
+      this.client = null
+      return
+    }
     // connect() reassigned this.client, but TS still narrows it to null after the
     // explicit `this.client = null` above; snapshot through the declared type to re-widen.
     const client = this.client as DirectoryClient | null

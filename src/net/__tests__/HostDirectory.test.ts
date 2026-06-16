@@ -54,4 +54,17 @@ describe('HostDirectory', () => {
     hd.stop()
     expect(await connect().fetchList()).toEqual([])
   })
+
+  it('propagates setPlayers/setStatus immediately without waiting for the interval', async () => {
+    const { connect } = harness()
+    const hd = new HostDirectory(
+      vi.fn().mockResolvedValue({ server: null, peer: null }),
+      vi.fn().mockResolvedValue({ client: connect(), peer: null }),
+    )
+    await hd.start({ ...entry })
+    hd.setPlayers(5)
+    hd.setStatus('in-progress')
+    // no vi.advanceTimersByTime — the update must already be live
+    expect((await connect().fetchList())[0]).toMatchObject({ players: 5, status: 'in-progress' })
+  })
 })
