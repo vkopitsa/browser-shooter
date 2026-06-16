@@ -180,4 +180,45 @@ describe('WaveManager', () => {
       expect(Math.abs(enemy.mesh.position.z)).toBeLessThanOrEqual(28)
     }
   })
+
+  it('auto defaults to true and auto-starts wave 1 on update', () => {
+    const m = new WaveManager()
+    m.update(1, 30)
+    expect(m.currentWave).toBe(1)
+    expect(m.waveActive).toBe(true)
+  })
+
+  it('does not auto-start a wave when auto is false', () => {
+    const m = new WaveManager()
+    m.auto = false
+    m.update(1, 30)
+    expect(m.currentWave).toBe(0)
+    expect(m.waveActive).toBe(false)
+    expect(m.spawnQueue.length).toBe(0)
+  })
+
+  it('spawnNextWave enqueues the next wave on demand even when auto is false', () => {
+    const m = new WaveManager()
+    m.auto = false
+    expect(m.currentWave).toBe(0)
+    m.spawnNextWave()
+    expect(m.currentWave).toBe(1)
+    expect(m.waveActive).toBe(true)
+    expect(m.spawnQueue.length).toBe(5) // wave 1 = 5 grunts
+
+    m.spawnNextWave()
+    expect(m.currentWave).toBe(2)
+  })
+
+  it('does not auto-advance after a manual wave is cleared when auto is false', () => {
+    const m = new WaveManager()
+    m.auto = false
+    m.spawnNextWave()        // wave 1 active
+    m.spawnQueue = []        // drain the spawn queue
+    m.enemiesRemaining = 0
+    m.onEnemyKilled()        // marks the wave complete (waveActive -> false)
+    expect(m.waveActive).toBe(false)
+    m.update(10, 30)         // long dt would auto-advance if auto were true
+    expect(m.currentWave).toBe(1) // stayed on wave 1
+  })
 })

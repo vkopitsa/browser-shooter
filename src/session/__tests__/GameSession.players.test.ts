@@ -14,6 +14,21 @@ describe('GameSession players map', () => {
     expect(s.player).toBe(s.getPlayer(s.localId)!.player)
     expect(s.weaponManager).toBe(s.getPlayer(s.localId)!.weapons)
   })
+
+  it('keeps the local/host player at origin but disperses joining players', () => {
+    const s = new GameSession()
+    const host = s.getPlayer(s.localId)!.player.position
+    expect(Math.hypot(host.x, host.z)).toBeCloseTo(0)
+
+    s.addPlayer('player-2', 'Bob')
+    s.addPlayer('player-3', 'Cara')
+    const p2 = s.getPlayer('player-2')!.player.position
+    const p3 = s.getPlayer('player-3')!.player.position
+
+    expect(Math.hypot(p2.x, p2.z)).toBeGreaterThan(5) // off-center
+    expect(Math.hypot(p3.x, p3.z)).toBeGreaterThan(5)
+    expect(p2.distanceTo(p3)).toBeGreaterThan(1)       // not stacked on each other
+  })
 })
 
 describe('GameSession multi-player movement', () => {
