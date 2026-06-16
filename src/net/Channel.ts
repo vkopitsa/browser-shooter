@@ -10,8 +10,10 @@ export interface Channel<T> {
 
 /** Two cross-wired in-process endpoints for tests. close() notifies both ends. */
 export function createLinkedChannels<T>(): [Channel<T>, Channel<T>] {
-  const aMsg: ((m: T) => void)[] = []; const bMsg: ((m: T) => void)[] = []
-  const aClose: (() => void)[] = []; const bClose: (() => void)[] = []
+  const aMsg: ((m: T) => void)[] = []
+  const bMsg: ((m: T) => void)[] = []
+  const aClose: (() => void)[] = []
+  const bClose: (() => void)[] = []
   const fireBoth = () => { aClose.forEach(h => h()); bClose.forEach(h => h()) }
   const a: Channel<T> = {
     send: (m) => bMsg.forEach(h => h(m)),
