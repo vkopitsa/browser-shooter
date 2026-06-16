@@ -34,4 +34,8 @@ export class LagCompensation {
     }
     return best.enemies
   }
+
+  restore(): void {
+    // No-op: positions are restored by the caller after raycasting.
+  }
 }

@@ -48,6 +48,11 @@ describe('LagCompensation', () => {
     expect(rewound!.get('e1')!.x).toBe(0)
   })
 
+  it('restore is callable (no-op)', () => {
+    const lc = new LagCompensation()
+    expect(() => lc.restore()).not.toThrow()
+  })
+
   it('trims history older than maxAge', () => {
     const lc = new LagCompensation()
     const e1 = makeEnemy('e1', 0)
