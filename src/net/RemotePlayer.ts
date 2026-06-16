@@ -2,30 +2,79 @@ import * as THREE from 'three'
 import { buildCharacter } from '../entities/CharacterModel'
 import type { EntityState } from '../session/protocol'
 
-const LERP_RATE = 12 // higher = snappier; tuned for ~100ms snapshot spacing
+const INTERP_DELAY = 100
 
-/** A networked player's visual body, smoothed toward the latest snapshot. */
+interface InterpEntry {
+  position: THREE.Vector3
+  rotationY: number
+  time: number
+}
+
 export class RemotePlayer {
   readonly group: THREE.Group
-  private target = new THREE.Vector3()
-  private targetYaw = 0
+  private buffer: InterpEntry[] = []
   isDead = false
 
   constructor(readonly id: string, name: string, tint = 0x3399ff) {
     this.group = buildCharacter({ tint, name })
   }
 
-  pushState(s: EntityState): void {
-    this.target.set(s.position.x, s.position.y, s.position.z)
-    this.targetYaw = s.rotationY
+  pushState(s: EntityState, time?: number): void {
     this.isDead = s.isDead
-    if (this.group.position.lengthSq() === 0) this.group.position.copy(this.target) // snap on first state
+    this.buffer.push({
+      position: new THREE.Vector3(s.position.x, s.position.y, s.position.z),
+      rotationY: s.rotationY,
+      time: time ?? performance.now(),
+    })
+    while (this.buffer.length > 10) this.buffer.shift()
+    if (this.buffer.length === 1) {
+      this.group.position.copy(this.buffer[0].position)
+      this.group.rotation.y = this.buffer[0].rotationY
+    }
+  }
+
+  getInterpolatedPosition(renderTime: number): THREE.Vector3 | null {
+    const t = renderTime - INTERP_DELAY
+    if (this.buffer.length < 2) return this.buffer.length === 1 ? this.buffer[0].position.clone() : null
+
+    let a: InterpEntry | null = null
+    let b: InterpEntry | null = null
+    for (let i = 0; i < this.buffer.length - 1; i++) {
+      if (this.buffer[i].time <= t && this.buffer[i + 1].time >= t) {
+        a = this.buffer[i]
+        b = this.buffer[i + 1]
+        break
+      }
+    }
+    if (!a || !b) return this.buffer[this.buffer.length - 1].position.clone()
+
+    const frac = (t - a.time) / (b.time - a.time)
+    return new THREE.Vector3().lerpVectors(a.position, b.position, frac)
+  }
+
+  getInterpolatedRotation(renderTime: number): number {
+    const t = renderTime - INTERP_DELAY
+    if (this.buffer.length < 2) return this.buffer.length === 1 ? this.buffer[0].rotationY : 0
+
+    let a: InterpEntry | null = null
+    let b: InterpEntry | null = null
+    for (let i = 0; i < this.buffer.length - 1; i++) {
+      if (this.buffer[i].time <= t && this.buffer[i + 1].time >= t) {
+        a = this.buffer[i]
+        b = this.buffer[i + 1]
+        break
+      }
+    }
+    if (!a || !b) return this.buffer[this.buffer.length - 1].rotationY
+
+    const frac = (t - a.time) / (b.time - a.time)
+    return a.rotationY + (b.rotationY - a.rotationY) * frac
   }
 
   update(dt: number): void {
-    const t = 1 - Math.exp(-LERP_RATE * dt) // frame-rate-independent lerp
-    this.group.position.lerp(this.target, t)
-    this.group.rotation.y += (this.targetYaw - this.group.rotation.y) * t
+    const pos = this.getInterpolatedPosition(performance.now())
+    if (pos) this.group.position.copy(pos)
+    this.group.rotation.y = this.getInterpolatedRotation(performance.now())
     this.group.visible = !this.isDead
   }
 

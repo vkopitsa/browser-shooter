@@ -17,6 +17,19 @@ describe('RemotePlayer', () => {
     expect(rp.group.position.x).toBeGreaterThan(0)
     expect(rp.group.position.x).toBeLessThanOrEqual(10)
   })
+
+  it('interpolates between two bracketed timestamps', () => {
+    const rp = new RemotePlayer('p1', 'Alice')
+    const t0 = 1000
+    const t1 = 1100
+    rp.pushState({ id: 'p1', kind: 'player', type: 'player', position: { x: 0, y: 2, z: 0 }, rotationY: 0, health: 100, isDead: false }, t0)
+    rp.pushState({ id: 'p1', kind: 'player', type: 'player', position: { x: 10, y: 2, z: 0 }, rotationY: Math.PI / 2, health: 100, isDead: false }, t1)
+
+    const pos = rp.getInterpolatedPosition(t0 + 150) // renderTime - INTERP_DELAY(100) = t0 + 50 → midpoint
+    expect(pos).not.toBeNull()
+    expect(pos!.x).toBeGreaterThan(0)
+    expect(pos!.x).toBeLessThan(10)
+  })
 })
 
 describe('RemotePlayerManager', () => {
