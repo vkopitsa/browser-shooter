@@ -32,6 +32,11 @@ describe('NetHost', () => {
 
     host.tick(0.016)
     expect(got.some(m => m.type === 'snapshot')).toBe(true)
+    const snap = got.find(m => m.type === 'snapshot')
+    if (snap?.type === 'snapshot') {
+      expect(snap.snapshot.ack).toBeDefined()
+      expect(typeof snap.snapshot.ack).toBe('object')
+    }
   })
 
   it('stamps ack on snapshots showing last processed input seq per player', () => {
@@ -61,8 +66,10 @@ describe('NetHost', () => {
     const [hostSide, clientSide] = createLinkedTransports()
 
     host.addClient('player-2', 'Bob', hostSide)
-    clientSide.send({ type: 'buy', playerId: 'player-2', item: 'armor-light' })
-    // No error thrown means the message was processed
+    const before = session.getPlayer('player-2')!.player.armor
+    clientSide.send({ type: 'buy', playerId: 'player-2', item: 'kevlar' })
+    const after = session.getPlayer('player-2')!.player.armor
+    expect(after).toBeGreaterThan(before)
   })
 
   it('measures client ping from a pong and stamps it onto broadcast snapshots', () => {
