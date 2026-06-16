@@ -15,7 +15,7 @@ describe('LoopbackTransport', () => {
     const t = new LoopbackTransport()
     const a = vi.fn(); const b = vi.fn()
     t.onMessage(a); t.onMessage(b)
-    t.send({ type: 'snapshot', snapshot: { tick: 0, players: [], enemies: [] } })
+    t.send({ type: 'snapshot', snapshot: { tick: 0, seq: 0, ack: {}, players: [], enemies: [], events: [] } })
     expect(a).toHaveBeenCalledOnce()
     expect(b).toHaveBeenCalledOnce()
   })

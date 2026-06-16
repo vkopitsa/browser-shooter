@@ -13,6 +13,8 @@ export class NetHost {
   private pings = new Map<string, number>()
   /** Last processed input seq per client — stamped onto snapshots as `ack`. */
   private lastSeq = new Map<string, number>()
+  /** Monotonically increasing snapshot sequence number. */
+  private snapSeq = 0
 
   constructor(private session: GameSession, private mode: GameMode) {}
 
@@ -62,6 +64,7 @@ export class NetHost {
   /** Broadcast an already-computed snapshot without stepping the sim (host renders locally). */
   broadcastSnapshot(snapshot: Snapshot, events: SessionEvent[] = []): void {
     for (const p of snapshot.players) p.ping = this.pings.get(p.id) ?? 0
+    snapshot.seq = this.snapSeq++
     snapshot.ack = Object.fromEntries(this.lastSeq)
     snapshot.events = events
     this.broadcast({ type: 'snapshot', snapshot })

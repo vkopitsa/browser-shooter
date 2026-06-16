@@ -29,6 +29,8 @@ export class DirectoryRoster {
   }
 
   list(): DirectoryEntry[] {
-    return [...this.records.values()].map(({ lastSeen: _lastSeen, ...entry }) => entry)
+    return [...this.records.values()].map(rec =>
+      Object.fromEntries(Object.entries(rec).filter(([k]) => k !== 'lastSeen')) as DirectoryEntry
+    )
   }
 }

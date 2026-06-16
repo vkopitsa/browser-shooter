@@ -71,7 +71,8 @@ export class RemotePlayer {
     return a.rotationY + (b.rotationY - a.rotationY) * frac
   }
 
-  update(dt: number): void {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  update(_dt: number): void {
     const pos = this.getInterpolatedPosition(performance.now())
     if (pos) this.group.position.copy(pos)
     this.group.rotation.y = this.getInterpolatedRotation(performance.now())
