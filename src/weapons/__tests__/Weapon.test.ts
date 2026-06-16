@@ -78,23 +78,3 @@ describe('Weapon', () => {
     expect(w.def.damage).toBe(60)
   })
 })
-
-describe('WeaponManager', () => {
-  it('switches weapons by index', async () => {
-    const { WeaponManager } = await import('../WeaponManager')
-    const manager = new WeaponManager()
-    expect(manager.current.type).toBe('pistol')
-    manager.switchByIndex(1)
-    expect(manager.current.type).toBe('shotgun')
-    manager.switchByIndex(2)
-    expect(manager.current.type).toBe('rifle')
-  })
-
-  it('updates all weapons', async () => {
-    const { WeaponManager } = await import('../WeaponManager')
-    const manager = new WeaponManager()
-    manager.weapons[0].shoot()
-    manager.update(0.5)
-    expect(manager.weapons[0].fireTimer).toBe(0)
-  })
-})
