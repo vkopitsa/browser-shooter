@@ -1,10 +1,11 @@
 import React from 'react'
 
 interface MainMenuProps {
-  onStart: () => void
+  onSingleplayer: () => void
+  onMultiplayer: () => void
 }
 
-export const MainMenu: React.FC<MainMenuProps> = ({ onStart }) => {
+export const MainMenu: React.FC<MainMenuProps> = ({ onSingleplayer, onMultiplayer }) => {
   return (
     <div style={{
       position: 'absolute',
@@ -30,30 +31,16 @@ export const MainMenu: React.FC<MainMenuProps> = ({ onStart }) => {
         3D FPS Arena Wave Survival
       </p>
 
-      <button
-        onClick={onStart}
-        style={{
-          padding: '16px 48px',
-          fontSize: 24,
-          fontWeight: 'bold',
-          background: '#ff6600',
-          color: 'white',
-          border: 'none',
-          borderRadius: 8,
-          cursor: 'pointer',
-          transition: 'all 0.2s',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = '#ff8800'
-          e.currentTarget.style.transform = 'scale(1.05)'
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = '#ff6600'
-          e.currentTarget.style.transform = 'scale(1)'
-        }}
-      >
-        START GAME
-      </button>
+      <div style={{ display: 'flex', gap: 16 }}>
+        <button onClick={onSingleplayer} style={{
+          padding: '16px 40px', fontSize: 22, fontWeight: 'bold', background: '#ff6600',
+          color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer',
+        }}>SINGLEPLAYER</button>
+        <button onClick={onMultiplayer} style={{
+          padding: '16px 40px', fontSize: 22, fontWeight: 'bold', background: '#3399ff',
+          color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer',
+        }}>MULTIPLAYER</button>
+      </div>
 
       <div style={{
         marginTop: 60,

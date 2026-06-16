@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { HUD } from '../HUD'
 import { Minimap } from '../Minimap'
 import { WaveAnnounce } from '../WaveAnnounce'
@@ -202,17 +202,18 @@ describe('WaveAnnounce', () => {
 
 describe('MainMenu', () => {
   it('renders game title', () => {
-    render(<MainMenu onStart={() => {}} />)
+    render(<MainMenu onSingleplayer={() => {}} onMultiplayer={() => {}} />)
     expect(screen.getByText('BROWSER SHOOTER')).toBeInTheDocument()
   })
 
-  it('renders start button', () => {
-    render(<MainMenu onStart={() => {}} />)
-    expect(screen.getByText('START GAME')).toBeInTheDocument()
+  it('renders singleplayer and multiplayer buttons', () => {
+    render(<MainMenu onSingleplayer={() => {}} onMultiplayer={() => {}} />)
+    expect(screen.getByText('SINGLEPLAYER')).toBeInTheDocument()
+    expect(screen.getByText('MULTIPLAYER')).toBeInTheDocument()
   })
 
   it('renders controls info', () => {
-    render(<MainMenu onStart={() => {}} />)
+    render(<MainMenu onSingleplayer={() => {}} onMultiplayer={() => {}} />)
     expect(screen.getByText('WASD')).toBeInTheDocument()
     expect(screen.getByText('Move')).toBeInTheDocument()
     expect(screen.getByText('Mouse')).toBeInTheDocument()
@@ -223,11 +224,22 @@ describe('MainMenu', () => {
     expect(screen.getByText('Pause')).toBeInTheDocument()
   })
 
-  it('calls onStart when start button is clicked', () => {
-    const onStart = vi.fn()
-    render(<MainMenu onStart={onStart} />)
-    screen.getByText('START GAME').click()
-    expect(onStart).toHaveBeenCalledTimes(1)
+  it('calls onSingleplayer when singleplayer button is clicked', () => {
+    const onSingleplayer = vi.fn()
+    render(<MainMenu onSingleplayer={onSingleplayer} onMultiplayer={() => {}} />)
+    screen.getByText('SINGLEPLAYER').click()
+    expect(onSingleplayer).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('MainMenu mode select', () => {
+  it('fires onSingleplayer and onMultiplayer', () => {
+    const sp = vi.fn(); const mp = vi.fn()
+    render(<MainMenu onSingleplayer={sp} onMultiplayer={mp} />)
+    fireEvent.click(screen.getByText(/singleplayer/i))
+    fireEvent.click(screen.getByText(/multiplayer/i))
+    expect(sp).toHaveBeenCalledTimes(1)
+    expect(mp).toHaveBeenCalledTimes(1)
   })
 })
 
