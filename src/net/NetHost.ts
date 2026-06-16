@@ -1,6 +1,6 @@
 import type { GameSession } from '../session/GameSession'
 import type { Transport } from '../session/Transport'
-import type { GameMode, NetMessage, SessionEvent } from '../session/protocol'
+import type { GameMode, NetMessage, SessionEvent, Snapshot } from '../session/protocol'
 
 interface ClientLink { playerId: string; transport: Transport }
 
@@ -34,6 +34,11 @@ export class NetHost {
     const snapshot = this.session.getSnapshot()
     this.broadcast({ type: 'snapshot', snapshot })
     return events
+  }
+
+  /** Broadcast an already-computed snapshot without stepping the sim (host renders locally). */
+  broadcastSnapshot(snapshot: Snapshot): void {
+    this.broadcast({ type: 'snapshot', snapshot })
   }
 
   private broadcast(msg: NetMessage): void {

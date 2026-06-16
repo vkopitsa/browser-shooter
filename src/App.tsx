@@ -12,11 +12,17 @@ import { SoundEffects } from './audio/SoundEffects'
 import { createDamageIndicatorState, triggerDamage, updateDamageIndicator, type DamageIndicatorState } from './effects/DamageIndicator'
 import type { GameState } from './types'
 import { GameSession, ARENA_SIZE } from './session/GameSession'
-import { emptyInput } from './session/protocol'
+import { emptyInput, type EntityState } from './session/protocol'
+import { NetHost } from './net/NetHost'
+import { NetClient } from './net/NetClient'
+import { PeerHost } from './net/PeerHost'
+import { PeerClient } from './net/PeerClient'
+import { RemotePlayerManager } from './net/RemotePlayerManager'
 import { HUD } from './ui/HUD'
 import { Minimap } from './ui/Minimap'
 import { WaveAnnounce } from './ui/WaveAnnounce'
 import { MainMenu } from './ui/MainMenu'
+import { MultiplayerMenu } from './ui/MultiplayerMenu'
 import { GameOver } from './ui/GameOver'
 import { PauseMenu } from './ui/PauseMenu'
 import { DamageOverlay } from './ui/DamageOverlay'
@@ -42,6 +48,9 @@ function App() {
   const [showWaveAnnounce, setShowWaveAnnounce] = useState(false)
   const [storeOpen, setStoreOpen] = useState(false)
   const [money, setMoney] = useState(16000)
+  const [roomCode, setRoomCode] = useState<string | null>(null)
+  const [lobbyPlayers, setLobbyPlayers] = useState<string[]>([])
+  const [isHost, setIsHost] = useState(false)
   const lastWaveRef = useRef(0)
   const gameStateRef = useRef<GameState>('menu')
   const storeOpenRef = useRef(false)
@@ -63,10 +72,19 @@ function App() {
     audio: new SoundEffects(new AudioManager()),
     damageIndicator: createDamageIndicatorState(),
     money: 16000, // local stub for the buy store (Phase 3 makes this real)
+    role: 'single' as 'single' | 'host' | 'client',
+    netHost: null as NetHost | null,
+    netClient: null as NetClient | null,
+    peerHost: null as PeerHost | null,
+    peerClient: null as PeerClient | null,
+    remotePlayers: null as RemotePlayerManager | null,
+    nextClientNum: 1,
+    clientEnemies: new Map<string, THREE.Mesh>(),
   })
 
   const startGame = useCallback(() => {
     const data = gameDataRef.current
+    data.role = 'single'
     const scene = engineRef.current?.scene
     for (const enemy of data.session.enemies) { scene?.remove(enemy.mesh); enemy.dispose() }
     for (const pickup of data.session.pickups) { scene?.remove(pickup.mesh); pickup.dispose() }
@@ -91,6 +109,66 @@ function App() {
     engineRef.current?.start()
     data.audio.init(); data.audio.loadSounds()
     updateGameState('playing')
+  }, [updateGameState])
+
+  const startNetGame = useCallback((role: 'host' | 'client') => {
+    const data = gameDataRef.current
+    const engine = engineRef.current
+    if (!engine) return
+    data.role = role
+    const localId = data.netClient?.playerId ?? data.session.localId
+    data.remotePlayers = new RemotePlayerManager(engine.scene, localId)
+    lookRef.current = { yaw: 0, pitch: 0 }
+    setHealth(100)
+    engine.start()
+    data.audio.init(); data.audio.loadSounds()
+    updateGameState('playing')
+  }, [updateGameState])
+
+  const hostGame = useCallback(async () => {
+    const data = gameDataRef.current
+    data.role = 'host'
+    setIsHost(true)
+    const peerHost = new PeerHost()
+    data.peerHost = peerHost
+    const netHost = new NetHost(data.session, 'coop')
+    data.netHost = netHost
+    setLobbyPlayers(['You'])
+    peerHost.onClientConnect((transport) => {
+      transport.onMessage((msg) => {
+        if (msg.type === 'join') {
+          const id = 'player-' + (data.nextClientNum++)
+          netHost.addClient(id, msg.name, transport)
+          setLobbyPlayers((prev) => [...prev, msg.name])
+        }
+      })
+    })
+    const code = await peerHost.start()
+    setRoomCode(code)
+  }, [])
+
+  const joinGame = useCallback(async (code: string) => {
+    const data = gameDataRef.current
+    data.role = 'client'
+    setIsHost(false)
+    const peerClient = new PeerClient()
+    data.peerClient = peerClient
+    const transport = await peerClient.connect(code)
+    const client = new NetClient(transport)
+    data.netClient = client
+    client.onWelcome(() => startNetGame('client'))
+    client.join('Player')
+  }, [startNetGame])
+
+  const leaveMultiplayer = useCallback(() => {
+    const data = gameDataRef.current
+    data.peerHost?.stop(); data.peerClient?.stop()
+    data.peerHost = null; data.peerClient = null
+    data.netHost = null; data.netClient = null
+    data.remotePlayers?.clear(); data.remotePlayers = null
+    data.role = 'single'
+    setRoomCode(null); setLobbyPlayers([]); setIsHost(false)
+    updateGameState('menu')
   }, [updateGameState])
 
   useEffect(() => {
@@ -145,6 +223,8 @@ function App() {
     }
 
     engine.onUpdate((dt) => {
+      if (data.role === 'client') { updateClient(dt); return }
+
       const session = data.session
       const controls = data.controls
       const particleSystem = data.particleSystem!
@@ -266,7 +346,76 @@ function App() {
       data.damageIndicator = updateDamageIndicator(data.damageIndicator, dt)
       if (data.damageIndicator.active) setDamageIndicator({ ...data.damageIndicator })
       else if (damageIndicator !== null) setDamageIndicator(null)
+
+      // Host: broadcast the locally-simulated snapshot and render remote players.
+      if (data.role === 'host' && data.netHost && data.remotePlayers) {
+        const snap = session.getSnapshot()
+        data.netHost.broadcastSnapshot(snap)
+        data.remotePlayers.sync(snap.players)
+        data.remotePlayers.update(dt)
+      }
     })
+
+    // Client: forward input, render local view + remote players + enemies from the snapshot.
+    function updateClient(dt: number) {
+      const controls = data.controls
+      const client = data.netClient
+      const particleSystem = data.particleSystem
+      if (!controls || !client || !particleSystem) return
+
+      const m = controls.getMovement()
+      client.sendInput({
+        ...emptyInput(),
+        forward: m.forward, backward: m.backward, left: m.left, right: m.right, jump: m.jump,
+        shoot: controls.shoot && !storeOpenRef.current,
+        yaw: lookRef.current.yaw,
+        pitch: lookRef.current.pitch,
+      })
+
+      const snap = client.latestSnapshot
+      if (!snap) return
+
+      const me = snap.players.find((p) => p.id === client.playerId)
+      if (me) {
+        engine.camera.position.set(me.position.x, me.position.y, me.position.z)
+        engine.camera.rotation.set(me.rotationX ?? 0, me.rotationY, 0, 'YXZ')
+        data.audio.updateListenerPosition(me.position.x, me.position.y, me.position.z)
+        setHealth(me.health)
+      }
+
+      data.remotePlayers?.sync(snap.players)
+      renderClientEnemies(snap.enemies)
+      data.remotePlayers?.update(dt)
+      particleSystem.update(dt)
+    }
+
+    function renderClientEnemies(enemies: EntityState[]) {
+      const map = data.clientEnemies
+      const seen = new Set<string>()
+      for (const e of enemies) {
+        seen.add(e.id)
+        let mesh = map.get(e.id)
+        if (!mesh) {
+          mesh = new THREE.Mesh(
+            new THREE.BoxGeometry(0.8, 1.8, 0.8),
+            new THREE.MeshStandardMaterial({ color: 0xcc3333 }),
+          )
+          map.set(e.id, mesh)
+          engine.scene.add(mesh)
+        }
+        mesh.position.set(e.position.x, e.position.y + 0.9, e.position.z)
+        mesh.rotation.y = e.rotationY
+        mesh.visible = !e.isDead
+      }
+      for (const [id, mesh] of map) {
+        if (!seen.has(id)) {
+          engine.scene.remove(mesh)
+          mesh.geometry.dispose()
+          ;(mesh.material as THREE.Material).dispose()
+          map.delete(id)
+        }
+      }
+    }
 
     function onMouseMove(e: MouseEvent) {
       const look = lookRef.current
@@ -316,7 +465,21 @@ function App() {
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
-      {gameState === 'menu' && <MainMenu onStart={startGame} />}
+      {gameState === 'menu' && (
+        <MainMenu onSingleplayer={startGame} onMultiplayer={() => updateGameState('mpmenu')} />
+      )}
+
+      {gameState === 'mpmenu' && (
+        <MultiplayerMenu
+          roomCode={roomCode}
+          players={lobbyPlayers}
+          isHost={isHost}
+          onHost={hostGame}
+          onJoin={joinGame}
+          onStart={() => startNetGame('host')}
+          onBack={leaveMultiplayer}
+        />
+      )}
 
       {gameState === 'playing' && (
         <>
