@@ -43,10 +43,20 @@ export class GameSession {
   }
 
   addPlayer(id: string, name: string): PlayerEntity {
+    const index = this.playerMap.size // 0 = host/local, kept at origin
     const entity: PlayerEntity = { id, name, player: new Player(), weapons: new WeaponManager() }
+    entity.player.position.copy(this.spawnPosition(index))
     this.playerMap.set(id, entity)
     this.inputs.set(id, emptyInput())
     return entity
+  }
+
+  /** Host/local at origin; joining players evenly placed on a ring so models never stack. */
+  private spawnPosition(index: number): THREE.Vector3 {
+    if (index === 0) return new THREE.Vector3(0, 2, 0)
+    const angle = (index - 1) * (Math.PI / 4) // 45 degrees apart
+    const r = ARENA_SIZE / 3
+    return new THREE.Vector3(Math.cos(angle) * r, 2, Math.sin(angle) * r)
   }
 
   removePlayer(id: string): void {
