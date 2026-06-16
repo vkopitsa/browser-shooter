@@ -508,7 +508,7 @@ function App() {
       }
 
       const slotKeys: Record<string, 'primary' | 'secondary'> = { Digit1: 'primary', Digit2: 'secondary' }
-      if (e.code in slotKeys) {
+      if (e.code in slotKeys && gameStateRef.current === 'playing') {
         const wm = data.session.weaponManager
         wm.selectSlot(slotKeys[e.code])
         setWeaponName(wm.current.def.name)
