@@ -1,13 +1,16 @@
 import React, { useState } from 'react'
+import { ServerList, type ServerRow } from './ServerList'
 
 interface MultiplayerMenuProps {
   roomCode: string | null      // set once hosting; null while choosing/joining
   players: string[]            // lobby roster (names)
   isHost: boolean
+  servers: ServerRow[]         // discovered open games
   onHost: () => void           // start hosting (creates the room)
   onJoin: (code: string) => void
   onStart: () => void          // host begins the match
   onBack: () => void
+  onRefresh: () => void        // re-query the directory
 }
 
 const panel: React.CSSProperties = {
@@ -48,6 +51,7 @@ export const MultiplayerMenu: React.FC<MultiplayerMenuProps> = (p) => {
     <div style={panel}>
       <h2>Multiplayer (Co-op)</h2>
       <button style={btn} onClick={p.onHost}>Host Game</button>
+      <ServerList servers={p.servers} onJoin={p.onJoin} onRefresh={p.onRefresh} />
       <div style={{ display: 'flex', gap: 8 }}>
         <input placeholder="Room code" value={code} onChange={(e) => setCode(e.target.value)}
           style={{ padding: 10, fontSize: 16 }} />
