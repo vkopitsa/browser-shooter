@@ -52,6 +52,11 @@ export class WaveManager {
     this.waveActive = true
   }
 
+  /** Manually start the next wave (host-triggered in multiplayer). */
+  spawnNextWave() {
+    this.startWave()
+  }
+
   update(dt: number, arenaSize: number): Enemy | null {
     if (!this.waveActive) {
       if (!this.auto) return null
