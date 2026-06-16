@@ -82,9 +82,24 @@ function App() {
     clientEnemies: new Map<string, THREE.Mesh>(),
   })
 
+  const resetNetworking = useCallback(() => {
+    const data = gameDataRef.current
+    data.peerHost?.stop(); data.peerClient?.stop()
+    data.peerHost = null; data.peerClient = null
+    data.netHost = null; data.netClient = null
+    data.remotePlayers?.clear(); data.remotePlayers = null
+    for (const mesh of data.clientEnemies.values()) {
+      engineRef.current?.scene.remove(mesh)
+      mesh.geometry.dispose()
+      ;(mesh.material as THREE.Material).dispose()
+    }
+    data.clientEnemies.clear()
+    data.role = 'single'
+  }, [])
+
   const startGame = useCallback(() => {
     const data = gameDataRef.current
-    data.role = 'single'
+    resetNetworking()
     const scene = engineRef.current?.scene
     for (const enemy of data.session.enemies) { scene?.remove(enemy.mesh); enemy.dispose() }
     for (const pickup of data.session.pickups) { scene?.remove(pickup.mesh); pickup.dispose() }
@@ -109,7 +124,7 @@ function App() {
     engineRef.current?.start()
     data.audio.init(); data.audio.loadSounds()
     updateGameState('playing')
-  }, [updateGameState])
+  }, [updateGameState, resetNetworking])
 
   const startNetGame = useCallback((role: 'host' | 'client') => {
     const data = gameDataRef.current
@@ -161,15 +176,10 @@ function App() {
   }, [startNetGame])
 
   const leaveMultiplayer = useCallback(() => {
-    const data = gameDataRef.current
-    data.peerHost?.stop(); data.peerClient?.stop()
-    data.peerHost = null; data.peerClient = null
-    data.netHost = null; data.netClient = null
-    data.remotePlayers?.clear(); data.remotePlayers = null
-    data.role = 'single'
+    resetNetworking()
     setRoomCode(null); setLobbyPlayers([]); setIsHost(false)
     updateGameState('menu')
-  }, [updateGameState])
+  }, [updateGameState, resetNetworking])
 
   useEffect(() => {
     const container = containerRef.current
@@ -276,7 +286,7 @@ function App() {
             const to = new THREE.Vector3(ev.to.x, ev.to.y, ev.to.z)
             data.audio.playWeaponShoot('rifle', from)
             particleSystem.tracer(from, to)
-            if (ev.hit) {
+            if (ev.hit && ev.victimId === session.localId) {
               data.audio.playPlayerHit()
               setHealth(session.player.health)
               data.damageIndicator = triggerDamage(from.clone(), session.player.position.clone(), session.player.rotation.y)
@@ -285,11 +295,13 @@ function App() {
             break
           }
           case 'enemyMelee':
-            data.audio.playPlayerHit()
-            setHealth(session.player.health)
-            data.damageIndicator = triggerDamage(
-              new THREE.Vector3(ev.enemyPos.x, ev.enemyPos.y, ev.enemyPos.z), session.player.position.clone(), session.player.rotation.y)
-            setDamageIndicator({ ...data.damageIndicator })
+            if (ev.victimId === session.localId) {
+              data.audio.playPlayerHit()
+              setHealth(session.player.health)
+              data.damageIndicator = triggerDamage(
+                new THREE.Vector3(ev.enemyPos.x, ev.enemyPos.y, ev.enemyPos.z), session.player.position.clone(), session.player.rotation.y)
+              setDamageIndicator({ ...data.damageIndicator })
+            }
             break
           case 'enemyTelegraph':
             particleSystem.muzzleFlash(

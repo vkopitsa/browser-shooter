@@ -50,8 +50,8 @@ export interface HitEvent {
 export type SessionEvent =
   | { type: 'playerHitEnemy'; hit: HitEvent; enemyType: string }
   | { type: 'wallImpact'; point: Vec3 }
-  | { type: 'enemyShoot'; from: Vec3; to: Vec3; hit: boolean; damage: number }
-  | { type: 'enemyMelee'; damage: number; enemyPos: Vec3 }
+  | { type: 'enemyShoot'; from: Vec3; to: Vec3; hit: boolean; damage: number; victimId: string }
+  | { type: 'enemyMelee'; damage: number; enemyPos: Vec3; victimId: string }
   | { type: 'enemyTelegraph'; enemyPos: Vec3; facing: Vec3 }
   | { type: 'enemyKilled'; enemyType: string; pos: Vec3; scoreValue: number }
   | { type: 'pickup'; pickupType: string; value: number }

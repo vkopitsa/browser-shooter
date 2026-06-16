@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import * as THREE from 'three'
 import { GameSession } from '../GameSession'
+import { Enemy } from '../../enemies/Enemy'
 import { emptyInput } from '../protocol'
 
 describe('GameSession.step', () => {
@@ -28,5 +30,16 @@ describe('GameSession.step', () => {
     const a = run(); const b = run()
     expect(a.x).toBeCloseTo(b.x, 10)
     expect(a.z).toBeCloseTo(b.z, 10)
+  })
+
+  it('tags an enemyMelee event with the victim player id (local in single-player)', () => {
+    const s = new GameSession()
+    const enemy = new Enemy('grunt', new THREE.Vector3(1, 0, 0)) // within melee range of the local player
+    s.enemies.push(enemy)
+    // MELEE_RATE is 1s; one large step pushes attackTimer past the threshold and triggers the strike.
+    const events = s.step(1)
+    const melee = events.find((e) => e.type === 'enemyMelee')
+    expect(melee).toBeDefined()
+    expect(melee).toMatchObject({ victimId: s.localId })
   })
 })

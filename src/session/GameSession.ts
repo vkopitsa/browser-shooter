@@ -165,10 +165,11 @@ export class GameSession {
             to: action.hit ? toVec3(targetPlayer.position) : toVec3(action.to),
             hit: action.hit,
             damage: action.damage,
+            victimId: target.id,
           })
         } else {
           targetPlayer.takeDamage(action.damage)
-          events.push({ type: 'enemyMelee', damage: action.damage, enemyPos: toVec3(enemy.mesh.position) })
+          events.push({ type: 'enemyMelee', damage: action.damage, enemyPos: toVec3(enemy.mesh.position), victimId: target.id })
         }
         if (targetPlayer.isDead) {
           if (target.id === this.localId) {
