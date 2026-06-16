@@ -68,3 +68,5 @@ export type NetMessage =
   | { type: 'playerLeft'; playerId: string }
   | { type: 'ping'; t: number }   // host→client latency probe (echo t back)
   | { type: 'pong'; t: number }   // client→host reply carrying the original t
+  | { type: 'probe'; t: number }     // pre-join latency probe from a browsing client
+  | { type: 'probeAck'; t: number }  // host reply echoing t back to the prober
