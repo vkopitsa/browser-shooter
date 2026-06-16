@@ -17,6 +17,8 @@ export class WaveManager {
   spawnQueue: string[] = []
   waveActive: boolean = false
   wavePauseTimer: number = 0
+  /** When false, waves never auto-start or auto-advance; use spawnNextWave() instead. */
+  auto: boolean = true
   onWaveComplete?: () => void
   onEnemySpawned?: (enemy: Enemy) => void
 
@@ -52,6 +54,7 @@ export class WaveManager {
 
   update(dt: number, arenaSize: number): Enemy | null {
     if (!this.waveActive) {
+      if (!this.auto) return null
       this.wavePauseTimer -= dt
       if (this.wavePauseTimer <= 0) {
         this.startWave()

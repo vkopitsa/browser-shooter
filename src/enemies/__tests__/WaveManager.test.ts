@@ -180,4 +180,20 @@ describe('WaveManager', () => {
       expect(Math.abs(enemy.mesh.position.z)).toBeLessThanOrEqual(28)
     }
   })
+
+  it('auto defaults to true and auto-starts wave 1 on update', () => {
+    const m = new WaveManager()
+    m.update(1, 30)
+    expect(m.currentWave).toBe(1)
+    expect(m.waveActive).toBe(true)
+  })
+
+  it('does not auto-start a wave when auto is false', () => {
+    const m = new WaveManager()
+    m.auto = false
+    m.update(1, 30)
+    expect(m.currentWave).toBe(0)
+    expect(m.waveActive).toBe(false)
+    expect(m.spawnQueue.length).toBe(0)
+  })
 })
