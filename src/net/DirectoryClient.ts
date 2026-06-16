@@ -1,7 +1,13 @@
 import type { Channel } from './Channel'
 import type { DirMessage, DirectoryEntry, ServerStatus } from './directoryProtocol'
 
-/** Client side of the directory channel: a host announcing, or a browser listing. */
+/**
+ * Client side of the directory channel: a host announcing, or a browser listing.
+ *
+ * Short-lived: a browsing client is created fresh per refresh and discarded after one
+ * fetchList; the host's long-lived client only registers/heartbeats. fetchList registers
+ * a per-call listener on the channel, so do not reuse one client for repeated polling.
+ */
 export class DirectoryClient {
   constructor(private channel: Channel<DirMessage>) {}
 
@@ -21,7 +27,11 @@ export class DirectoryClient {
   fetchList(timeoutMs = 3000): Promise<DirectoryEntry[]> {
     return new Promise((resolve) => {
       let settled = false
-      const done = (entries: DirectoryEntry[]) => { if (!settled) { settled = true; resolve(entries) } }
+      const done = (entries: DirectoryEntry[]) => {
+        if (settled) return
+        settled = true
+        resolve(entries)
+      }
       const timer = setTimeout(() => done([]), timeoutMs)
       this.channel.onMessage((msg) => {
         if (msg.type === 'listResponse') { clearTimeout(timer); done(msg.entries) }
