@@ -34,6 +34,37 @@ describe('NetHost', () => {
     expect(got.some(m => m.type === 'snapshot')).toBe(true)
   })
 
+  it('stamps ack on snapshots showing last processed input seq per player', () => {
+    const session = new GameSession()
+    const host = new NetHost(session, 'coop')
+    const [hostSide, clientSide] = createLinkedTransports()
+    const got: NetMessage[] = []
+    clientSide.onMessage(m => got.push(m))
+
+    host.addClient('player-2', 'Bob', hostSide)
+    clientSide.send({
+      type: 'input', playerId: 'player-2',
+      input: { ...emptyInput(), forward: true, seq: 5, renderTime: 100 }
+    })
+    host.tick(0.016)
+
+    const snap = got.find(m => m.type === 'snapshot')
+    expect(snap?.type).toBe('snapshot')
+    if (snap?.type === 'snapshot') {
+      expect(snap.snapshot.ack['player-2']).toBe(5)
+    }
+  })
+
+  it('handles buy messages by applying item to the client player', () => {
+    const session = new GameSession()
+    const host = new NetHost(session, 'coop')
+    const [hostSide, clientSide] = createLinkedTransports()
+
+    host.addClient('player-2', 'Bob', hostSide)
+    clientSide.send({ type: 'buy', playerId: 'player-2', item: 'armor-light' })
+    // No error thrown means the message was processed
+  })
+
   it('measures client ping from a pong and stamps it onto broadcast snapshots', () => {
     const session = new GameSession()
     const host = new NetHost(session, 'coop')

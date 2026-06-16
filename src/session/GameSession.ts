@@ -122,7 +122,7 @@ export class GameSession {
       health: e.health,
       isDead: e.isDead,
     }))
-    return { tick: this.tick, players, enemies }
+    return { tick: this.tick, seq: 0, ack: {}, players, enemies, events: [] }
   }
 
   step(dt: number): SessionEvent[] {
