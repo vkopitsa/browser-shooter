@@ -128,4 +128,38 @@ describe('HealthSystem', () => {
     health.heal(0)
     expect(health.health).toBe(50)
   })
+
+  it('defaults armor to 0', () => {
+    expect(health.armor).toBe(0)
+  })
+
+  it('splits damage between armor and health when armored', () => {
+    health.armor = 100
+    health.takeDamage(50)
+    expect(health.health).toBe(75) // half of 50 to health
+    expect(health.armor).toBe(75)  // half of 50 to armor
+  })
+
+  it('armor absorbs only what it has, rest hits health', () => {
+    health.armor = 10
+    health.takeDamage(50) // armor can take min(10, 25)=10, health takes 40
+    expect(health.armor).toBe(0)
+    expect(health.health).toBe(60)
+  })
+
+  it('addMaxHealth raises the cap and tops up', () => {
+    health.takeDamage(40) // health 60
+    health.addMaxHealth(25)
+    expect(health.maxHealth).toBe(125)
+    expect(health.health).toBe(125)
+  })
+
+  it('reset clears armor and restores base max health', () => {
+    health.armor = 50
+    health.addMaxHealth(25)
+    health.reset()
+    expect(health.armor).toBe(0)
+    expect(health.maxHealth).toBe(100)
+    expect(health.health).toBe(100)
+  })
 })
