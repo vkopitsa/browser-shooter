@@ -2,10 +2,12 @@ import * as THREE from 'three'
 import { buildCharacter } from '../entities/CharacterModel'
 import { EYE_HEIGHT } from '../player/Player'
 import type { EntityState } from '../session/protocol'
-import type { Team } from '../types'
+import type { Team, WeaponType } from '../types'
+import { ThirdPersonWeapon } from '../weapons/ThirdPersonWeapon'
 
 const INTERP_DELAY = 100
 const TEAM_COLOR = { ct: 0x3a6ea5, t: 0xa5703a } as const
+const VALID_WEAPON_TYPES: WeaponType[] = ['pistol', 'usp', 'glock', 'deagle', 'm4', 'aug', 'ak', 'galil', 'mp5', 'shotgun', 'awp', 'rifle']
 
 interface InterpEntry {
   position: THREE.Vector3
@@ -18,9 +20,13 @@ export class RemotePlayer {
   private buffer: InterpEntry[] = []
   private team: Team | null = null
   isDead = false
+  private thirdPersonWeapon: ThirdPersonWeapon
 
   constructor(readonly id: string, name: string, tint = 0x3399ff) {
     this.group = buildCharacter({ tint, name })
+    this.thirdPersonWeapon = new ThirdPersonWeapon('pistol')
+    this.thirdPersonWeapon.group.position.set(0.42, 1.3, -0.35)
+    this.group.add(this.thirdPersonWeapon.group)
   }
 
   pushState(s: EntityState, time?: number): void {
@@ -39,6 +45,10 @@ export class RemotePlayer {
     if (s.team && s.team !== this.team) {
       this.team = s.team
       this.applyTeamColor(TEAM_COLOR[s.team])
+    }
+
+    if (s.weaponType && VALID_WEAPON_TYPES.includes(s.weaponType as WeaponType)) {
+      this.thirdPersonWeapon.setWeapon(s.weaponType as WeaponType)
     }
   }
 
@@ -92,7 +102,7 @@ export class RemotePlayer {
     const seen = new Set<THREE.MeshStandardMaterial>()
     this.group.traverse((o) => {
       if (!(o instanceof THREE.Mesh)) return
-      if (o.userData.zone === 'head') return // preserve skin color
+      if (o.userData.zone === 'head' || o.userData.zone === 'weapon') return // preserve skin color
       const mat = o.material
       if (!(mat instanceof THREE.MeshStandardMaterial)) return
       if (!seen.has(mat)) {
@@ -109,6 +119,7 @@ export class RemotePlayer {
   }
 
   dispose(): void {
+    this.thirdPersonWeapon.dispose()
     this.group.traverse((o) => {
       if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose() }
     })
