@@ -10,7 +10,6 @@ import { emptyInput, type PlayerInput, type Snapshot, type SessionEvent, type En
 import type { Vec3, Team } from '../types'
 import { zonedDamage, resolveZone } from '../systems/DamageZones'
 import { type MatchConfig, defaultMatchConfig, canDamage } from './MatchConfig'
-import type { DamagePolicy } from './MatchConfig'
 import { Scoreboard } from './Scoreboard'
 import { RespawnQueue } from './RespawnQueue'
 import { pickSpawn } from './Spawns'

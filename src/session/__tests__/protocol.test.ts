@@ -42,7 +42,7 @@ describe('extended protocol', () => {
   it('NetMessage includes join/welcome/playerJoined/playerLeft', () => {
     const msgs: NetMessage[] = [
       { type: 'join', name: 'Ann' },
-      { type: 'welcome', playerId: 'player-1', mode: 'coop' },
+      { type: 'welcome', playerId: 'player-1', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 } },
       { type: 'playerJoined', playerId: 'player-1', name: 'Ann' },
       { type: 'playerLeft', playerId: 'player-1' },
     ]
@@ -65,6 +65,7 @@ describe('extended protocol', () => {
       players: [],
       enemies: [],
       events: [],
+      scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null },
     }
     expect(s.seq).toBe(42)
     expect(s.ack).toEqual({ 'player-1': 10 })
