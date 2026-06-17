@@ -231,48 +231,65 @@ export class GameSession {
     const pellets = weapon.type === 'shotgun' ? 6 : 1
     for (let p = 0; p < pellets; p++) {
       const dir = weapon.getSpreadDirection(forward)
-      this.resolveShot(entity.player.position, dir, weapon.def.range, weapon.def.damage, events)
+      this.resolveShot(entity, entity.player.position, dir, weapon.def.range, weapon.def.damage, events)
     }
   }
 
-  private resolveShot(origin: THREE.Vector3, direction: THREE.Vector3, range: number, baseDamage: number, events: SessionEvent[]): void {
+  private resolveShot(shooter: PlayerEntity, origin: THREE.Vector3, direction: THREE.Vector3, range: number, baseDamage: number, events: SessionEvent[]): void {
     this.shootRaycaster.set(origin, direction)
     this.shootRaycaster.far = range
 
-    let nearest: Enemy | null = null
-    let nearestDist = Infinity
-    let hitObject: THREE.Object3D | null = null
-    let hitPoint: THREE.Vector3 | null = null
-
+    let nearestEnemy: Enemy | null = null
+    let enemyDist = Infinity
+    let enemyObj: THREE.Object3D | null = null
+    let enemyPoint: THREE.Vector3 | null = null
     for (const enemy of this.enemies) {
       if (enemy.isDead) continue
       enemy.mesh.updateMatrixWorld(true)
       const hits = this.shootRaycaster.intersectObject(enemy.mesh, true)
-      if (hits.length > 0 && hits[0].distance < nearestDist) {
-        nearestDist = hits[0].distance
-        nearest = enemy
-        hitObject = hits[0].object
-        hitPoint = hits[0].point
+      if (hits.length > 0 && hits[0].distance < enemyDist) {
+        enemyDist = hits[0].distance; nearestEnemy = enemy; enemyObj = hits[0].object; enemyPoint = hits[0].point
       }
     }
+
+    const playerHit = this.config.mode === 'coop' ? null : this.resolvePlayerHit(shooter, origin, direction, range)
 
     const wallDist = this.collisionWorld
       ? this.collisionWorld.segmentBlocked(origin, origin.clone().addScaledVector(direction, range))
       : null
 
-    if (nearest && hitPoint && (wallDist === null || nearestDist < wallDist)) {
-      const zone = resolveZone(hitObject)
+    const enemyValid = !!(nearestEnemy && enemyPoint && (wallDist === null || enemyDist < wallDist))
+    const playerValid = !!(playerHit && (wallDist === null || playerHit.distance < wallDist))
+
+    if (playerValid && (!enemyValid || playerHit!.distance <= enemyDist)) {
+      const zone = playerHit!.zone
       const damage = zonedDamage(baseDamage, zone)
-      const killed = nearest.takeDamage(damage)
+      const target = playerHit!.entity
+      const killed = target.player.takeDamage(damage)
+      events.push({ type: 'playerHitPlayer', victimId: target.id, hit: { targetId: target.id, zone, damage, killed, point: playerHit!.point } })
+      if (killed) {
+        this.scoreboard.recordKill(shooter.id, shooter.team, target.id, target.team, this.config.damagePolicy)
+        this.respawnQueue.enqueue(target.id, RESPAWN_DELAY)
+        events.push({ type: 'playerKilledPlayer', attackerId: shooter.id, victimId: target.id, victimTeam: target.team, teamkill: shooter.team === target.team })
+        events.push({ type: 'playerDied', playerId: target.id })
+        if (this.scoreboard.matchOver) events.push({ type: 'matchOver', winningTeam: this.scoreboard.winningTeam! })
+      }
+      return
+    }
+
+    if (enemyValid) {
+      const zone = resolveZone(enemyObj)
+      const damage = zonedDamage(baseDamage, zone)
+      const killed = nearestEnemy!.takeDamage(damage)
       events.push({
         type: 'playerHitEnemy',
-        enemyType: nearest.type,
-        hit: { targetId: nearest.type, zone, damage, killed, point: toVec3(hitPoint) },
+        enemyType: nearestEnemy!.type,
+        hit: { targetId: nearestEnemy!.type, zone, damage, killed, point: toVec3(enemyPoint!) },
       })
       if (killed) {
-        this.scoreSystem.addKill(nearest.def.scoreValue)
+        this.scoreSystem.addKill(nearestEnemy!.def.scoreValue)
         this.waveManager.onEnemyKilled()
-        events.push({ type: 'enemyKilled', enemyType: nearest.type, pos: toVec3(nearest.mesh.position), scoreValue: nearest.def.scoreValue })
+        events.push({ type: 'enemyKilled', enemyType: nearestEnemy!.type, pos: toVec3(nearestEnemy!.mesh.position), scoreValue: nearestEnemy!.def.scoreValue })
       }
       return
     }
@@ -280,5 +297,23 @@ export class GameSession {
     if (wallDist !== null) {
       events.push({ type: 'wallImpact', point: toVec3(origin.clone().addScaledVector(direction, wallDist)) })
     }
+  }
+
+  /** Nearest living, damageable other player along the ray (M2 lag-comp seam). */
+  private resolvePlayerHit(
+    shooter: PlayerEntity, origin: THREE.Vector3, direction: THREE.Vector3, range: number,
+  ): { entity: PlayerEntity; distance: number; point: Vec3; zone: HitZone } | null {
+    let best: { entity: PlayerEntity; distance: number; point: Vec3; zone: HitZone } | null = null
+    let bestDist = Infinity
+    for (const entity of this.playerMap.values()) {
+      if (entity.id === shooter.id || entity.player.isDead) continue
+      if (!canDamage(shooter.team, entity.team, this.config.damagePolicy)) continue
+      const hit = raycastPlayerCapsule(origin, direction, range, entity.player.position)
+      if (hit && hit.distance < bestDist) {
+        bestDist = hit.distance
+        best = { entity, distance: hit.distance, point: hit.point, zone: hit.zone }
+      }
+    }
+    return best
   }
 }
