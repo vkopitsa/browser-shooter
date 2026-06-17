@@ -20,8 +20,8 @@ describe('protocol', () => {
 import { GAME_MODES } from '../protocol'
 
 describe('GameMode', () => {
-  it('lists coop and pvp', () => {
-    expect(GAME_MODES).toEqual(['coop', 'pvp'])
+  it('lists coop, pvp and hybrid', () => {
+    expect(GAME_MODES).toEqual(['coop', 'pvp', 'hybrid'])
   })
 })
 
