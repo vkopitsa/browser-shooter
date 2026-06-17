@@ -40,7 +40,8 @@ export class NetHost {
         if (entity && (msg.team === 'ct' || msg.team === 't')) entity.team = msg.team
       }
     })
-    transport.send({ type: 'welcome', playerId, mode: this.config.mode, config: this.config })
+    const players = this.links.map(l => this.session.getPlayer(l.playerId)?.name ?? l.playerId)
+    transport.send({ type: 'welcome', playerId, mode: this.config.mode, config: this.config, players })
     this.links.push({ playerId, transport })
     this.broadcast({ type: 'playerJoined', playerId, name })
   }

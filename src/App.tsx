@@ -343,12 +343,20 @@ function App() {
           break // handled via snapshot.scores in updateClient
       }
     })
-    client.onWelcome((_, mode) => {
+    client.onWelcome((_, mode, players) => {
       const data = gameDataRef.current
       if (data.netClient?.config) { data.matchConfig = data.netClient.config }
+      setRoomCode(code)
+      setLobbyPlayers(players)
       void mode
     })
     client.onStart(() => startNetGame('client'))
+    client.onPlayerJoined((_id, name) => {
+      setLobbyPlayers((prev) => prev.includes(name) ? prev : [...prev, name])
+    })
+    client.onPlayerLeft((_id) => {
+      setLobbyPlayers((prev) => prev.slice(0, -1))
+    })
     client.transport.send({ type: 'join', name: settingsRef.current.playerName, team: myTeam })
   }, [startNetGame, myTeam, pushKill])
 

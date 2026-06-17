@@ -24,9 +24,11 @@ export class NetClient {
   private localPlayer = new Player()
   private lastDt = 1 / 30
   private snapshotCb: ((s: Snapshot) => void) | null = null
-  private welcomeCb: ((playerId: string, mode: GameMode) => void) | null = null
+  private welcomeCb: ((playerId: string, mode: GameMode, players: string[]) => void) | null = null
   private eventCb: ((ev: SessionEvent) => void) | null = null
   private startCb: (() => void) | null = null
+  private playerJoinedCb: ((playerId: string, name: string) => void) | null = null
+  private playerLeftCb: ((playerId: string) => void) | null = null
   private interpBuffers = new Map<string, InterpEntry[]>()
 
   constructor(public transport: Transport) {
@@ -111,16 +113,18 @@ export class NetClient {
   }
 
   onSnapshot(cb: (s: Snapshot) => void): void { this.snapshotCb = cb }
-  onWelcome(cb: (playerId: string, mode: GameMode) => void): void { this.welcomeCb = cb }
+  onWelcome(cb: (playerId: string, mode: GameMode, players: string[]) => void): void { this.welcomeCb = cb }
   onEvent(cb: (ev: SessionEvent) => void): void { this.eventCb = cb }
   onStart(cb: () => void): void { this.startCb = cb }
+  onPlayerJoined(cb: (playerId: string, name: string) => void): void { this.playerJoinedCb = cb }
+  onPlayerLeft(cb: (playerId: string) => void): void { this.playerLeftCb = cb }
 
   private handle(msg: NetMessage): void {
     if (msg.type === 'welcome') {
       this.playerId = msg.playerId
       this.config = msg.config
       this.mode = msg.config.mode
-      this.welcomeCb?.(msg.playerId, msg.config.mode)
+      this.welcomeCb?.(msg.playerId, msg.config.mode, msg.players)
     } else if (msg.type === 'start') {
       this.startCb?.()
     } else if (msg.type === 'snapshot') {
@@ -131,6 +135,10 @@ export class NetClient {
       this.snapshotCb?.(msg.snapshot)
     } else if (msg.type === 'ping') {
       this.transport.send({ type: 'pong', t: msg.t })
+    } else if (msg.type === 'playerJoined') {
+      this.playerJoinedCb?.(msg.playerId, msg.name)
+    } else if (msg.type === 'playerLeft') {
+      this.playerLeftCb?.(msg.playerId)
     }
   }
 

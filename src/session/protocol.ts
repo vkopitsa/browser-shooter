@@ -79,7 +79,7 @@ export type NetMessage =
   | { type: 'input'; playerId: string; input: PlayerInput }
   | { type: 'snapshot'; snapshot: Snapshot }
   | { type: 'join'; name: string; team?: Team }
-  | { type: 'welcome'; playerId: string; mode: GameMode; config: MatchConfig }
+  | { type: 'welcome'; playerId: string; mode: GameMode; config: MatchConfig; players: string[] }
   | { type: 'playerJoined'; playerId: string; name: string }
   | { type: 'playerLeft'; playerId: string }
   | { type: 'ping'; t: number }   // host→client latency probe (echo t back)

@@ -16,7 +16,7 @@ describe('NetClient PvP', () => {
   it('stores match config from welcome', () => {
     const { t, deliver } = fakeTransport()
     const c = new NetClient(t)
-    deliver({ type: 'welcome', playerId: 'p1', mode: 'pvp', config: { mode: 'pvp', damagePolicy: 'ffa', fragLimit: 5 } })
+    deliver({ type: 'welcome', playerId: 'p1', mode: 'pvp', config: { mode: 'pvp', damagePolicy: 'ffa', fragLimit: 5 }, players: [] })
     expect(c.config).toEqual({ mode: 'pvp', damagePolicy: 'ffa', fragLimit: 5 })
     expect(c.mode).toBe('pvp')
   })
