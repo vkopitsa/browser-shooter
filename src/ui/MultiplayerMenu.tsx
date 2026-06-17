@@ -11,6 +11,9 @@ interface MultiplayerMenuProps {
   onStart: () => void          // host begins the match
   onBack: () => void
   onRefresh: () => void        // re-query the directory
+  myTeam?: import('../types').Team
+  onSelectTeam?: (team: import('../types').Team) => void
+  roster?: { ct: string[]; t: string[] }
 }
 
 const panel: React.CSSProperties = {
@@ -39,6 +42,24 @@ export const MultiplayerMenu: React.FC<MultiplayerMenuProps> = (p) => {
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {p.players.map((name) => <li key={name}>{name}</li>)}
         </ul>
+        {p.onSelectTeam && (
+          <div style={{ display: 'flex', gap: 16, marginTop: 12 }}>
+            <button onClick={() => p.onSelectTeam!('ct')}
+              style={{ padding: '8px 16px', background: p.myTeam === 'ct' ? '#3a6ea5' : '#1d3a5f', color: '#fff', border: '1px solid #3a6ea5', cursor: 'pointer' }}>
+              CT{p.roster ? ` (${p.roster.ct.length})` : ''}
+            </button>
+            <button onClick={() => p.onSelectTeam!('t')}
+              style={{ padding: '8px 16px', background: p.myTeam === 't' ? '#a5703a' : '#5f3a1d', color: '#fff', border: '1px solid #a5703a', cursor: 'pointer' }}>
+              T{p.roster ? ` (${p.roster.t.length})` : ''}
+            </button>
+          </div>
+        )}
+        {p.roster && (
+          <div style={{ display: 'flex', gap: 40, marginTop: 12, fontFamily: 'monospace' }}>
+            <div><div style={{ color: '#3a6ea5' }}>COUNTER-TERRORISTS</div>{p.roster.ct.map((n, i) => <div key={i}>{n}</div>)}</div>
+            <div><div style={{ color: '#a5703a' }}>TERRORISTS</div>{p.roster.t.map((n, i) => <div key={i}>{n}</div>)}</div>
+          </div>
+        )}
         {p.isHost
           ? <button style={btn} onClick={p.onStart}>Start</button>
           : <p>Waiting for host to start…</p>}

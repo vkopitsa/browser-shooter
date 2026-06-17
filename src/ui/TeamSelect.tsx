@@ -2,9 +2,25 @@ import type { Team } from '../types'
 
 interface TeamSelectProps {
   onSelect: (team: Team) => void
+  selected?: Team
+  counts?: { ct: number; t: number }
 }
 
-export function TeamSelect({ onSelect }: TeamSelectProps) {
+export function TeamSelect({ onSelect, selected, counts }: TeamSelectProps) {
+  const card = (team: Team, label: string, bg: string, border: string) => (
+    <button
+      onClick={() => onSelect(team)}
+      style={{
+        padding: '20px 32px', background: bg, color: '#fff',
+        border: selected === team ? '3px solid #fff' : `1px solid ${border}`,
+        cursor: 'pointer', fontSize: 16, minWidth: 200,
+      }}
+    >
+      <div>{label}</div>
+      {counts && <div style={{ opacity: 0.7, fontSize: 13, marginTop: 6 }}>{team === 'ct' ? counts.ct : counts.t} players</div>}
+    </button>
+  )
+
   return (
     <div style={{
       position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
@@ -13,18 +29,8 @@ export function TeamSelect({ onSelect }: TeamSelectProps) {
     }}>
       <h2 style={{ margin: 0 }}>CHOOSE YOUR SIDE</h2>
       <div style={{ display: 'flex', gap: 24 }}>
-        <button
-          onClick={() => onSelect('ct')}
-          style={{ padding: '20px 32px', background: '#1d3a5f', color: '#fff', border: '1px solid #3a6ea5', cursor: 'pointer', fontSize: 16 }}
-        >
-          Counter-Terrorist
-        </button>
-        <button
-          onClick={() => onSelect('t')}
-          style={{ padding: '20px 32px', background: '#5f3a1d', color: '#fff', border: '1px solid #a5703a', cursor: 'pointer', fontSize: 16 }}
-        >
-          Terrorist
-        </button>
+        {card('ct', 'Counter-Terrorist', '#1d3a5f', '#3a6ea5')}
+        {card('t', 'Terrorist', '#5f3a1d', '#a5703a')}
       </div>
     </div>
   )
