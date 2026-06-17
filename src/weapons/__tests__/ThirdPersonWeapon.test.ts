@@ -22,7 +22,6 @@ describe('ThirdPersonWeapon', () => {
 
   it('setWeapon swaps visible model', () => {
     const w = new ThirdPersonWeapon('pistol')
-    const initialChildren = w.group.children.length
     w.setWeapon('ak')
     // Should still have children after swap
     expect(w.group.children.length).toBeGreaterThan(0)
