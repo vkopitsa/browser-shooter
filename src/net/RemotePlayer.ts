@@ -2,8 +2,10 @@ import * as THREE from 'three'
 import { buildCharacter } from '../entities/CharacterModel'
 import { EYE_HEIGHT } from '../player/Player'
 import type { EntityState } from '../session/protocol'
+import type { Team } from '../types'
 
 const INTERP_DELAY = 100
+const TEAM_COLOR = { ct: 0x3a6ea5, t: 0xa5703a } as const
 
 interface InterpEntry {
   position: THREE.Vector3
@@ -14,6 +16,7 @@ interface InterpEntry {
 export class RemotePlayer {
   readonly group: THREE.Group
   private buffer: InterpEntry[] = []
+  private team: Team | null = null
   isDead = false
 
   constructor(readonly id: string, name: string, tint = 0x3399ff) {
@@ -31,6 +34,11 @@ export class RemotePlayer {
     if (this.buffer.length === 1) {
       this.setFeet(this.buffer[0].position)
       this.group.rotation.y = this.buffer[0].rotationY
+    }
+
+    if (s.team && s.team !== this.team) {
+      this.team = s.team
+      this.applyTeamColor(TEAM_COLOR[s.team])
     }
   }
 
@@ -78,6 +86,20 @@ export class RemotePlayer {
     if (pos) this.setFeet(pos)
     this.group.rotation.y = this.getInterpolatedRotation(performance.now())
     this.group.visible = !this.isDead
+  }
+
+  private applyTeamColor(color: number): void {
+    const seen = new Set<THREE.MeshStandardMaterial>()
+    this.group.traverse((o) => {
+      if (!(o instanceof THREE.Mesh)) return
+      if (o.userData.zone === 'head') return // preserve skin color
+      const mat = o.material
+      if (!(mat instanceof THREE.MeshStandardMaterial)) return
+      if (!seen.has(mat)) {
+        seen.add(mat)
+        mat.color.setHex(color)
+      }
+    })
   }
 
   /** Place the avatar so its feet (model origin y=0) rest on the ground. The
