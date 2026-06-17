@@ -735,6 +735,8 @@ function App() {
           onSingleplayer={() => updateGameState('teamselect')}
           onMultiplayer={() => updateGameState('mpmenu')}
           onSettings={() => updateGameState('settings')}
+          onAbout={() => {}}
+          onHelp={() => {}}
         />
       )}
 
