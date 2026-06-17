@@ -560,14 +560,31 @@ function App() {
 
       client.predictLocal(dt)
 
+      // Predicted fire feedback. The host is authoritative for hits, but the
+      // client owns its own gun feel: tick the local weapon and, when it fires,
+      // play the sound, kick the viewmodel and decrement ammo locally so the
+      // joiner sees/hears their shots instead of a dead gun.
+      const isMoving = m.forward || m.backward || m.left || m.right
+      const weaponMgr = data.session.weaponManager
+      weaponMgr.update(dt)
+      let firedThisFrame = false
+      if (controls.shoot && !storeOpenRef.current && weaponMgr.current.shoot()) {
+        firedThisFrame = true
+        data.viewmodel?.fire()
+        data.audio.playWeaponShoot(weaponVisual(weaponMgr.current.type), client.getLocalPosition())
+      }
+      data.viewmodel?.update(dt, isMoving)
+      setAmmo(weaponMgr.current.ammo)
+      setWeaponName(weaponMgr.current.def.name)
+
       // Smart crosshair (client is non-authoritative, so drive it from local input).
-      const weapon = data.session.weaponManager.current
+      const weapon = weaponMgr.current
       const ch = crosshairRef.current
       ch.config = resolveCrosshair(settingsRef.current.crosshair, weapon.type)
       ch.bloom = stepBloom(ch.bloom, dt, {
-        moving: m.forward || m.backward || m.left || m.right,
+        moving: isMoving,
         airborne: m.jump,
-        shotsFired: 0,
+        shotsFired: firedThisFrame ? 1 : 0,
         weaponSpread: weapon.def.spread,
       })
 
@@ -584,6 +601,12 @@ function App() {
         engine.camera.position.copy(localPos)
       }
       engine.camera.rotation.set(localRot.x, localRot.y, 0, 'YXZ')
+
+      // Muzzle flash for the local shot, now that the camera orientation is set.
+      if (firedThisFrame) {
+        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(engine.camera.quaternion)
+        particleSystem.muzzleFlash(engine.camera.position.clone().add(fwd), fwd)
+      }
 
       data.audio.updateListenerPosition(engine.camera.position.x, engine.camera.position.y, engine.camera.position.z)
       setHealth(snap.players.find(p => p.id === client.playerId)?.health ?? 100)

@@ -18,6 +18,15 @@ describe('RemotePlayer', () => {
     expect(rp.group.position.x).toBeLessThanOrEqual(10)
   })
 
+  it('plants the avatar feet on the ground (snapshot y is eye height, not feet)', () => {
+    const rp = new RemotePlayer('p1', 'Alice')
+    // A grounded player reports position.y = EYE_HEIGHT (2). The avatar model has
+    // feet at y=0, so the group must be lowered by EYE_HEIGHT or it floats.
+    rp.pushState({ id: 'p1', kind: 'player', type: 'player', position: { x: 0, y: 2, z: 0 }, rotationY: 0, health: 100, isDead: false })
+    rp.update(0)
+    expect(rp.group.position.y).toBeCloseTo(0)
+  })
+
   it('interpolates between two bracketed timestamps', () => {
     const rp = new RemotePlayer('p1', 'Alice')
     const t0 = 1000

@@ -1,6 +1,9 @@
 import * as THREE from 'three'
 import { HealthSystem } from '../systems/HealthSystem'
 
+/** Camera/eye height above the player's feet. `position.y` is the eye, not the feet. */
+export const EYE_HEIGHT = 2
+
 export class Player {
   position: THREE.Vector3
   velocity: THREE.Vector3
@@ -14,7 +17,7 @@ export class Player {
   private healthSystem: HealthSystem
 
   constructor() {
-    this.position = new THREE.Vector3(0, 2, 0)
+    this.position = new THREE.Vector3(0, EYE_HEIGHT, 0)
     this.velocity = new THREE.Vector3()
     this.rotation = new THREE.Euler(0, 0, 0, 'YXZ')
     this.healthSystem = new HealthSystem()
@@ -110,8 +113,8 @@ export class Player {
     this.position.z += this.velocity.z * dt
     this.position.y += this.yVelocity * dt
 
-    if (this.position.y <= 2) {
-      this.position.y = 2
+    if (this.position.y <= EYE_HEIGHT) {
+      this.position.y = EYE_HEIGHT
       this.yVelocity = 0
       this.isGrounded = true
     }

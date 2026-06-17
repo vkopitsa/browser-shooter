@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { buildCharacter } from '../entities/CharacterModel'
+import { EYE_HEIGHT } from '../player/Player'
 import type { EntityState } from '../session/protocol'
 
 const INTERP_DELAY = 100
@@ -28,7 +29,7 @@ export class RemotePlayer {
     })
     while (this.buffer.length > 10) this.buffer.shift()
     if (this.buffer.length === 1) {
-      this.group.position.copy(this.buffer[0].position)
+      this.setFeet(this.buffer[0].position)
       this.group.rotation.y = this.buffer[0].rotationY
     }
   }
@@ -74,9 +75,15 @@ export class RemotePlayer {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   update(_dt: number): void {
     const pos = this.getInterpolatedPosition(performance.now())
-    if (pos) this.group.position.copy(pos)
+    if (pos) this.setFeet(pos)
     this.group.rotation.y = this.getInterpolatedRotation(performance.now())
     this.group.visible = !this.isDead
+  }
+
+  /** Place the avatar so its feet (model origin y=0) rest on the ground. The
+   *  snapshot position is the player's eye, so drop the group by EYE_HEIGHT. */
+  private setFeet(eyePos: THREE.Vector3): void {
+    this.group.position.set(eyePos.x, eyePos.y - EYE_HEIGHT, eyePos.z)
   }
 
   dispose(): void {
