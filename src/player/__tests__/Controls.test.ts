@@ -19,7 +19,7 @@ describe('Controls', () => {
 
   beforeEach(() => {
     element = createMockElement()
-    controls = new Controls(element)
+    controls = new Controls(element, () => 'playing')
   })
 
   afterEach(() => {

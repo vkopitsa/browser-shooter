@@ -1,3 +1,5 @@
+import type { GameState } from '../types'
+
 export class Controls {
   forward = false
   backward = false
@@ -6,6 +8,7 @@ export class Controls {
   jump = false
   shoot = false
   private element: HTMLElement
+  private getGameState: () => GameState
   private boundKeyDown: (e: KeyboardEvent) => void
   private boundKeyUp: (e: KeyboardEvent) => void
   private boundMouseDown: (e: MouseEvent) => void
@@ -18,8 +21,9 @@ export class Controls {
   onScoreboard: ((show: boolean) => void) | null = null
   private scoreboardHeld = false
 
-  constructor(element: HTMLElement) {
+  constructor(element: HTMLElement, getGameState: () => GameState) {
     this.element = element
+    this.getGameState = getGameState
 
     this.boundKeyDown = (e: KeyboardEvent) => this.onKeyDown(e)
     this.boundKeyUp = (e: KeyboardEvent) => this.onKeyUp(e)
@@ -76,7 +80,7 @@ export class Controls {
   private onMouseDown(e: MouseEvent) {
     if (e.button === 0) {
       this.shoot = true
-      if (document.pointerLockElement !== this.element) {
+      if (this.getGameState() === 'playing' && document.pointerLockElement !== this.element) {
         this.element.requestPointerLock()
       }
     }

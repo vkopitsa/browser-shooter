@@ -333,7 +333,7 @@ function App() {
     engine.scene.add(engine.camera) // so the camera-parented viewmodel renders
     data.viewmodel = new Viewmodel(engine.camera)
     data.particleSystem = new ParticleSystem(engine.scene)
-    data.controls = new Controls(container)
+    data.controls = new Controls(container, () => gameStateRef.current)
     data.controls.onMouseMove = onMouseMove
     data.controls.onCycleWeapon = () => {
       if (gameStateRef.current !== 'playing') return
