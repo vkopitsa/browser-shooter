@@ -3,6 +3,7 @@ import { Player } from '../player/Player'
 import { ARENA_SIZE } from '../session/GameSession'
 import type { Transport } from '../session/Transport'
 import type { GameMode, NetMessage, PlayerInput, SessionEvent, Snapshot } from '../session/protocol'
+import type { MatchConfig } from '../session/MatchConfig'
 
 interface InterpEntry {
   snapshot: { position: THREE.Vector3; rotationY: number; rotationX: number; health: number; isDead: boolean }
@@ -15,6 +16,7 @@ const MAX_PENDING = 256
 export class NetClient {
   playerId: string | null = null
   mode: GameMode | null = null
+  config: MatchConfig | null = null
   latestSnapshot: Snapshot | null = null
 
   private localSeq = 0
@@ -24,6 +26,7 @@ export class NetClient {
   private snapshotCb: ((s: Snapshot) => void) | null = null
   private welcomeCb: ((playerId: string, mode: GameMode) => void) | null = null
   private eventCb: ((ev: SessionEvent) => void) | null = null
+  private startCb: (() => void) | null = null
   private interpBuffers = new Map<string, InterpEntry[]>()
 
   constructor(public transport: Transport) {
@@ -110,12 +113,16 @@ export class NetClient {
   onSnapshot(cb: (s: Snapshot) => void): void { this.snapshotCb = cb }
   onWelcome(cb: (playerId: string, mode: GameMode) => void): void { this.welcomeCb = cb }
   onEvent(cb: (ev: SessionEvent) => void): void { this.eventCb = cb }
+  onStart(cb: () => void): void { this.startCb = cb }
 
   private handle(msg: NetMessage): void {
     if (msg.type === 'welcome') {
       this.playerId = msg.playerId
-      this.mode = msg.mode
-      this.welcomeCb?.(msg.playerId, msg.mode)
+      this.config = msg.config
+      this.mode = msg.config.mode
+      this.welcomeCb?.(msg.playerId, msg.config.mode)
+    } else if (msg.type === 'start') {
+      this.startCb?.()
     } else if (msg.type === 'snapshot') {
       this.latestSnapshot = msg.snapshot
       this.reconcile(msg.snapshot)
