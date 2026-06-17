@@ -7,6 +7,7 @@ import { ThirdPersonWeapon } from '../weapons/ThirdPersonWeapon'
 
 const INTERP_DELAY = 100
 const TEAM_COLOR = { ct: 0x3a6ea5, t: 0xa5703a } as const
+const VALID_WEAPON_TYPES: WeaponType[] = ['pistol', 'usp', 'glock', 'deagle', 'm4', 'aug', 'ak', 'galil', 'mp5', 'shotgun', 'awp', 'rifle']
 
 interface InterpEntry {
   position: THREE.Vector3
@@ -46,11 +47,8 @@ export class RemotePlayer {
       this.applyTeamColor(TEAM_COLOR[s.team])
     }
 
-    if (s.weaponType) {
-      const validTypes: WeaponType[] = ['pistol', 'usp', 'glock', 'deagle', 'm4', 'aug', 'ak', 'galil', 'mp5', 'shotgun', 'awp', 'rifle']
-      if (validTypes.includes(s.weaponType as WeaponType)) {
-        this.thirdPersonWeapon.setWeapon(s.weaponType as WeaponType)
-      }
+    if (s.weaponType && VALID_WEAPON_TYPES.includes(s.weaponType as WeaponType)) {
+      this.thirdPersonWeapon.setWeapon(s.weaponType as WeaponType)
     }
   }
 
