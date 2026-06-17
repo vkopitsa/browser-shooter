@@ -190,5 +190,16 @@ describe('Controls', () => {
     expect(removeSpy).toHaveBeenCalledWith('mousedown', expect.any(Function))
     expect(removeSpy).toHaveBeenCalledWith('mouseup', expect.any(Function))
     expect(removeSpy).toHaveBeenCalledWith('mousemove', expect.any(Function))
+    expect(removeSpy).toHaveBeenCalledWith('pointerlockchange', expect.any(Function))
+  })
+
+  it('resets shoot flag when pointer lock is lost', () => {
+    controls.shoot = true
+    Object.defineProperty(document, 'pointerLockElement', {
+      value: null,
+      configurable: true,
+    })
+    document.dispatchEvent(new Event('pointerlockchange'))
+    expect(controls.shoot).toBe(false)
   })
 })

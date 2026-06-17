@@ -39,6 +39,7 @@ export class Controls {
     document.addEventListener('mousedown', this.boundMouseDown)
     document.addEventListener('mouseup', this.boundMouseUp)
     document.addEventListener('mousemove', this.boundMouseMove)
+    document.addEventListener('pointerlockchange', this.boundPointerLockChange)
   }
 
   private boundMouseMove = (e: MouseEvent) => {
@@ -77,6 +78,12 @@ export class Controls {
     }
   }
 
+  private boundPointerLockChange = () => {
+    if (document.pointerLockElement !== this.element) {
+      this.shoot = false
+    }
+  }
+
   private onMouseDown(e: MouseEvent) {
     if (e.button === 0) {
       this.shoot = true
@@ -108,6 +115,7 @@ export class Controls {
     document.removeEventListener('mousedown', this.boundMouseDown)
     document.removeEventListener('mouseup', this.boundMouseUp)
     document.removeEventListener('mousemove', this.boundMouseMove)
+    document.removeEventListener('pointerlockchange', this.boundPointerLockChange)
     if (document.pointerLockElement === this.element) {
       document.exitPointerLock()
     }

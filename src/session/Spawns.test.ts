@@ -16,4 +16,14 @@ describe('pickSpawn', () => {
     const b = pickSpawn('ct', 1)
     expect(a.equals(b)).toBe(false)
   })
+
+  it('picks a random spawn when no index is provided', () => {
+    const spawns = new Set<string>()
+    for (let i = 0; i < 20; i++) {
+      const pos = pickSpawn('ct')
+      spawns.add(`${pos.x},${pos.z}`)
+    }
+    // With 4 spawn points and 20 tries, we should get at least 2 distinct positions
+    expect(spawns.size).toBeGreaterThanOrEqual(2)
+  })
 })

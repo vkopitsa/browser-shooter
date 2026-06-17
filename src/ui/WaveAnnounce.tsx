@@ -7,19 +7,24 @@ interface WaveAnnounceProps {
 
 export const WaveAnnounce: React.FC<WaveAnnounceProps> = ({ wave, visible }) => {
   const [phase, setPhase] = useState<'enter' | 'hold' | 'exit' | 'hidden'>('hidden')
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
   useEffect(() => {
+    for (const t of timersRef.current) clearTimeout(t)
+    timersRef.current = []
     if (visible && wave > 0) {
       setPhase('enter')
-      timerRef.current = setTimeout(() => setPhase('hold'), 300)
-      timerRef.current = setTimeout(() => setPhase('exit'), 2000)
-      timerRef.current = setTimeout(() => setPhase('hidden'), 2500)
+      timersRef.current.push(
+        setTimeout(() => setPhase('hold'), 300),
+        setTimeout(() => setPhase('exit'), 2000),
+        setTimeout(() => setPhase('hidden'), 2500),
+      )
     } else {
       setPhase('hidden')
     }
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
+      for (const t of timersRef.current) clearTimeout(t)
+      timersRef.current = []
     }
   }, [visible, wave])
 

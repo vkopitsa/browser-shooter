@@ -77,4 +77,18 @@ describe('Weapon', () => {
     expect(w.def.reloadTime).toBeCloseTo(1.75)
     expect(w.def.damage).toBe(60)
   })
+
+  it('addAmmo clamps negative amounts to zero', () => {
+    const w = new Weapon('pistol')
+    w.ammo = 10
+    w.addAmmo(-20)
+    expect(w.ammo).toBe(0)
+  })
+
+  it('addAmmo does not exceed max', () => {
+    const w = new Weapon('pistol')
+    w.ammo = 55
+    w.addAmmo(100)
+    expect(w.ammo).toBe(60)
+  })
 })

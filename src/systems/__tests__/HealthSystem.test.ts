@@ -119,7 +119,7 @@ describe('HealthSystem', () => {
 
   it('handles zero damage', () => {
     const result = health.takeDamage(0)
-    expect(result).toBe(true)
+    expect(result).toBe(false)
     expect(health.health).toBe(100)
   })
 

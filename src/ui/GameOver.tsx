@@ -15,7 +15,7 @@ export const GameOver: React.FC<GameOverProps> = ({
   onRestart,
   onMenu,
 }) => {
-  const isNewHighScore = score >= highScore && score > 0
+  const isNewHighScore = score > highScore && score > 0
 
   return (
     <div style={{

@@ -4,7 +4,8 @@ export class ScoreSystem {
   wave: number = 0
 
   constructor() {
-    this.highScore = parseInt(localStorage.getItem('browser-shooter-highscore') || '0', 10)
+    const stored = parseInt(localStorage.getItem('browser-shooter-highscore') || '0', 10)
+    this.highScore = Number.isFinite(stored) && stored > 0 ? stored : 0
   }
 
   addKill(points: number) {

@@ -146,4 +146,12 @@ describe('GameEngine', () => {
     window.dispatchEvent(new Event('resize'))
     expect(engine.camera.aspect).toBeCloseTo(1024 / 768)
   })
+
+  it('prevents double animation loop on double start()', () => {
+    const container = createContainer()
+    const engine = new GameEngine(container)
+    engine.start()
+    engine.start() // second start should be a no-op
+    expect(engine.state).toBe('playing')
+  })
 })

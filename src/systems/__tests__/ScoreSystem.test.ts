@@ -129,8 +129,6 @@ describe('ScoreSystem', () => {
   it('handles NaN high score in localStorage', () => {
     localStorage.setItem('browser-shooter-highscore', 'not-a-number')
     const score = new ScoreSystem()
-    // parseInt('not-a-number') returns NaN, which is the current behavior
-    // The ScoreSystem constructor doesn't guard against NaN
-    expect(score.highScore).toBeNaN()
+    expect(score.highScore).toBe(0)
   })
 })

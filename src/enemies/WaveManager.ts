@@ -17,6 +17,7 @@ export class WaveManager {
   spawnQueue: string[] = []
   waveActive: boolean = false
   wavePauseTimer: number = 0
+  private nextEnemyId = 0
   /** When false, waves never auto-start or auto-advance; use spawnNextWave() instead. */
   auto: boolean = true
   onWaveComplete?: () => void
@@ -77,6 +78,7 @@ export class WaveManager {
       const type = this.spawnQueue.pop()!
       const position = this.getRandomSpawnPosition(arenaSize)
       const enemy = new Enemy(type, position)
+      enemy.id = `enemy-${this.nextEnemyId++}`
       this.onEnemySpawned?.(enemy)
       return enemy
     }
