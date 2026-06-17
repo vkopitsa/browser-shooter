@@ -145,6 +145,14 @@ export class GameSession {
   step(dt: number): SessionEvent[] {
     const events: SessionEvent[] = []
     this.tick++
+    // Respawn any players whose timer elapsed.
+    for (const id of this.respawnQueue.update(dt)) {
+      const entity = this.playerMap.get(id)
+      if (!entity) continue
+      entity.player.position.copy(pickSpawn(entity.team))
+      entity.player.revive()
+      events.push({ type: 'playerRespawned', playerId: id })
+    }
     // Advance every player: look, movement+collision, weapons, shooting.
     for (const entity of this.playerMap.values()) {
       const input = this.getInput(entity.id)
@@ -200,7 +208,12 @@ export class GameSession {
         }
         if (targetPlayer.isDead) {
           events.push({ type: 'playerDied', playerId: target.id })
-          if (target.id === this.localId) return events
+          if (this.config.mode === 'coop') {
+            if (target.id === this.localId) return events
+          } else {
+            this.scoreboard.recordDeath(target.id)
+            this.respawnQueue.enqueue(target.id, RESPAWN_DELAY)
+          }
         }
       }
     }

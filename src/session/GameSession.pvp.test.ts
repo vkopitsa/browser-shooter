@@ -58,6 +58,24 @@ describe('GameSession PvP damage', () => {
   })
 })
 
+describe('GameSession respawn', () => {
+  it('respawns a killed player after the delay at a team spawn', () => {
+    const s = new GameSession({ mode: 'pvp', damagePolicy: 'team', fragLimit: 0 })
+    const b = s.addPlayer('b', 'Bob', 't')
+    b.player.position.set(0, 2, -8)
+    // Kill b directly
+    b.player.takeDamage(1000)
+    expect(b.player.isDead).toBe(true)
+    s.respawnQueue.enqueue('b', 3)
+    // advance time past the delay
+    for (let i = 0; i < 100; i++) s.step(1 / 30)
+    expect(b.player.isDead).toBe(false)
+    expect(b.player.health).toBe(100)
+    // moved to t-side spawn (positive x region per Spawns)
+    expect(b.player.position.x).toBeGreaterThan(0)
+  })
+})
+
 describe('GameSession team + scores in snapshot', () => {
   it('defaults to coop config and tags the local player with a team', () => {
     const s = new GameSession()
