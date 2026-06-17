@@ -88,5 +88,3 @@ export const WeaponIcon: React.FC<IconProps> = ({ name, size = 64 }) => {
   if (!IconComponent) return <div style={{ width: size, height: size, background: '#333' }} />
   return <IconComponent size={size} />
 }
-
-export const iconNames = Object.keys(icons)
