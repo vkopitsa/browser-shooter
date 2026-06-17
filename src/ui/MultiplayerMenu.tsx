@@ -18,7 +18,8 @@ interface MultiplayerMenuProps {
 
 const panel: React.CSSProperties = {
   position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-  alignItems: 'center', justifyContent: 'center', gap: 16,
+  alignItems: 'center', justifyContent: 'flex-start', gap: 16, overflow: 'auto',
+  padding: '20vh 16px 24px',
   background: 'linear-gradient(180deg,#0a0a1a,#1a1a3e)', color: 'white', fontFamily: 'monospace',
 }
 const btn: React.CSSProperties = {
