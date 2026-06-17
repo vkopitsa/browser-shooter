@@ -32,6 +32,8 @@ import { SettingsMenu } from './ui/SettingsMenu'
 import { GameOver } from './ui/GameOver'
 import { PauseMenu } from './ui/PauseMenu'
 import { DamageOverlay } from './ui/DamageOverlay'
+import { AboutModal } from './ui/AboutModal'
+import { HelpModal } from './ui/HelpModal'
 import { BuyMenu } from './ui/BuyMenu'
 import { TeamSelect } from './ui/TeamSelect'
 import { Scoreboard } from './ui/Scoreboard'
@@ -71,6 +73,8 @@ function App() {
   const [servers, setServers] = useState<ServerRow[]>([])
   const [settings, setSettings] = useState<Settings>(() => loadSettings())
   const [showScoreboard, setShowScoreboard] = useState(false)
+  const [showAbout, setShowAbout] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const [scoreboardPlayers, setScoreboardPlayers] = useState<EntityState[]>([])
   const lastWaveRef = useRef(0)
   const gameStateRef = useRef<GameState>('menu')
@@ -731,13 +735,17 @@ function App() {
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
       {gameState === 'menu' && (
-        <MainMenu
-          onSingleplayer={() => updateGameState('teamselect')}
-          onMultiplayer={() => updateGameState('mpmenu')}
-          onSettings={() => updateGameState('settings')}
-          onAbout={() => {}}
-          onHelp={() => {}}
-        />
+        <>
+          <MainMenu
+            onSingleplayer={() => updateGameState('teamselect')}
+            onMultiplayer={() => updateGameState('mpmenu')}
+            onSettings={() => updateGameState('settings')}
+            onAbout={() => setShowAbout(true)}
+            onHelp={() => setShowHelp(true)}
+          />
+          {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
+          {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+        </>
       )}
 
       {gameState === 'settings' && (
