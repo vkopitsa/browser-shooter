@@ -32,6 +32,8 @@ import { SettingsMenu } from './ui/SettingsMenu'
 import { GameOver } from './ui/GameOver'
 import { PauseMenu } from './ui/PauseMenu'
 import { DamageOverlay } from './ui/DamageOverlay'
+import { AboutModal } from './ui/AboutModal'
+import { HelpModal } from './ui/HelpModal'
 import { BuyMenu } from './ui/BuyMenu'
 import { TeamSelect } from './ui/TeamSelect'
 import { Scoreboard } from './ui/Scoreboard'
@@ -84,6 +86,8 @@ function App() {
   const [servers, setServers] = useState<ServerRow[]>([])
   const [settings, setSettings] = useState<Settings>(() => loadSettings())
   const [showScoreboard, setShowScoreboard] = useState(false)
+  const [showAbout, setShowAbout] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const [scoreboardPlayers, setScoreboardPlayers] = useState<EntityState[]>([])
   const [showMatchSetup, setShowMatchSetup] = useState(false)
   const [myTeam, setMyTeam] = useState<Team>('ct')
@@ -383,7 +387,7 @@ function App() {
     engine.scene.add(engine.camera) // so the camera-parented viewmodel renders
     data.viewmodel = new Viewmodel(engine.camera)
     data.particleSystem = new ParticleSystem(engine.scene)
-    data.controls = new Controls(container)
+    data.controls = new Controls(container, () => gameStateRef.current)
     data.controls.onMouseMove = onMouseMove
     data.controls.onCycleWeapon = () => {
       if (gameStateRef.current !== 'playing') return
@@ -816,11 +820,17 @@ function App() {
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
       {gameState === 'menu' && (
-        <MainMenu
-          onSingleplayer={() => updateGameState('teamselect')}
-          onMultiplayer={() => updateGameState('mpmenu')}
-          onSettings={() => updateGameState('settings')}
-        />
+        <>
+          <MainMenu
+            onSingleplayer={() => updateGameState('teamselect')}
+            onMultiplayer={() => updateGameState('mpmenu')}
+            onSettings={() => updateGameState('settings')}
+            onAbout={() => setShowAbout(true)}
+            onHelp={() => setShowHelp(true)}
+          />
+          {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
+          {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+        </>
       )}
 
       {gameState === 'settings' && (

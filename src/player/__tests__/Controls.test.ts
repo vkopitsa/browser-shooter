@@ -19,7 +19,7 @@ describe('Controls', () => {
 
   beforeEach(() => {
     element = createMockElement()
-    controls = new Controls(element)
+    controls = new Controls(element, () => 'playing')
   })
 
   afterEach(() => {
@@ -92,6 +92,15 @@ describe('Controls', () => {
   it('requests pointer lock on mouse click', () => {
     document.dispatchEvent(new MouseEvent('mousedown', { button: 0 }))
     expect((element as any).requestPointerLock).toHaveBeenCalled()
+  })
+
+  it('does not request pointer lock when gameState is not playing', () => {
+    controls.destroy()
+    const el2 = createMockElement()
+    const paused = new Controls(el2, () => 'paused')
+    document.dispatchEvent(new MouseEvent('mousedown', { button: 0 }))
+    expect((el2 as any).requestPointerLock).not.toHaveBeenCalled()
+    paused.destroy()
   })
 
   it('does not request pointer lock if already locked', () => {

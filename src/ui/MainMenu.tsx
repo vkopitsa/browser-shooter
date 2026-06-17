@@ -4,9 +4,13 @@ interface MainMenuProps {
   onSingleplayer: () => void
   onMultiplayer: () => void
   onSettings: () => void
+  onAbout: () => void
+  onHelp: () => void
 }
 
-export const MainMenu: React.FC<MainMenuProps> = ({ onSingleplayer, onMultiplayer, onSettings }) => {
+export const MainMenu: React.FC<MainMenuProps> = ({
+  onSingleplayer, onMultiplayer, onSettings, onAbout, onHelp,
+}) => {
   return (
     <div style={{
       position: 'absolute',
@@ -32,7 +36,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({ onSingleplayer, onMultiplaye
         3D FPS Arena Wave Survival
       </p>
 
-      <div style={{ display: 'flex', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 280 }}>
         <button onClick={onSingleplayer} style={{
           padding: '16px 40px', fontSize: 22, fontWeight: 'bold', background: '#ff6600',
           color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer',
@@ -45,28 +49,14 @@ export const MainMenu: React.FC<MainMenuProps> = ({ onSingleplayer, onMultiplaye
           padding: '16px 40px', fontSize: 22, fontWeight: 'bold', background: '#444',
           color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer',
         }}>SETTINGS</button>
-      </div>
-
-      <div style={{
-        marginTop: 60,
-        padding: 30,
-        background: 'rgba(255,255,255,0.05)',
-        borderRadius: 12,
-        maxWidth: 400,
-      }}>
-        <h3 style={{ marginBottom: 15, color: '#ff6600' }}>Controls</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 20px', fontSize: 14 }}>
-          <span style={{ opacity: 0.6 }}>WASD</span><span>Move</span>
-          <span style={{ opacity: 0.6 }}>Mouse</span><span>Look</span>
-          <span style={{ opacity: 0.6 }}>Click</span><span>Shoot</span>
-          <span style={{ opacity: 0.6 }}>1-3</span><span>Switch Weapon</span>
-          <span style={{ opacity: 0.6 }}>R</span><span>Reload</span>
-          <span style={{ opacity: 0.6 }}>Space</span><span>Jump</span>
-          <span style={{ opacity: 0.6 }}>Tab</span><span>Scoreboard</span>
-          <span style={{ opacity: 0.6 }}>B</span><span>Buy Menu</span>
-          <span style={{ opacity: 0.6 }}>M</span><span>Mute Sound</span>
-          <span style={{ opacity: 0.6 }}>ESC</span><span>Pause</span>
-        </div>
+        <button onClick={onAbout} style={{
+          padding: '16px 40px', fontSize: 22, fontWeight: 'bold', background: '#333',
+          color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer',
+        }}>ABOUT</button>
+        <button onClick={onHelp} style={{
+          padding: '16px 40px', fontSize: 22, fontWeight: 'bold', background: '#333',
+          color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer',
+        }}>HELP</button>
       </div>
     </div>
   )
