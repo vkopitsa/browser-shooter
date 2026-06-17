@@ -1,4 +1,3 @@
-// src/ui/MatchOver.tsx
 import React from 'react'
 import type { Team } from '../types'
 import type { MatchScores } from '../session/protocol'

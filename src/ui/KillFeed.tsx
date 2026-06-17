@@ -1,4 +1,3 @@
-// src/ui/KillFeed.tsx
 import React from 'react'
 
 export interface KillLine { id: number; attacker: string; victim: string; teamkill: boolean }

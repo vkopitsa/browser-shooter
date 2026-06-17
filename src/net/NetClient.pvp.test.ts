@@ -1,4 +1,3 @@
-// src/net/NetClient.pvp.test.ts
 import { describe, it, expect } from 'vitest'
 import { NetClient } from './NetClient'
 import type { NetMessage } from '../session/protocol'

@@ -1,4 +1,3 @@
-// src/session/GameSession.pvp.test.ts
 import { describe, it, expect } from 'vitest'
 import { GameSession } from './GameSession'
 import * as THREE from 'three'

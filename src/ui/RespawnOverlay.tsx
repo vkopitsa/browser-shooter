@@ -1,4 +1,3 @@
-// src/ui/RespawnOverlay.tsx
 import React from 'react'
 
 export const RespawnOverlay: React.FC<{ seconds: number }> = ({ seconds }) => (

@@ -1,4 +1,3 @@
-// src/net/NetHost.pvp.test.ts
 import { describe, it, expect, vi } from 'vitest'
 import { NetHost } from './NetHost'
 import { GameSession } from '../session/GameSession'

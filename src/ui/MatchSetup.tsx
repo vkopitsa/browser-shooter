@@ -1,4 +1,3 @@
-// src/ui/MatchSetup.tsx
 import React, { useState } from 'react'
 import type { MatchConfig, DamagePolicy } from '../session/MatchConfig'
 import type { GameMode } from '../session/protocol'
