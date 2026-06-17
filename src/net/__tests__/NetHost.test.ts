@@ -7,13 +7,13 @@ import { NetHost } from '../NetHost'
 describe('NetHost', () => {
   it('registers a client, sends welcome, and applies its input', () => {
     const session = new GameSession()
-    const host = new NetHost(session, 'coop')
+    const host = new NetHost(session, { mode: 'coop', damagePolicy: 'team', fragLimit: 0 })
     const [hostSide, clientSide] = createLinkedTransports()
     const got: NetMessage[] = []
     clientSide.onMessage(m => got.push(m))
 
     host.addClient('player-2', 'Bob', hostSide)
-    expect(got).toContainEqual({ type: 'welcome', playerId: 'player-2', mode: 'coop' })
+    expect(got).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'welcome', playerId: 'player-2', mode: 'coop' })]))
     expect(session.playerIds()).toContain('player-2')
 
     clientSide.send({ type: 'input', playerId: 'player-2', input: { ...emptyInput(), forward: true } })
@@ -24,7 +24,7 @@ describe('NetHost', () => {
 
   it('tick broadcasts a snapshot to clients', () => {
     const session = new GameSession()
-    const host = new NetHost(session, 'coop')
+    const host = new NetHost(session, { mode: 'coop', damagePolicy: 'team', fragLimit: 0 })
     const [hostSide, clientSide] = createLinkedTransports()
     const got: NetMessage[] = []
     clientSide.onMessage(m => got.push(m))
@@ -41,7 +41,7 @@ describe('NetHost', () => {
 
   it('stamps ack on snapshots showing last processed input seq per player', () => {
     const session = new GameSession()
-    const host = new NetHost(session, 'coop')
+    const host = new NetHost(session, { mode: 'coop', damagePolicy: 'team', fragLimit: 0 })
     const [hostSide, clientSide] = createLinkedTransports()
     const got: NetMessage[] = []
     clientSide.onMessage(m => got.push(m))
@@ -62,7 +62,7 @@ describe('NetHost', () => {
 
   it('handles buy messages by applying item to the client player', () => {
     const session = new GameSession()
-    const host = new NetHost(session, 'coop')
+    const host = new NetHost(session, { mode: 'coop', damagePolicy: 'team', fragLimit: 0 })
     const [hostSide, clientSide] = createLinkedTransports()
 
     host.addClient('player-2', 'Bob', hostSide)
@@ -74,7 +74,7 @@ describe('NetHost', () => {
 
   it('measures client ping from a pong and stamps it onto broadcast snapshots', () => {
     const session = new GameSession()
-    const host = new NetHost(session, 'coop')
+    const host = new NetHost(session, { mode: 'coop', damagePolicy: 'team', fragLimit: 0 })
     const [hostSide, clientSide] = createLinkedTransports()
     const got: NetMessage[] = []
     clientSide.onMessage(m => got.push(m))

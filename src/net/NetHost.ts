@@ -1,6 +1,8 @@
 import type { GameSession } from '../session/GameSession'
 import type { Transport } from '../session/Transport'
-import type { GameMode, NetMessage, SessionEvent, Snapshot } from '../session/protocol'
+import type { NetMessage, SessionEvent, Snapshot } from '../session/protocol'
+import type { MatchConfig } from '../session/MatchConfig'
+import type { Team } from '../types'
 import { applyItem } from '../player/applyPurchase'
 import { findItem } from '../weapons/StoreCatalog'
 
@@ -16,10 +18,10 @@ export class NetHost {
   /** Monotonically increasing snapshot sequence number. */
   private snapSeq = 0
 
-  constructor(private session: GameSession, private mode: GameMode) {}
+  constructor(private session: GameSession, private config: MatchConfig) {}
 
-  addClient(playerId: string, name: string, transport: Transport): void {
-    this.session.addPlayer(playerId, name)
+  addClient(playerId: string, name: string, transport: Transport, team: Team = 'ct'): void {
+    this.session.addPlayer(playerId, name, team)
     this.lastSeq.set(playerId, 0)
     transport.onMessage((msg) => {
       if (msg.type === 'input' && msg.playerId === playerId) {
@@ -32,12 +34,20 @@ export class NetHost {
         const item = findItem(msg.item)
         if (entity && item) applyItem(item, entity.player, entity.weapons)
       } else if (msg.type === 'startWave' && msg.playerId === playerId) {
-        this.session.waveManager.spawnNextWave()
+        if (this.config.mode !== 'pvp') this.session.waveManager.spawnNextWave()
+      } else if (msg.type === 'setTeam' && msg.playerId === playerId) {
+        const entity = this.session.getPlayer(playerId)
+        if (entity && (msg.team === 'ct' || msg.team === 't')) entity.team = msg.team
       }
     })
-    transport.send({ type: 'welcome', playerId, mode: this.mode })
+    transport.send({ type: 'welcome', playerId, mode: this.config.mode, config: this.config })
     this.links.push({ playerId, transport })
     this.broadcast({ type: 'playerJoined', playerId, name })
+  }
+
+  /** Tell every client to leave the lobby and begin the match. */
+  startMatch(): void {
+    this.broadcast({ type: 'start' })
   }
 
   removeClient(playerId: string): void {

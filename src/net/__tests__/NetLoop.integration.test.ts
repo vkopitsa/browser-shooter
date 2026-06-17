@@ -8,7 +8,7 @@ import { NetClient } from '../NetClient'
 describe('NetHost + NetClient integration (M2)', () => {
   it("client's movement appears in snapshot with ack field", () => {
     const session = new GameSession()
-    const host = new NetHost(session, 'coop')
+    const host = new NetHost(session, { mode: 'coop', damagePolicy: 'team', fragLimit: 0 })
     const [hostSide, clientSide] = createLinkedTransports()
 
     const client = new NetClient(clientSide)
@@ -29,7 +29,7 @@ describe('NetHost + NetClient integration (M2)', () => {
 
   it('client receives events from snapshot', () => {
     const session = new GameSession()
-    const host = new NetHost(session, 'coop')
+    const host = new NetHost(session, { mode: 'coop', damagePolicy: 'team', fragLimit: 0 })
     const [hostSide, clientSide] = createLinkedTransports()
 
     const client = new NetClient(clientSide)
