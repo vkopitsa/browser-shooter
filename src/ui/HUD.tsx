@@ -17,6 +17,11 @@ interface HUDProps {
   money?: number
   ctScore?: number
   tScore?: number
+  bombState?: 'none' | 'carried' | 'dropped' | 'planting' | 'planted' | 'defusing' | 'defused' | 'exploded'
+  bombTimer?: number
+  bombSite?: 'A' | 'B'
+  plantProgress?: number
+  defuseProgress?: number
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -36,6 +41,11 @@ export const HUD: React.FC<HUDProps> = ({
   money,
   ctScore,
   tScore,
+  bombState,
+  bombTimer,
+  bombSite,
+  plantProgress,
+  defuseProgress,
 }) => {
   const healthPercent = maxHealth > 0 ? (health / maxHealth) * 100 : 0
   const healthColor = healthPercent > 60 ? '#00ff00' : healthPercent > 30 ? '#ffff00' : '#ff0000'
@@ -156,6 +166,61 @@ export const HUD: React.FC<HUDProps> = ({
           color: '#ff6600',
         }}>
           WAVE {wave + 1} INCOMING
+        </div>
+      )}
+
+      {/* Bomb timer when planted */}
+      {bombState === 'planted' && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          fontSize: 24,
+          fontFamily: 'monospace',
+          color: '#ff0000',
+          textAlign: 'center',
+        }}>
+          <div>BOMB PLANTED AT {bombSite}</div>
+          <div>{Math.ceil(bombTimer ?? 0)}s</div>
+        </div>
+      )}
+
+      {/* Plant progress bar */}
+      {bombState === 'planting' && (
+        <div style={{
+          position: 'absolute',
+          bottom: 100,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 200,
+          height: 10,
+          background: '#333',
+        }}>
+          <div style={{
+            width: `${(plantProgress ?? 0) * 100}%`,
+            height: '100%',
+            background: '#ffcc00',
+          }} />
+        </div>
+      )}
+
+      {/* Defuse progress bar */}
+      {bombState === 'defusing' && (
+        <div style={{
+          position: 'absolute',
+          bottom: 100,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 200,
+          height: 10,
+          background: '#333',
+        }}>
+          <div style={{
+            width: `${(defuseProgress ?? 0) * 100}%`,
+            height: '100%',
+            background: '#00ff00',
+          }} />
         </div>
       )}
     </div>

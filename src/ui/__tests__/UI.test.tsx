@@ -437,6 +437,88 @@ describe('competitive HUD', () => {
   })
 })
 
+describe('bomb indicators', () => {
+  it('shows bomb timer when planted', () => {
+    render(
+      <HUD
+        health={100}
+        maxHealth={100}
+        ammo={30}
+        maxAmmo={60}
+        weaponName="Pistol"
+        score={0}
+        wave={1}
+        waveActive={true}
+        enemiesRemaining={3}
+        bombState="planted"
+        bombTimer={35}
+        bombSite="A"
+      />
+    )
+    expect(screen.getByText('BOMB PLANTED AT A')).toBeInTheDocument()
+    expect(screen.getByText('35s')).toBeInTheDocument()
+  })
+
+  it('shows plant progress when planting', () => {
+    const { container } = render(
+      <HUD
+        health={100}
+        maxHealth={100}
+        ammo={30}
+        maxAmmo={60}
+        weaponName="Pistol"
+        score={0}
+        wave={1}
+        waveActive={true}
+        enemiesRemaining={3}
+        bombState="planting"
+        bombSite="B"
+        plantProgress={0.5}
+      />
+    )
+    const progressBar = container.querySelector('[style*="width: 50%"]')
+    expect(progressBar).toBeInTheDocument()
+  })
+
+  it('shows defuse progress when defusing', () => {
+    const { container } = render(
+      <HUD
+        health={100}
+        maxHealth={100}
+        ammo={30}
+        maxAmmo={60}
+        weaponName="Pistol"
+        score={0}
+        wave={1}
+        waveActive={true}
+        enemiesRemaining={3}
+        bombState="defusing"
+        defuseProgress={0.75}
+      />
+    )
+    const progressBar = container.querySelector('[style*="width: 75%"]')
+    expect(progressBar).toBeInTheDocument()
+  })
+
+  it('does not show bomb indicators when bombState is none', () => {
+    render(
+      <HUD
+        health={100}
+        maxHealth={100}
+        ammo={30}
+        maxAmmo={60}
+        weaponName="Pistol"
+        score={0}
+        wave={1}
+        waveActive={true}
+        enemiesRemaining={3}
+        bombState="none"
+      />
+    )
+    expect(screen.queryByText(/BOMB/)).not.toBeInTheDocument()
+  })
+})
+
 describe('PauseMenu', () => {
   it('renders paused title', () => {
     render(<PauseMenu onResume={() => {}} onMainMenu={() => {}} />)
