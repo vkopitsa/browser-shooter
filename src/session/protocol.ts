@@ -43,12 +43,24 @@ export interface EntityState {
   hasHelmet?: boolean  // players only; helmet state
 }
 
+export interface GrenadeState {
+  id: string
+  type: 'he' | 'flash' | 'smoke'
+  position: Vec3
+  velocity: Vec3
+  rotation: Vec3
+  bounces: number
+  fuseTimer: number
+  thrownBy: string
+}
+
 export interface Snapshot {
   tick: number
   seq: number
   ack: Record<string, number>
   players: EntityState[]
   enemies: EntityState[]
+  grenades: GrenadeState[]
   events: SessionEvent[]
   scores: MatchScores
   round?: number
@@ -102,6 +114,8 @@ export type SessionEvent =
   | { type: 'bombPickedUp'; playerId: string }
   | { type: 'bombExploded'; site: 'A' | 'B' }
   | { type: 'bombDefused'; site: 'A' | 'B' }
+  | { type: 'grenadeThrown'; playerId: string; grenadeType: 'he' | 'flash' | 'smoke'; position: Vec3; velocity: Vec3; id: string }
+  | { type: 'grenadeDetonated'; id: string; position: Vec3; grenadeType: 'he' | 'flash' | 'smoke'; affectedPlayers: string[] }
 
 /** Network envelope carried by Transport. */
 export type NetMessage =
