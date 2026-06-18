@@ -10,7 +10,7 @@ import { ParticleSystem } from './effects/ParticleSystem'
 import { AudioManager } from './audio/AudioManager'
 import { SoundEffects } from './audio/SoundEffects'
 import { createDamageIndicatorState, triggerDamage, updateDamageIndicator, type DamageIndicatorState } from './effects/DamageIndicator'
-import type { GameState, Team } from './types'
+import type { GameState, Team, GrenadeType } from './types'
 import { GameSession, ARENA_SIZE } from './session/GameSession'
 import { emptyInput, type EntityState } from './session/protocol'
 import { NetHost } from './net/NetHost'
@@ -53,6 +53,7 @@ import { defaultMatchConfig, type MatchConfig } from './session/MatchConfig'
 import type { MatchScores } from './session/protocol'
 import { BombState } from './session/BombCarrier'
 import { Matchmaker } from './net/Matchmaker'
+import { GrenadeManager } from './weapons/GrenadeManager'
 
 function moveToTeam(roster: { ct: string[]; t: string[] }, name: string, team: 'ct' | 't') {
   const ct = roster.ct.filter(n => n !== name)
@@ -103,6 +104,8 @@ function App() {
   const [bombSite, setBombSite] = useState<'A' | 'B' | null>(null)
   const [plantProgress, setPlantProgress] = useState(0)
   const [defuseProgress, setDefuseProgress] = useState(0)
+  const [grenadeInventory, setGrenadeInventory] = useState({ he: 0, flash: 0, smoke: 0 })
+  const [selectedGrenade, setSelectedGrenade] = useState<GrenadeType | null>(null)
 
   const lastWaveRef = useRef(0)
   const ownedRef = useRef<string[]>([])
@@ -161,6 +164,7 @@ function App() {
     pingTimer: 0,
     matchConfig: defaultMatchConfig() as MatchConfig,
     killSeq: 0,
+    grenadeManager: null as GrenadeManager | null,
   })
 
   const pushKill = useCallback((attacker: string, victim: string, teamkill: boolean) => {
@@ -199,6 +203,7 @@ function App() {
     fresh.waveManager.onWaveComplete = data.session.waveManager.onWaveComplete
     fresh.getPlayer(fresh.localId)!.name = settingsRef.current.playerName
     data.session = fresh
+    data.grenadeManager = new GrenadeManager()
     lookRef.current = { yaw: 0, pitch: 0 }
     data.money = 16000
     setShowScoreboard(false)
@@ -214,6 +219,7 @@ function App() {
     setScore(0); setWave(0); setHealth(100); setAmmo(60); setWeaponName('Pistol')
     setMoney(16000); setStoreOpen(false)
     setOwned([]); ownedRef.current = []; setMaxHealth(100)
+    setGrenadeInventory({ he: 0, flash: 0, smoke: 0 }); setSelectedGrenade(null)
     data.session.weaponManager.reset()
     data.session.player.resetLoadout()
     data.viewmodel?.setWeapon('pistol')
@@ -463,6 +469,40 @@ function App() {
       if (gameStateRef.current !== 'playing') { showScoreboardRef.current = false; setShowScoreboard(false); return }
       showScoreboardRef.current = show
       setShowScoreboard(show)
+    }
+
+    data.controls.onSelectGrenade = (type: GrenadeType) => {
+      if (gameStateRef.current !== 'playing') return
+      const gm = data.grenadeManager
+      if (gm?.select(type)) {
+        setSelectedGrenade(type)
+      }
+    }
+
+    data.controls.onCycleGrenade = () => {
+      if (gameStateRef.current !== 'playing') return
+      const gm = data.grenadeManager
+      if (gm) {
+        const next = gm.cycle()
+        setSelectedGrenade(next)
+      }
+    }
+
+    data.controls.onThrowGrenade = (mode: 'long' | 'short') => {
+      if (gameStateRef.current !== 'playing') return
+      const gm = data.grenadeManager
+      if (!gm?.selected) return
+      const session = data.session
+      if (session.throwGrenade(session.localId, gm.selected, mode)) {
+        setGrenadeInventory({
+          he: gm.getCount('he'),
+          flash: gm.getCount('flash'),
+          smoke: gm.getCount('smoke'),
+        })
+        if (!gm.has(gm.selected)) {
+          setSelectedGrenade(null)
+        }
+      }
     }
 
     data.session.waveManager.onEnemySpawned = (enemy) => {
@@ -1030,6 +1070,8 @@ function App() {
             bombSite={bombSite ?? undefined}
             plantProgress={plantProgress}
             defuseProgress={defuseProgress}
+            grenadeInventory={grenadeInventory}
+            selectedGrenade={selectedGrenade}
           />
           <Crosshair runtime={crosshairRef} />
           <Minimap
@@ -1086,6 +1128,30 @@ function App() {
                   break
                 case 'defuse_kit':
                   data.viewmodel?.setObjective('defuse_kit')
+                  break
+                case 'he_grenade':
+                  data.grenadeManager?.add('he')
+                  setGrenadeInventory({
+                    he: data.grenadeManager?.getCount('he') ?? 0,
+                    flash: data.grenadeManager?.getCount('flash') ?? 0,
+                    smoke: data.grenadeManager?.getCount('smoke') ?? 0,
+                  })
+                  break
+                case 'flashbang':
+                  data.grenadeManager?.add('flash')
+                  setGrenadeInventory({
+                    he: data.grenadeManager?.getCount('he') ?? 0,
+                    flash: data.grenadeManager?.getCount('flash') ?? 0,
+                    smoke: data.grenadeManager?.getCount('smoke') ?? 0,
+                  })
+                  break
+                case 'smoke_grenade':
+                  data.grenadeManager?.add('smoke')
+                  setGrenadeInventory({
+                    he: data.grenadeManager?.getCount('he') ?? 0,
+                    flash: data.grenadeManager?.getCount('flash') ?? 0,
+                    smoke: data.grenadeManager?.getCount('smoke') ?? 0,
+                  })
                   break
                 default:
                   data.viewmodel?.setWeapon(weaponVisual(wm.current.type))
