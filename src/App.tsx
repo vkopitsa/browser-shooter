@@ -493,14 +493,16 @@ function App() {
       const gm = data.grenadeManager
       if (!gm?.selected) return
       const session = data.session
-      if (session.throwGrenade(session.localId, gm.selected, mode)) {
+      const thrown = gm.selected
+      if (session.throwGrenade(session.localId, thrown, mode)) {
+        gm.remove(thrown)
         setGrenadeInventory({
           he: gm.getCount('he'),
           flash: gm.getCount('flash'),
           smoke: gm.getCount('smoke'),
         })
-        if (!gm.has(gm.selected)) {
-          setSelectedGrenade(null)
+        if (!gm.has(thrown)) {
+          setSelectedGrenade(gm.selected)
         }
       }
     }
