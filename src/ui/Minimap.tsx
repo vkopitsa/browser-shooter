@@ -6,6 +6,9 @@ interface MinimapProps {
   playerRotation: number
   enemies: THREE.Vector3[]
   arenaSize: number
+  bombsites?: { id: string; position: { x: number; z: number } }[]
+  bombCarrier?: string
+  bombPosition?: { x: number; z: number }
 }
 
 export const Minimap: React.FC<MinimapProps> = ({
@@ -13,6 +16,9 @@ export const Minimap: React.FC<MinimapProps> = ({
   playerRotation,
   enemies,
   arenaSize,
+  bombsites,
+  bombCarrier,
+  bombPosition,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -56,7 +62,28 @@ export const Minimap: React.FC<MinimapProps> = ({
         ctx.fill()
       }
     }
-  }, [playerPosition, playerRotation, enemies, arenaSize])
+
+    if (bombsites) {
+      for (const site of bombsites) {
+        const sx = cx + (site.position.x - playerPosition.x) * scale
+        const sy = cy + (site.position.z - playerPosition.z) * scale
+        ctx.fillStyle = site.id === 'A' ? '#ff3333' : '#3333ff'
+        ctx.font = 'bold 12px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(site.id, sx, sy)
+      }
+    }
+
+    if (bombPosition) {
+      const bx = cx + (bombPosition.x - playerPosition.x) * scale
+      const by = cy + (bombPosition.z - playerPosition.z) * scale
+      ctx.fillStyle = '#ff0000'
+      ctx.beginPath()
+      ctx.arc(bx, by, 3, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }, [playerPosition, playerRotation, enemies, arenaSize, bombsites, bombPosition])
 
   return (
     <canvas
