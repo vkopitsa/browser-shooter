@@ -45,7 +45,7 @@ export class Weapon {
   }
 
   addAmmo(amount: number) {
-    this.ammo = Math.min(this.def.maxAmmo, this.ammo + amount)
+    this.ammo = Math.max(0, Math.min(this.def.maxAmmo, this.ammo + amount))
   }
 
   applyUpgrade(mod: WeaponUpgrade) {

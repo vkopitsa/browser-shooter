@@ -13,7 +13,7 @@ export class HealthSystem {
   }
 
   takeDamage(amount: number): boolean {
-    if (this.invincibleTimer > 0 || this.isDead) return false
+    if (this.invincibleTimer > 0 || this.isDead || amount <= 0) return false
     let toHealth = amount
     if (this.armor > 0) {
       const toArmor = Math.min(this.armor, amount * 0.5)

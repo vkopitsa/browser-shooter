@@ -23,7 +23,7 @@ export const HUD: React.FC<HUDProps> = ({
   waveActive,
   enemiesRemaining,
 }) => {
-  const healthPercent = (health / maxHealth) * 100
+  const healthPercent = maxHealth > 0 ? (health / maxHealth) * 100 : 0
   const healthColor = healthPercent > 60 ? '#00ff00' : healthPercent > 30 ? '#ffff00' : '#ff0000'
 
   return (

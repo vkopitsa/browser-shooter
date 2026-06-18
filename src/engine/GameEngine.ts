@@ -50,6 +50,7 @@ export class GameEngine {
   }
 
   start() {
+    if (this.state === 'playing') return
     this.state = 'playing'
     this.clock.start()
     this.animate()
@@ -68,7 +69,10 @@ export class GameEngine {
   stop() {
     this.state = 'menu'
     this.clock.stop()
-    cancelAnimationFrame(this.animationId)
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId)
+      this.animationId = 0
+    }
   }
 
   private animate = () => {

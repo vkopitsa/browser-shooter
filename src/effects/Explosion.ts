@@ -37,7 +37,8 @@ export function createExplosion(
   const debris = emitBurst(scene, position, Math.floor(opts.particleCount * scale), opts.color, opts.speed * scale, opts.life, 2.5 * scale)
   const sparks = emitBurst(scene, position, Math.floor(opts.particleCount * 0.6 * scale), opts.secondaryColor, (opts.speed * 0.8) * scale, opts.life * 1.3, 2 * scale)
 
-  const flash = new THREE.PointLight(opts.color, opts.lightIntensity * scale, opts.lightDistance * scale)
+  const initialIntensity = opts.lightIntensity * scale
+  const flash = new THREE.PointLight(opts.color, initialIntensity, opts.lightDistance * scale)
   flash.position.copy(position)
   scene.add(flash)
 
@@ -51,6 +52,7 @@ export function createExplosion(
     scene,
     startTime,
     duration,
+    initialIntensity,
   }
 }
 
@@ -92,6 +94,7 @@ export interface ExplosionHandle {
   scene: THREE.Scene
   startTime: number
   duration: number
+  initialIntensity: number
 }
 
 /**
@@ -104,7 +107,7 @@ export function updateExplosion(handle: ExplosionHandle, dt: number): boolean {
   }
 
   const fade = 1 - elapsed / handle.duration
-  handle.flash.intensity = fade * 5
+  handle.flash.intensity = fade * handle.initialIntensity
 
   for (const burst of [handle.debris, handle.sparks]) {
     burst.life -= dt

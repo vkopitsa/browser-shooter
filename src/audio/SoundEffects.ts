@@ -51,7 +51,16 @@ export class SoundEffects {
   private mapWeaponSound(weaponType: string): SoundName | null {
     switch (weaponType) {
       case 'pistol':  return 'pistol'
+      case 'usp':     return 'pistol'
+      case 'glock':   return 'pistol'
+      case 'deagle':  return 'pistol'
       case 'shotgun': return 'shotgun'
+      case 'm4':      return 'rifle'
+      case 'aug':     return 'rifle'
+      case 'ak':      return 'rifle'
+      case 'galil':   return 'rifle'
+      case 'mp5':     return 'rifle'
+      case 'awp':     return 'rifle'
       case 'rifle':   return 'rifle'
       default:        return null
     }

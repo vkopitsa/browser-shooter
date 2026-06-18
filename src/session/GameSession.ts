@@ -129,8 +129,8 @@ export class GameSession {
       team: e.team,
       respawnIn: this.respawnQueue.isPending(e.id) ? this.respawnQueue.remaining(e.id) : undefined,
     }))
-    const enemies: EntityState[] = this.enemies.map((e, i) => ({
-      id: `enemy-${i}`,
+    const enemies: EntityState[] = this.enemies.map((e) => ({
+      id: e.id,
       kind: 'enemy',
       type: e.type,
       position: toVec3(e.mesh.position),
@@ -217,12 +217,14 @@ export class GameSession {
       }
     }
 
-    // Pickups — check all players.
+    // Pickups — update once, then check all players.
+    for (const pickup of this.pickups) {
+      pickup.update(dt, this.tick * dt)
+    }
     for (const entity of this.playerMap.values()) {
       const player = entity.player
       for (let i = this.pickups.length - 1; i >= 0; i--) {
         const pickup = this.pickups[i]
-        pickup.update(dt, this.tick * dt)
         if (pickup.checkCollision(player.position)) {
           if (pickup.type === 'health') player.heal(pickup.value)
           else entity.weapons.addAmmo(entity.weapons.current.type, pickup.value)

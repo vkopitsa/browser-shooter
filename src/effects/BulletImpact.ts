@@ -86,6 +86,7 @@ export function updateParticleHandle(handle: ParticleHandle, dt: number): boolea
   handle.life -= dt
   if (handle.life <= 0) {
     for (const mesh of handle.particles) {
+      mesh.parent?.remove(mesh)
       mesh.geometry.dispose()
       if (mesh.material instanceof THREE.Material) {
         mesh.material.dispose()

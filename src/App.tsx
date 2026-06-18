@@ -355,7 +355,7 @@ function App() {
     client.onPlayerJoined((_id, name) => {
       setLobbyPlayers((prev) => prev.includes(name) ? prev : [...prev, name])
     })
-    client.onPlayerLeft((_id) => {
+    client.onPlayerLeft(() => {
       setLobbyPlayers((prev) => prev.slice(0, -1))
     })
     client.transport.send({ type: 'join', name: settingsRef.current.playerName, team: myTeam })
