@@ -64,6 +64,7 @@ describe('extended protocol', () => {
       ack: { 'player-1': 10 },
       players: [],
       enemies: [],
+      grenades: [],
       events: [],
       scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null },
     }
@@ -113,6 +114,7 @@ describe('Snapshot round fields', () => {
       ack: { 'player-1': 10 },
       players: [],
       enemies: [],
+      grenades: [],
       events: [],
       scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null },
       round: 1,
@@ -137,6 +139,7 @@ describe('Snapshot round fields', () => {
       ack: {},
       players: [],
       enemies: [],
+      grenades: [],
       events: [],
       scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null },
     }
@@ -192,6 +195,7 @@ describe('Snapshot bomb field', () => {
       ack: {},
       players: [],
       enemies: [],
+      grenades: [],
       events: [],
       scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null },
       bomb: {
@@ -216,6 +220,7 @@ describe('Snapshot bomb field', () => {
       ack: {},
       players: [],
       enemies: [],
+      grenades: [],
       events: [],
       scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null },
     }

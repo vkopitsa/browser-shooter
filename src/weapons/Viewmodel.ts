@@ -82,6 +82,16 @@ export class Viewmodel {
     this.recoil = 1
   }
 
+  setGrenade() {
+    // Placeholder: show grenade model in hand
+    this.setWeapon('pistol')
+  }
+
+  playThrowAnimation() {
+    // Placeholder: animate throw
+    this.fire()
+  }
+
   update(dt: number, moving: boolean) {
     this.recoil = THREE.MathUtils.lerp(this.recoil, 0, Math.min(1, dt * 12))
     if (moving) this.bobTime += dt * 10

@@ -22,6 +22,8 @@ interface HUDProps {
   bombSite?: 'A' | 'B'
   plantProgress?: number
   defuseProgress?: number
+  grenadeInventory?: { he: number; flash: number; smoke: number }
+  selectedGrenade?: string | null
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -46,6 +48,8 @@ export const HUD: React.FC<HUDProps> = ({
   bombSite,
   plantProgress,
   defuseProgress,
+  grenadeInventory,
+  selectedGrenade,
 }) => {
   const healthPercent = maxHealth > 0 ? (health / maxHealth) * 100 : 0
   const healthColor = healthPercent > 60 ? '#00ff00' : healthPercent > 30 ? '#ffff00' : '#ff0000'
@@ -124,6 +128,48 @@ export const HUD: React.FC<HUDProps> = ({
         </div>
         <div style={{ fontSize: 12, opacity: 0.5 }}>/ {maxAmmo}</div>
       </div>
+
+      {/* Grenade inventory */}
+      {grenadeInventory && (
+        <div style={{ position: 'absolute', bottom: 80, right: 20, display: 'flex', gap: 8 }}>
+          {grenadeInventory.he > 0 && (
+            <div style={{ 
+              padding: '4px 8px', 
+              background: selectedGrenade === 'he' ? '#4a5c3a' : 'rgba(0,0,0,0.5)',
+              border: selectedGrenade === 'he' ? '2px solid #7a9c5a' : '1px solid #555',
+              borderRadius: 4,
+              color: '#fff',
+              fontSize: 12
+            }}>
+              4: HE ×{grenadeInventory.he}
+            </div>
+          )}
+          {grenadeInventory.flash > 0 && (
+            <div style={{ 
+              padding: '4px 8px', 
+              background: selectedGrenade === 'flash' ? '#c0c0c0' : 'rgba(0,0,0,0.5)',
+              border: selectedGrenade === 'flash' ? '2px solid #fff' : '1px solid #555',
+              borderRadius: 4,
+              color: selectedGrenade === 'flash' ? '#000' : '#fff',
+              fontSize: 12
+            }}>
+              5: Flash ×{grenadeInventory.flash}
+            </div>
+          )}
+          {grenadeInventory.smoke > 0 && (
+            <div style={{ 
+              padding: '4px 8px', 
+              background: selectedGrenade === 'smoke' ? '#3a5c3a' : 'rgba(0,0,0,0.5)',
+              border: selectedGrenade === 'smoke' ? '2px solid #5a9c5a' : '1px solid #555',
+              borderRadius: 4,
+              color: '#fff',
+              fontSize: 12
+            }}>
+              6: Smoke ×{grenadeInventory.smoke}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Score */}
       <div style={{

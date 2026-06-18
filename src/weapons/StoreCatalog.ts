@@ -31,6 +31,12 @@ export const STORE_CATALOG: StoreItem[] = [
 
   // --- gear (competitive) ---
   { id: 'defuse_kit', name: 'Defuse Kit', price: 400, kind: 'gear', team: 'ct', icon: 'defuse_kit' },
+
+  // --- grenades ---
+  { id: 'he_grenade',    name: 'HE Grenade',    price: 300, kind: 'grenade', icon: 'he_grenade' },
+  { id: 'flashbang',     name: 'Flashbang',      price: 200, kind: 'grenade', icon: 'flashbang' },
+  { id: 'smoke_grenade', name: 'Smoke Grenade',  price: 300, kind: 'grenade', icon: 'smoke_grenade' },
+
   { id: 'heavy_armor', name: 'Heavy Armor', price: 1000, kind: 'armor', icon: 'heavy_armor' },
 ]
 
