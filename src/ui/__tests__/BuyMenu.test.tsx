@@ -31,4 +31,21 @@ describe('BuyMenu', () => {
     fireEvent.click(m4)
     expect(onBuy).not.toHaveBeenCalled()
   })
+
+  describe('buy phase', () => {
+    it('shows buy phase warning when not in buy phase', () => {
+      render(<BuyMenu team="ct" money={800} owned={[]} onBuy={vi.fn()} onClose={vi.fn()} buyPhase={false} />)
+      expect(screen.getByText(/BUY PHASE ENDED/)).toBeTruthy()
+    })
+
+    it('does not show warning when in buy phase', () => {
+      render(<BuyMenu team="ct" money={800} owned={[]} onBuy={vi.fn()} onClose={vi.fn()} buyPhase={true} />)
+      expect(screen.queryByText(/BUY PHASE ENDED/)).toBeNull()
+    })
+
+    it('shows buy phase timer when in buy phase', () => {
+      render(<BuyMenu team="ct" money={800} owned={[]} onBuy={vi.fn()} onClose={vi.fn()} buyPhase={true} buyPhaseTimer={10} />)
+      expect(screen.getByText(/10s/)).toBeTruthy()
+    })
+  })
 })

@@ -9,6 +9,8 @@ interface BuyMenuProps {
   owned: string[]
   onBuy: (id: string) => void
   onClose: () => void
+  buyPhase?: boolean
+  buyPhaseTimer?: number
 }
 
 const SECTIONS: { title: string; kinds: ItemKind[]; slot?: 'primary' | 'secondary' }[] = [
@@ -18,7 +20,7 @@ const SECTIONS: { title: string; kinds: ItemKind[]; slot?: 'primary' | 'secondar
   { title: 'Upgrades', kinds: ['upgrade'] },
 ]
 
-export function BuyMenu({ team, money, owned, onBuy, onClose }: BuyMenuProps) {
+export function BuyMenu({ team, money, owned, onBuy, onClose, buyPhase, buyPhaseTimer }: BuyMenuProps) {
   const catalog = catalogForTeam(team)
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
 
@@ -42,6 +44,18 @@ export function BuyMenu({ team, money, owned, onBuy, onClose }: BuyMenuProps) {
           <h2 style={{ margin: 0 }}>BUY MENU · {team === 'ct' ? 'CT' : 'T'}</h2>
           <span>${money}</span>
         </div>
+
+        {buyPhase === false && (
+          <div style={{ padding: 16, color: '#ffcc00', textAlign: 'center' }}>
+            BUY PHASE ENDED - Wait for next round
+          </div>
+        )}
+
+        {buyPhase === true && buyPhaseTimer !== undefined && (
+          <div style={{ padding: 8, color: '#ffcc00', textAlign: 'center', fontSize: 14 }}>
+            Buy phase: {Math.ceil(buyPhaseTimer)}s remaining
+          </div>
+        )}
 
         {SECTIONS.map((section) => {
           const items = catalog.filter(
