@@ -19,7 +19,7 @@ export interface DirectoryEntry {
 /** Messages carried on the directory channel (distinct from the game NetMessage protocol). */
 export type DirMessage =
   | { type: 'register'; entry: DirectoryEntry }
-  | { type: 'heartbeat'; roomCode: string; players: number; status: ServerStatus }
+  | { type: 'heartbeat'; roomCode: string; players: number; status: ServerStatus; mode?: string }
   | { type: 'unregister'; roomCode: string }
   | { type: 'listRequest' }
   | { type: 'listResponse'; entries: DirectoryEntry[] }

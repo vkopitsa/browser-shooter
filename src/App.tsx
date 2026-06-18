@@ -52,6 +52,7 @@ import { MatchOver } from './ui/MatchOver'
 import { defaultMatchConfig, type MatchConfig } from './session/MatchConfig'
 import type { MatchScores } from './session/protocol'
 import { BombState } from './session/BombCarrier'
+import { Matchmaker } from './net/Matchmaker'
 
 function moveToTeam(roster: { ct: string[]; t: string[] }, name: string, team: 'ct' | 't') {
   const ct = roster.ct.filter(n => n !== name)
@@ -402,6 +403,21 @@ function App() {
       })
     }
   }, [])
+
+  const matchmakerRef = useRef(new Matchmaker())
+
+  const handleQuickMatch = useCallback(async () => {
+    const dialed = await dialDirectory()
+    if (!dialed) return
+    const match = await matchmakerRef.current.findMatch(dialed.client)
+    dialed.peer.destroy()
+    if (match) {
+      joinGame(match.roomCode)
+    } else {
+      // No servers available, create new room
+      setShowMatchSetup(true)
+    }
+  }, [joinGame])
 
   const leaveMultiplayer = useCallback(() => {
     resetNetworking()
@@ -947,6 +963,7 @@ function App() {
           }}
           onBack={leaveMultiplayer}
           onRefresh={refreshServers}
+          onQuickMatch={handleQuickMatch}
           myTeam={myTeam}
           onSelectTeam={(t) => {
             setMyTeam(t)
