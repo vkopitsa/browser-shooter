@@ -3,8 +3,8 @@ import type { HitZone } from '../systems/DamageZones'
 import type { MatchConfig } from './MatchConfig'
 import type { MatchScores } from './Scoreboard'
 
-export type GameMode = 'coop' | 'pvp' | 'hybrid'
-export const GAME_MODES: readonly GameMode[] = ['coop', 'pvp', 'hybrid'] as const
+export type GameMode = 'coop' | 'pvp' | 'hybrid' | 'competitive'
+export const GAME_MODES: readonly GameMode[] = ['coop', 'pvp', 'hybrid', 'competitive'] as const
 
 export type { MatchScores, PlayerScore } from './Scoreboard'
 
