@@ -65,7 +65,7 @@ export class BombCarrier {
     if (this.state !== BombState.Planted) return
     this.state = BombState.Defusing
     this.defuseProgress = 0
-    this.defuseDuration = hasKit ? 5 : 10
+    this.defuseDuration = hasKit ? 5 : this.defuseDurationNoKit
   }
 
   cancelDefuse(): void {
