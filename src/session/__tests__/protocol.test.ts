@@ -25,7 +25,7 @@ describe('GameMode', () => {
   })
 })
 
-import type { EntityState, NetMessage, Snapshot } from '../protocol'
+import type { EntityState, NetMessage, Snapshot, SessionEvent } from '../protocol'
 
 describe('extended protocol', () => {
   it('EntityState carries optional pitch/weapon/name', () => {
@@ -70,5 +70,81 @@ describe('extended protocol', () => {
     expect(s.seq).toBe(42)
     expect(s.ack).toEqual({ 'player-1': 10 })
     expect(s.events).toHaveLength(0)
+  })
+})
+
+describe('protocol events', () => {
+  it('includes roundStart event', () => {
+    const event: SessionEvent = { type: 'roundStart', round: 1, money: 800, ctScore: 0, tScore: 0 }
+    expect(event.type).toBe('roundStart')
+  })
+
+  it('includes roundEnd event', () => {
+    const event: SessionEvent = { type: 'roundEnd', winner: 'ct', reason: 'elimination', ctScore: 1, tScore: 0 }
+    expect(event.type).toBe('roundEnd')
+  })
+
+  it('includes buyPhaseStart event', () => {
+    const event: SessionEvent = { type: 'buyPhaseStart', duration: 15 }
+    expect(event.type).toBe('buyPhaseStart')
+  })
+
+  it('includes buyPhaseEnd event', () => {
+    const event: SessionEvent = { type: 'buyPhaseEnd' }
+    expect(event.type).toBe('buyPhaseEnd')
+  })
+
+  it('includes halftime event', () => {
+    const event: SessionEvent = { type: 'halftime', ctScore: 8, tScore: 7 }
+    expect(event.type).toBe('halftime')
+  })
+
+  it('includes moneyUpdate event', () => {
+    const event: SessionEvent = { type: 'moneyUpdate', playerId: 'player-1', amount: 3250 }
+    expect(event.type).toBe('moneyUpdate')
+  })
+})
+
+describe('Snapshot round fields', () => {
+  it('has optional round fields', () => {
+    const s: Snapshot = {
+      tick: 1,
+      seq: 42,
+      ack: { 'player-1': 10 },
+      players: [],
+      enemies: [],
+      events: [],
+      scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null },
+      round: 1,
+      roundTimer: 115,
+      buyPhase: true,
+      buyPhaseTimer: 15,
+      ctScore: 0,
+      tScore: 0,
+    }
+    expect(s.round).toBe(1)
+    expect(s.roundTimer).toBe(115)
+    expect(s.buyPhase).toBe(true)
+    expect(s.buyPhaseTimer).toBe(15)
+    expect(s.ctScore).toBe(0)
+    expect(s.tScore).toBe(0)
+  })
+
+  it('round fields are optional', () => {
+    const s: Snapshot = {
+      tick: 1,
+      seq: 42,
+      ack: {},
+      players: [],
+      enemies: [],
+      events: [],
+      scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null },
+    }
+    expect(s.round).toBeUndefined()
+    expect(s.roundTimer).toBeUndefined()
+    expect(s.buyPhase).toBeUndefined()
+    expect(s.buyPhaseTimer).toBeUndefined()
+    expect(s.ctScore).toBeUndefined()
+    expect(s.tScore).toBeUndefined()
   })
 })

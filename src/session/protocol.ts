@@ -49,6 +49,12 @@ export interface Snapshot {
   enemies: EntityState[]
   events: SessionEvent[]
   scores: MatchScores
+  round?: number
+  roundTimer?: number
+  buyPhase?: boolean
+  buyPhaseTimer?: number
+  ctScore?: number
+  tScore?: number
 }
 
 export interface HitEvent {
@@ -73,7 +79,12 @@ export type SessionEvent =
   | { type: 'playerKilledPlayer'; attackerId: string; victimId: string; victimTeam: Team; teamkill: boolean }
   | { type: 'playerRespawned'; playerId: string }
   | { type: 'matchOver'; winningTeam: Team }
+  | { type: 'roundStart'; round: number; money: number; ctScore: number; tScore: number }
   | { type: 'roundEnd'; winner: 'ct' | 't'; reason: string; ctScore: number; tScore: number }
+  | { type: 'buyPhaseStart'; duration: number }
+  | { type: 'buyPhaseEnd' }
+  | { type: 'halftime'; ctScore: number; tScore: number }
+  | { type: 'moneyUpdate'; playerId: string; amount: number }
 
 /** Network envelope carried by Transport. */
 export type NetMessage =
