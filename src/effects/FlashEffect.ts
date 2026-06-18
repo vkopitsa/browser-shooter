@@ -9,7 +9,7 @@ export function createFlashEffect(): FlashEffectState {
   return { active: false, opacity: 0, duration: 0, elapsed: 0 }
 }
 
-export function triggerFlash(state: FlashEffectState, duration: number): FlashEffectState {
+export function triggerFlash(_state: FlashEffectState, duration: number): FlashEffectState {
   return { active: true, opacity: 1, duration, elapsed: 0 }
 }
 

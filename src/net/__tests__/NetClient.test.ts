@@ -26,7 +26,7 @@ describe('NetClient', () => {
     client.join('Ann')
     hostSide.send({ type: 'welcome', playerId: 'player-2', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [] })
 
-    const snap: Snapshot = { tick: 5, seq: 0, ack: {}, players: [], enemies: [], events: [], scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null } }
+    const snap: Snapshot = { tick: 5, seq: 0, ack: {}, players: [], enemies: [], grenades: [], events: [], scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null } }
     hostSide.send({ type: 'snapshot', snapshot: snap })
     expect(client.latestSnapshot?.tick).toBe(5)
 
@@ -63,6 +63,7 @@ describe('NetClient', () => {
         tick: 1, seq: 1, ack: { p2: 2 }, events: [],
         players: [{ id: 'p2', kind: 'player', type: 'player', position: { x: 0, y: 2, z: -1 }, rotationY: 0, health: 100, isDead: false }],
         enemies: [],
+        grenades: [],
         scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null },
       },
     })
@@ -86,6 +87,7 @@ describe('NetClient', () => {
         tick: 1, seq: 1, ack: {}, events: [{ type: 'pickup', pickupType: 'health', value: 25, playerId: 'p2' }],
         players: [{ id: 'p2', kind: 'player', type: 'player', position: { x: 0, y: 2, z: 0 }, rotationY: 0, health: 100, isDead: false }],
         enemies: [],
+        grenades: [],
         scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null },
       },
     })
@@ -106,6 +108,7 @@ describe('NetClient', () => {
         tick: 1, seq: 1, ack: {}, events: [],
         players: [{ id: 'p2', kind: 'player', type: 'player', position: { x: 5, y: 2, z: -3 }, rotationY: 1.2, health: 80, isDead: false }],
         enemies: [],
+        grenades: [],
         scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null },
       },
     })
@@ -131,6 +134,7 @@ describe('NetClient', () => {
           { id: 'p3', kind: 'player', type: 'player', position: { x: 1, y: 2, z: 1 }, rotationY: 0.5, health: 100, isDead: false },
         ],
         enemies: [],
+        grenades: [],
         scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null },
       },
     })
@@ -144,6 +148,7 @@ describe('NetClient', () => {
           { id: 'p3', kind: 'player', type: 'player', position: { x: 3, y: 2, z: 3 }, rotationY: 1.0, health: 100, isDead: false },
         ],
         enemies: [],
+        grenades: [],
         scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null },
       },
     })

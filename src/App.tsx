@@ -1098,6 +1098,8 @@ function App() {
               onCycleWeapon={() => gameDataRef.current.controls?.onCycleWeapon?.()}
               onToggleStore={() => gameDataRef.current.controls?.onToggleStore?.()}
               onToggleScoreboard={() => setShowScoreboard((s) => !s)}
+              onSelectGrenade={(type) => gameDataRef.current.controls?.onSelectGrenade?.(type)}
+              activeGrenade={selectedGrenade}
             />
           )}
         </>
