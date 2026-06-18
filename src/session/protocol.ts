@@ -91,7 +91,7 @@ export type SessionEvent =
   | { type: 'playerRespawned'; playerId: string }
   | { type: 'matchOver'; winningTeam: Team }
   | { type: 'roundStart'; round: number; money: number; ctScore: number; tScore: number }
-  | { type: 'roundEnd'; winner: 'ct' | 't'; reason: string; ctScore: number; tScore: number }
+  | { type: 'roundEnd'; winner: 'ct' | 't' | 'draw'; reason: string; ctScore: number; tScore: number }
   | { type: 'buyPhaseStart'; duration: number }
   | { type: 'buyPhaseEnd' }
   | { type: 'halftime'; ctScore: number; tScore: number }

@@ -89,6 +89,12 @@ export class BombCarrier {
         this.timer = 0
       }
     } else if (this.state === BombState.Defusing) {
+      this.timer -= dt
+      if (this.timer <= 0) {
+        this.state = BombState.Exploded
+        this.timer = 0
+        return
+      }
       this.defuseProgress += dt
       if (this.defuseProgress >= this.defuseDuration) {
         this.state = BombState.Defused

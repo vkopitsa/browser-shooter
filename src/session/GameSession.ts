@@ -126,7 +126,22 @@ export class GameSession {
       if (entity) {
         entity.weapons.reset()
       }
+      // If the bomb carrier dies, drop the bomb at their position
+      if (this.bomb.carrier === playerId) {
+        const pos = entity ? toVec3(entity.player.position) : this.bomb.position
+        if (pos) this.bomb.drop(pos)
+      }
     }
+  }
+
+  /** Determine round winner when the timer expires (no bomb explosion/defuse). */
+  private resolveRoundWinner(): 'ct' | 't' | 'draw' {
+    // If bomb was planted but not yet exploded/defused when time runs out, T wins
+    if (this.bomb.state === BombState.Planted || this.bomb.state === BombState.Defusing) {
+      return 't'
+    }
+    // Otherwise CT wins on time
+    return 'ct'
   }
 
   assignBomb(): void {
@@ -202,8 +217,101 @@ export class GameSession {
 
     if (this.roundManager) {
       this.roundManager.update(dt)
-      if (this.roundManager.state === RoundState.Over) {
-        events.push({ type: 'roundEnd', winner: 'ct', reason: 'time', ctScore: this.roundManager.ctScore, tScore: this.roundManager.tScore })
+      // On the exact tick the round timer expires, end the round once.
+      if (this.roundManager.state === RoundState.Over && !this.roundManager.matchOver) {
+        const winner = this.resolveRoundWinner()
+        this.roundManager.endRound(winner)
+        events.push({
+          type: 'roundEnd',
+          winner,
+          reason: winner === 't' ? 'bomb' : 'time',
+          ctScore: this.roundManager.ctScore,
+          tScore: this.roundManager.tScore,
+        })
+        if (this.roundManager.isHalftime) {
+          events.push({ type: 'halftime', ctScore: this.roundManager.ctScore, tScore: this.roundManager.tScore })
+        }
+        // Award economy
+        if (this.economy) {
+          if (winner === 'ct') this.economy.recordWin()
+          else this.economy.recordLoss()
+          events.push({ type: 'moneyUpdate', playerId: this.localId, amount: this.economy.money })
+        }
+        // Start next round after a brief pause: assign bomb, reset buy phase
+        if (!this.roundManager.matchOver) {
+          this.assignBomb()
+          events.push({
+            type: 'roundStart',
+            round: this.roundManager.round,
+            money: this.economy?.money ?? 800,
+            ctScore: this.roundManager.ctScore,
+            tScore: this.roundManager.tScore,
+          })
+          events.push({ type: 'buyPhaseStart', duration: this.roundManager.buyPhaseTimer })
+        } else {
+          events.push({ type: 'matchOver', winningTeam: this.roundManager.winner as Team })
+        }
+      }
+      // Bomb exploded mid-round → T wins immediately
+      if (this.bomb.state === BombState.Exploded && this.roundManager.state === RoundState.Active) {
+        this.roundManager.state = RoundState.Over
+        // The recursive call above will handle it next tick, but to avoid a frame delay:
+        const winner: 't' = 't'
+        this.roundManager.endRound(winner)
+        events.push({
+          type: 'roundEnd',
+          winner,
+          reason: 'bomb',
+          ctScore: this.roundManager.ctScore,
+          tScore: this.roundManager.tScore,
+        })
+        if (this.economy) {
+          this.economy.recordLoss()
+          events.push({ type: 'moneyUpdate', playerId: this.localId, amount: this.economy.money })
+        }
+        if (!this.roundManager.matchOver) {
+          this.assignBomb()
+          events.push({
+            type: 'roundStart',
+            round: this.roundManager.round,
+            money: this.economy?.money ?? 800,
+            ctScore: this.roundManager.ctScore,
+            tScore: this.roundManager.tScore,
+          })
+          events.push({ type: 'buyPhaseStart', duration: this.roundManager.buyPhaseTimer })
+        } else {
+          events.push({ type: 'matchOver', winningTeam: this.roundManager.winner as Team })
+        }
+      }
+      // Bomb defused → CT wins immediately
+      if (this.bomb.state === BombState.Defused && this.roundManager.state !== RoundState.Over) {
+        this.roundManager.state = RoundState.Over
+        const winner: 'ct' = 'ct'
+        this.roundManager.endRound(winner)
+        events.push({
+          type: 'roundEnd',
+          winner,
+          reason: 'defuse',
+          ctScore: this.roundManager.ctScore,
+          tScore: this.roundManager.tScore,
+        })
+        if (this.economy) {
+          this.economy.recordWin()
+          events.push({ type: 'moneyUpdate', playerId: this.localId, amount: this.economy.money })
+        }
+        if (!this.roundManager.matchOver) {
+          this.assignBomb()
+          events.push({
+            type: 'roundStart',
+            round: this.roundManager.round,
+            money: this.economy?.money ?? 800,
+            ctScore: this.roundManager.ctScore,
+            tScore: this.roundManager.tScore,
+          })
+          events.push({ type: 'buyPhaseStart', duration: this.roundManager.buyPhaseTimer })
+        } else {
+          events.push({ type: 'matchOver', winningTeam: this.roundManager.winner as Team })
+        }
       }
     }
 
@@ -270,6 +378,11 @@ export class GameSession {
         }
         if (targetPlayer.isDead) {
           events.push({ type: 'playerDied', playerId: target.id })
+          const wasCarrier = this.bomb.carrier === target.id
+          this.handleDeath(target.id)
+          if (wasCarrier && this.bomb.state === BombState.Dropped) {
+            events.push({ type: 'bombDropped', position: this.bomb.position!, playerId: target.id })
+          }
           if (this.config.mode === 'coop') {
             if (target.id === this.localId) return events
           } else {
@@ -308,6 +421,10 @@ export class GameSession {
 
       if (wasPlanting && afterState === BombState.Planted) {
         events.push({ type: 'bombPlanted', site: this.bomb.site!, planterId: this.bomb.carrier ?? 'unknown', timer: this.bomb.timer })
+        if (this.config.mode === 'competitive' && this.economy) {
+          this.economy.recordBombPlant()
+          events.push({ type: 'moneyUpdate', playerId: this.localId, amount: this.economy.money })
+        }
       }
       if (afterState === BombState.Exploded) {
         events.push({ type: 'bombExploded', site: this.bomb.site! })
@@ -368,6 +485,15 @@ export class GameSession {
         this.respawnQueue.enqueue(target.id, RESPAWN_DELAY)
         events.push({ type: 'playerKilledPlayer', attackerId: shooter.id, victimId: target.id, victimTeam: target.team, teamkill: this.config.damagePolicy === 'friendly' && shooter.team === target.team })
         events.push({ type: 'playerDied', playerId: target.id })
+        const wasCarrier = this.bomb.carrier === target.id
+        this.handleDeath(target.id)
+        if (wasCarrier && this.bomb.state === BombState.Dropped) {
+          events.push({ type: 'bombDropped', position: this.bomb.position!, playerId: target.id })
+        }
+        if (this.config.mode === 'competitive' && this.economy) {
+          this.economy.recordKillReward(shooter.weapons.current.type)
+          events.push({ type: 'moneyUpdate', playerId: shooter.id, amount: this.economy.money })
+        }
         if (this.scoreboard.matchOver) events.push({ type: 'matchOver', winningTeam: this.scoreboard.winningTeam! })
       }
       return

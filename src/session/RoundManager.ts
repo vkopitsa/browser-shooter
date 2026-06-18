@@ -13,7 +13,7 @@ export class RoundManager {
   roundTimer: number = 115
   isHalftime: boolean = false
   matchOver: boolean = false
-  winner: 'ct' | 't' | null = null
+  winner: 'ct' | 't' | 'draw' | null = null
 
   private readonly maxRounds = 30
   private readonly winScore = 16
@@ -40,9 +40,10 @@ export class RoundManager {
     }
   }
 
-  endRound(winner: 'ct' | 't'): void {
+  endRound(winner: 'ct' | 't' | 'draw'): void {
     if (winner === 'ct') this.ctScore++
-    else this.tScore++
+    else if (winner === 't') this.tScore++
+    // draw: no score change
 
     // Check match end
     if (this.ctScore >= this.winScore || this.tScore >= this.winScore) {
@@ -53,7 +54,11 @@ export class RoundManager {
 
     if (this.round >= this.maxRounds) {
       this.matchOver = true
-      this.winner = this.ctScore > this.tScore ? 'ct' : 't'
+      if (this.ctScore === this.tScore) {
+        this.winner = 'draw'
+      } else {
+        this.winner = this.ctScore > this.tScore ? 'ct' : 't'
+      }
       return
     }
 
