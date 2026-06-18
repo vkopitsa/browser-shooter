@@ -96,8 +96,7 @@ function App() {
   const [killFeed, setKillFeed] = useState<KillLine[]>([])
   const [respawnIn, setRespawnIn] = useState<number | null>(null)
   const [matchScores, setMatchScores] = useState<MatchScores | null>(null)
-  const [roundEnd, setRoundEnd] = useState<{ winner: 'ct' | 't'; reason: string } | null>(null)
-  const [halftime, setHalftime] = useState(false)
+
   const lastWaveRef = useRef(0)
   const gameStateRef = useRef<GameState>('menu')
   const storeOpenRef = useRef(false)
@@ -569,16 +568,8 @@ function App() {
             document.exitPointerLock()
             matchOverPending = true
             break
-          case 'roundEnd':
-            setRoundEnd({ winner: ev.winner, reason: ev.reason })
-            setTimeout(() => setRoundEnd(null), 3000)
-            break
           case 'buyPhaseStart':
             setStoreOpen(true)
-            break
-          case 'halftime':
-            setHalftime(true)
-            setTimeout(() => setHalftime(false), 10000)
             break
         }
       }
@@ -926,7 +917,7 @@ function App() {
             roundTimer={gameDataRef.current.session.roundManager?.roundTimer}
             buyPhase={gameDataRef.current.session.roundManager?.buyPhase}
             buyPhaseTimer={gameDataRef.current.session.roundManager?.buyPhaseTimer}
-            money={gameDataRef.current.economy?.money}
+            money={gameDataRef.current.session.economy?.money}
             ctScore={gameDataRef.current.session.roundManager?.ctScore}
             tScore={gameDataRef.current.session.roundManager?.tScore}
           />
