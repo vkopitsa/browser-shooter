@@ -18,7 +18,7 @@ describe('canDamage', () => {
 
 describe('defaultMatchConfig', () => {
   it('defaults to coop / team / 30', () => {
-    expect(defaultMatchConfig()).toEqual({ mode: 'coop', damagePolicy: 'team', fragLimit: 30 })
+    expect(defaultMatchConfig()).toEqual({ mode: 'coop', damagePolicy: 'team', fragLimit: 30, joinPolicy: 'lobby' })
   })
 })
 
@@ -31,5 +31,17 @@ describe('competitive mode', () => {
     expect(config.roundsToWin).toBe(16)
     expect(config.buyPhaseDuration).toBe(15)
     expect(config.roundDuration).toBe(115)
+  })
+})
+
+describe('join policy defaults', () => {
+  it('defaultMatchConfig is lobby with no password', () => {
+    const c = defaultMatchConfig()
+    expect(c.joinPolicy).toBe('lobby')
+    expect(c.password).toBeUndefined()
+  })
+
+  it('defaultCompetitiveConfig is lobby', () => {
+    expect(defaultCompetitiveConfig().joinPolicy).toBe('lobby')
   })
 })

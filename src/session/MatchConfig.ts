@@ -2,6 +2,7 @@ import type { Team } from '../types'
 import type { GameMode } from './protocol'
 
 export type DamagePolicy = 'team' | 'friendly' | 'ffa'
+export type JoinPolicy = 'lobby' | 'free'
 
 export interface MatchConfig {
   mode: GameMode
@@ -10,10 +11,12 @@ export interface MatchConfig {
   roundsToWin?: number
   buyPhaseDuration?: number
   roundDuration?: number
+  joinPolicy?: JoinPolicy   // 'lobby' (default) | 'free'
+  password?: string         // only meaningful when joinPolicy === 'free'; blank/undefined = open
 }
 
 export function defaultMatchConfig(): MatchConfig {
-  return { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }
+  return { mode: 'coop', damagePolicy: 'team', fragLimit: 30, joinPolicy: 'lobby' }
 }
 
 export function defaultCompetitiveConfig(): MatchConfig {
@@ -24,6 +27,7 @@ export function defaultCompetitiveConfig(): MatchConfig {
     roundsToWin: 16,
     buyPhaseDuration: 15,
     roundDuration: 115,
+    joinPolicy: 'lobby',
   }
 }
 
