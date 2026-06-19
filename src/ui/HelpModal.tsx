@@ -10,7 +10,7 @@ export const HelpModal = ({ onClose }: HelpModalProps) => {
     }}>
       <div style={{
         background: '#15151f', border: '1px solid #3a3a55', padding: 32,
-        minWidth: 320, maxWidth: 400,
+        minWidth: 320, maxWidth: 400, maxHeight: '70vh', overflowY: 'auto',
       }}>
         <h2 style={{ margin: '0 0 20px', color: '#ff6600' }}>Help</h2>
         
