@@ -430,6 +430,7 @@ function App() {
     client.onJoinRejected((reason) => {
       setJoinError(reason === 'full' ? 'Game is full' : 'Wrong password')
       data.peerClient?.stop(); data.peerClient = null; data.netClient = null
+      data.role = 'single'
     })
     client.onDisconnect(() => {
       if (data.role !== 'client') return
