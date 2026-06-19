@@ -32,12 +32,12 @@ describe('MultiplayerMenu', () => {
   it('renders the server list and joins a listed game', () => {
     const onJoin = vi.fn()
     const servers: ServerRow[] = [
-      { roomCode: 'ROOM1', hostName: 'Alice', players: 1, maxPlayers: 8, status: 'lobby', ping: 30 },
+      { roomCode: 'ROOM1', hostName: 'Alice', players: 1, maxPlayers: 8, status: 'lobby', mode: 'pvp', joinPolicy: 'free', protected: false, ping: 30 },
     ]
     render(<MultiplayerMenu {...baseProps} servers={servers} onJoin={onJoin} />)
     expect(screen.getByText('Alice')).toBeInTheDocument()
     fireEvent.click(screen.getAllByRole('button', { name: /^join$/i })[0])
-    expect(onJoin).toHaveBeenCalledWith('ROOM1')
+    expect(onJoin).toHaveBeenCalledWith(expect.objectContaining({ roomCode: 'ROOM1' }))
   })
 
   it('shows three connection options on the main menu', () => {

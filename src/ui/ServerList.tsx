@@ -8,7 +8,7 @@ export interface ServerRow extends DirectoryEntry {
 
 interface ServerListProps {
   servers: ServerRow[]
-  onJoin: (roomCode: string) => void
+  onJoin: (server: ServerRow) => void
   onRefresh: () => void
   filterMode?: string
 }
@@ -65,9 +65,11 @@ export const ServerList: React.FC<ServerListProps> = ({ servers, onJoin, onRefre
             <span style={{ ...cell, minWidth: 120 }}>{s.hostName}</span>
             <span style={cell}>{s.mode ?? 'Unknown'}</span>
             <span style={cell}>{s.players}/{s.maxPlayers}</span>
+            <span style={{ ...cell, opacity: 0.8 }}>{s.joinPolicy === 'free' ? 'Free' : 'Lobby'}</span>
+            {s.protected && <span style={cell} title="Password required">🔒</span>}
             <span style={{ ...cell, opacity: 0.8 }}>{s.status === 'lobby' ? 'Lobby' : 'In progress'}</span>
             <span style={{ ...cell, opacity: 0.8 }}>{s.ping === null ? '—' : `${s.ping} ms`}</span>
-            <button style={joinBtn} onClick={() => onJoin(s.roomCode)}>Join</button>
+            <button style={joinBtn} onClick={() => onJoin(s)}>Join</button>
           </div>
         ))}
     </div>

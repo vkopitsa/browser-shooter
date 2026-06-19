@@ -4,7 +4,7 @@ import { ServerFilters } from '../ServerFilters'
 import { ServerList, type ServerRow } from '../ServerList'
 
 const makeRow = (overrides: Partial<ServerRow> = {}): ServerRow => ({
-  roomCode: 'ROOM1', hostName: 'Alice', players: 2, maxPlayers: 8, status: 'lobby', ping: 42, ...overrides,
+  roomCode: 'ROOM1', hostName: 'Alice', players: 2, maxPlayers: 8, status: 'lobby', mode: 'pvp', joinPolicy: 'free', protected: false, ping: 42, ...overrides,
 })
 
 describe('ServerFilters', () => {
@@ -46,7 +46,20 @@ describe('ServerList', () => {
     expect(screen.getAllByText(/lobby/i).length).toBeGreaterThan(0)
     expect(screen.getByText('42 ms')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /^join$/i }))
-    expect(onJoin).toHaveBeenCalledWith('ROOM1')
+    expect(onJoin).toHaveBeenCalledWith(expect.objectContaining({ roomCode: 'ROOM1', joinPolicy: 'free' }))
+  })
+
+  it('renders a lock for protected games and Join passes the full row', () => {
+    const onJoin = vi.fn()
+    const servers = [{
+      roomCode: 'ROOM1', hostName: 'Ann', players: 1, maxPlayers: 8,
+      status: 'in-progress' as const, mode: 'pvp', joinPolicy: 'free' as const,
+      protected: true, ping: 20,
+    }]
+    render(<ServerList servers={servers} onJoin={onJoin} onRefresh={vi.fn()} />)
+    expect(screen.getByText('🔒')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Join'))
+    expect(onJoin).toHaveBeenCalledWith(expect.objectContaining({ roomCode: 'ROOM1', joinPolicy: 'free' }))
   })
 
   it('shows a dash when ping is unknown', () => {
