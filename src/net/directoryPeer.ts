@@ -1,7 +1,9 @@
-import Peer, { type DataConnection } from 'peerjs'
+import { type DataConnection } from 'peerjs'
+import type Peer from 'peerjs'
 import { DIRECTORY_PEER_ID, type DirMessage } from './directoryProtocol'
 import { DirectoryServer } from './DirectoryServer'
 import { DirectoryClient } from './DirectoryClient'
+import { createPeer } from './peerConfig'
 import { PeerChannel } from './Channel'
 
 export interface ElectResult { server: DirectoryServer | null; peer: Peer | null }
@@ -16,7 +18,7 @@ export function tryBecomeDirectory(): Promise<ElectResult> {
       settled = true
       resolve(r)
     }
-    const peer = new Peer(DIRECTORY_PEER_ID)
+    const peer = createPeer(DIRECTORY_PEER_ID)
     peer.on('open', () => {
       const server = new DirectoryServer()
       peer.on('connection', (conn: unknown) => {
@@ -41,7 +43,7 @@ export function dialDirectory(): Promise<DialResult | null> {
       settled = true
       resolve(r)
     }
-    const peer = new Peer()
+    const peer = createPeer()
     peer.on('open', () => {
       const conn = peer.connect(DIRECTORY_PEER_ID, { reliable: true })
       conn.on('open', () => done({ client: new DirectoryClient(new PeerChannel<DirMessage>(conn)), peer }))

@@ -74,6 +74,21 @@ npm test                # Run all 257 unit tests (Vitest)
 npm run test:e2e        # Run all 36 E2E tests (Playwright, Chromium)
 ```
 
+### Multiplayer broker
+
+Multiplayer signalling runs over PeerJS. By default the app uses the **public
+`0.peerjs.com` cloud broker**, which is rate-limited — heavy testing can earn a
+temporary Cloudflare 1015 IP ban, after which room codes and the server list stop
+appearing. To avoid that, run your own broker:
+
+```bash
+npm run peerserver   # local PeerJS broker on :9000
+```
+
+Then copy `.env.example` to `.env.local`, uncomment the `VITE_PEER_*` lines, and
+restart `npm run dev`. For two machines on a LAN, set `VITE_PEER_HOST` to the
+broker host's LAN IP. With no `.env.local`, the app keeps using the public broker.
+
 ### Build
 
 ```bash

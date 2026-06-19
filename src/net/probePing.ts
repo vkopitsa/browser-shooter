@@ -1,4 +1,5 @@
-import Peer, { type DataConnection } from 'peerjs'
+import { type DataConnection } from 'peerjs'
+import { createPeer } from './peerConfig'
 import type { NetMessage } from '../session/protocol'
 
 /**
@@ -8,7 +9,7 @@ import type { NetMessage } from '../session/protocol'
 export function measurePing(roomCode: string, timeoutMs = 3000): Promise<number | null> {
   return new Promise((resolve) => {
     let settled = false
-    const peer = new Peer()
+    const peer = createPeer()
     const finish = (v: number | null) => {
       if (settled) return
       settled = true

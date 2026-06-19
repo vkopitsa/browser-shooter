@@ -1,5 +1,7 @@
-import Peer, { type DataConnection } from 'peerjs'
+import { type DataConnection } from 'peerjs'
+import type Peer from 'peerjs'
 import { PeerConnection } from './PeerConnection'
+import { createPeer } from './peerConfig'
 import type { Transport } from '../session/Transport'
 
 /** Host peer: advertises a room code and emits a Transport per joined client. */
@@ -9,7 +11,7 @@ export class PeerHost {
 
   /** Resolves with the room code (this peer's id). */
   start(): Promise<string> {
-    this._peer = new Peer()
+    this._peer = createPeer()
     return new Promise((resolve, reject) => {
       this._peer!.on('open', (id: unknown) => resolve(id as string))
       this._peer!.on('error', (err: unknown) => reject(err))

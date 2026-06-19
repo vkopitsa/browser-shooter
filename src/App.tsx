@@ -349,16 +349,29 @@ function App() {
         assignedId = null
       })
     })
-    const code = await peerHost.start()
+    let code: string
+    try {
+      code = await peerHost.start()
+    } catch {
+      // The PeerJS broker was unreachable (offline, blocked, or rate-limited). Roll back
+      // and tell the user instead of leaving them on a silent, room-code-less screen.
+      peerHost.stop()
+      data.peerHost = null
+      data.role = 'single'
+      setIsHost(false)
+      setJoinError('Could not reach the multiplayer server. Check your connection, or self-host the broker (see README).')
+      return
+    }
     setRoomCode(code)
     const hostDirectory = new HostDirectory()
     data.hostDirectory = hostDirectory
+    // A directory failure is non-fatal: the host can still share the room code directly.
     await hostDirectory.start({
       roomCode: code, hostName: settingsRef.current.playerName, players: 1, maxPlayers: 8,
       status: 'lobby', mode: config.mode,
       joinPolicy: config.joinPolicy ?? 'lobby',
       protected: !!config.password,
-    })
+    }).catch(() => {})
   }, [myTeam])
 
   const joinGame = useCallback(async (code: string, opts?: { team?: Team; password?: string }) => {
@@ -1212,7 +1225,7 @@ function App() {
       {gameState === 'mpmenu' && showMatchSetup && (
         <MatchSetup
           onBack={() => setShowMatchSetup(false)}
-          onConfirm={(c) => { setShowMatchSetup(false); void hostGame(c) }}
+          onConfirm={(c) => { setShowMatchSetup(false); void hostGame(c).catch(() => setJoinError('Could not start hosting.')) }}
         />
       )}
 
