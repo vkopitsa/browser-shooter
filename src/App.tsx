@@ -199,7 +199,7 @@ function App() {
     }
     data.clientEnemies.clear()
     data.voiceChat?.dispose(); data.voiceChat = null
-    data.audioSink.dispose()
+    data.audioSink.dispose(); data.audioSink = new AudioSink()
     setSpeakers([])
     data.role = 'single'
   }, [])
