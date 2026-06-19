@@ -94,12 +94,14 @@ function App() {
   const [joinError, setJoinError] = useState<string | null>(null)
   const [hostNotice, setHostNotice] = useState<string | null>(null)
   const [lobbyPlayers, setLobbyPlayers] = useState<string[]>([])
+  const playerIdToNameRef = useRef<Map<string, string>>(new Map())
   const [isHost, setIsHost] = useState(false)
   const [servers, setServers] = useState<ServerRow[]>([])
   const [settings, setSettings] = useState<Settings>(() => loadSettings())
   const [showScoreboard, setShowScoreboard] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  const [showInGameHelp, setShowInGameHelp] = useState(false)
   const [scoreboardPlayers, setScoreboardPlayers] = useState<EntityState[]>([])
   const [showMatchSetup, setShowMatchSetup] = useState(false)
   const [myTeam, setMyTeam] = useState<Team>('ct')
@@ -479,21 +481,33 @@ function App() {
     })
     client.onDisconnect(() => {
       if (data.role !== 'client') return
+
+      if (data.matchConfig.mode === 'coop') {
+        resetNetworking()
+        setHostNotice('Host disconnected')
+        setRoomCode(null); setLobbyPlayers([]); setIsHost(false)
+        updateGameState('mpmenu')
+        return
+      }
+
       resetNetworking()
-      setHostNotice('Host disconnected')
+      setHostNotice('Host disconnected - returning to menu')
       setRoomCode(null); setLobbyPlayers([]); setIsHost(false)
       updateGameState('mpmenu')
     })
     client.onPlayerJoined((_id, name) => {
+      playerIdToNameRef.current.set(_id, name)
       setLobbyPlayers((prev) => prev.includes(name) ? prev : [...prev, name])
     })
     client.onPlayerLeft((id) => {
       gameDataRef.current.voiceChat?.peerDisconnected(id)
-      setLobbyPlayers((prev) => prev.slice(0, -1))
+      const name = playerIdToNameRef.current.get(id)
+      playerIdToNameRef.current.delete(id)
+      setLobbyPlayers((prev) => name ? prev.filter((n) => n !== name) : prev.slice(0, -1))
     })
     client.transport.send({
       type: 'join',
-      name: settingsRef.current.playerName,
+      name: settingsRef.current.playerName?.trim() || 'Player',
       team: opts?.team ?? myTeam,
       ...(opts?.password ? { password: opts.password } : {}),
     })
@@ -551,6 +565,7 @@ function App() {
     data.viewmodel = new Viewmodel(engine.camera)
     data.particleSystem = new ParticleSystem(engine.scene)
     data.controls = new Controls(container, () => gameStateRef.current)
+    data.controls.onIsStoreOpen = () => storeOpenRef.current
     data.controls.onMouseMove = onMouseMove
     data.controls.onCycleWeapon = () => {
       if (gameStateRef.current !== 'playing') return
@@ -882,10 +897,17 @@ function App() {
       if (!controls || !client || !particleSystem) return
 
       const m = controls.getMovement()
+      const latestSnap = client.latestSnapshot
+      const meSnap = latestSnap?.players.find(p => p.id === client.playerId)
+      const isDead = meSnap?.isDead ?? false
       client.sendInput({
         ...emptyInput(),
-        forward: m.forward, backward: m.backward, left: m.left, right: m.right, jump: m.jump,
-        shoot: controls.shoot && !storeOpenRef.current,
+        forward: isDead ? false : m.forward,
+        backward: isDead ? false : m.backward,
+        left: isDead ? false : m.left,
+        right: isDead ? false : m.right,
+        jump: isDead ? false : m.jump,
+        shoot: !isDead && controls.shoot && !storeOpenRef.current,
         yaw: lookRef.current.yaw,
         pitch: lookRef.current.pitch,
       })
@@ -900,7 +922,7 @@ function App() {
       const weaponMgr = data.session.weaponManager
       weaponMgr.update(dt)
       let firedThisFrame = false
-      if (controls.shoot && !storeOpenRef.current && weaponMgr.current.shoot()) {
+      if (!isDead && controls.shoot && !storeOpenRef.current && weaponMgr.current.shoot()) {
         firedThisFrame = true
         data.viewmodel?.fire()
         data.audio.playWeaponShoot(weaponVisual(weaponMgr.current.type), client.getLocalPosition())
@@ -1020,6 +1042,10 @@ function App() {
 
       if (e.code === 'KeyM') {
         data.audio.toggleMute()
+      }
+
+      if (e.code === 'KeyH' && (gameStateRef.current === 'playing' || gameStateRef.current === 'paused')) {
+        setShowInGameHelp((prev) => !prev)
       }
 
       if (e.code === 'KeyR') {
@@ -1255,6 +1281,10 @@ function App() {
         </>
       )}
 
+      {gameState === 'playing' && showInGameHelp && (
+        <HelpModal onClose={() => setShowInGameHelp(false)} inGame />
+      )}
+
       {gameState === 'playing' && storeOpen && (
         <BuyMenu
           team={team}
@@ -1323,11 +1353,16 @@ function App() {
             engineRef.current?.resume()
             updateGameState('playing')
           }}
+          onHelp={() => setShowInGameHelp(true)}
           onMainMenu={() => {
             engineRef.current?.stop()
             updateGameState('menu')
           }}
         />
+      )}
+
+      {gameState === 'paused' && showInGameHelp && (
+        <HelpModal onClose={() => setShowInGameHelp(false)} inGame />
       )}
 
       {gameState === 'gameover' && (

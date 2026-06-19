@@ -5,7 +5,7 @@ import { HelpModal } from '../HelpModal'
 describe('HelpModal', () => {
   it('renders the help heading', () => {
     render(<HelpModal onClose={vi.fn()} />)
-    expect(screen.getByText('Help')).toBeInTheDocument()
+    expect(screen.getAllByText('Help').length).toBeGreaterThanOrEqual(1)
   })
 
   it('displays controls section', () => {

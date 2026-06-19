@@ -13,7 +13,7 @@ export class Player {
   velocity: THREE.Vector3
   rotation: THREE.Euler
   speed: number = 12
-  jumpHeight: number = 9.5
+  jumpHeight: number = 7
   speedMult: number = 1
   isGrounded: boolean = true
   private yVelocity: number = 0
@@ -124,7 +124,7 @@ export class Player {
       this.isGrounded = false
     }
 
-    this.yVelocity -= 20 * dt
+    this.yVelocity -= 28 * dt
 
     // Horizontal move, then height-aware push-out so we don't get shoved off ledges
     // we're standing on top of.

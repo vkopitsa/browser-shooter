@@ -27,10 +27,12 @@ const panel: React.CSSProperties = {
   position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
   alignItems: 'center', gap: 16, overflow: 'auto',
   background: 'linear-gradient(180deg,#0a0a1a,#1a1a3e)', color: 'white', fontFamily: 'monospace',
+  width: '100%', boxSizing: 'border-box',
 }
 const panelInner: React.CSSProperties = {
   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
-  margin: 'auto 0', padding: '24px 16px',
+  margin: 'auto 0', padding: '24px 16px', width: '100%', maxWidth: 600,
+  boxSizing: 'border-box',
 }
 const btn: React.CSSProperties = {
   padding: '12px 32px', fontSize: 18, fontWeight: 'bold', background: '#3399ff',

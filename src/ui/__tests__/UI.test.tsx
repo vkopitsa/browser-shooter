@@ -521,37 +521,36 @@ describe('bomb indicators', () => {
 
 describe('PauseMenu', () => {
   it('renders paused title', () => {
-    render(<PauseMenu onResume={() => {}} onMainMenu={() => {}} />)
+    render(<PauseMenu onResume={() => {}} onMainMenu={() => {}} onHelp={() => {}} />)
     expect(screen.getByText('PAUSED')).toBeInTheDocument()
   })
 
   it('renders resume button', () => {
-    render(<PauseMenu onResume={() => {}} onMainMenu={() => {}} />)
+    render(<PauseMenu onResume={() => {}} onMainMenu={() => {}} onHelp={() => {}} />)
     expect(screen.getByText('RESUME')).toBeInTheDocument()
   })
 
   it('renders main menu button', () => {
-    render(<PauseMenu onResume={() => {}} onMainMenu={() => {}} />)
+    render(<PauseMenu onResume={() => {}} onMainMenu={() => {}} onHelp={() => {}} />)
     expect(screen.getByText('MAIN MENU')).toBeInTheDocument()
   })
 
   it('calls onResume when resume is clicked', () => {
     const onResume = vi.fn()
-    render(<PauseMenu onResume={onResume} onMainMenu={() => {}} />)
+    render(<PauseMenu onResume={onResume} onMainMenu={() => {}} onHelp={() => {}} />)
     screen.getByText('RESUME').click()
     expect(onResume).toHaveBeenCalledTimes(1)
   })
 
   it('calls onMainMenu when main menu is clicked', () => {
     const onMainMenu = vi.fn()
-    render(<PauseMenu onResume={() => {}} onMainMenu={onMainMenu} />)
+    render(<PauseMenu onResume={() => {}} onMainMenu={onMainMenu} onHelp={() => {}} />)
     screen.getByText('MAIN MENU').click()
     expect(onMainMenu).toHaveBeenCalledTimes(1)
   })
 
-  it('renders controls reminder', () => {
-    render(<PauseMenu onResume={() => {}} onMainMenu={() => {}} />)
-    expect(screen.getByText('WASD - Move')).toBeInTheDocument()
-    expect(screen.getByText('ESC - Pause')).toBeInTheDocument()
+  it('renders help button', () => {
+    render(<PauseMenu onResume={() => {}} onMainMenu={() => {}} onHelp={() => {}} />)
+    expect(screen.getByText('HELP')).toBeInTheDocument()
   })
 })
