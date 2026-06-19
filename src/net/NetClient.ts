@@ -24,7 +24,9 @@ export class NetClient {
   private localPlayer = new Player()
   private lastDt = 1 / 30
   private snapshotCb: ((s: Snapshot) => void) | null = null
-  private welcomeCb: ((playerId: string, mode: GameMode, players: string[]) => void) | null = null
+  private welcomeCb: ((playerId: string, mode: GameMode, players: string[], started: boolean) => void) | null = null
+  private joinRejectedCb: ((reason: 'badPassword' | 'full') => void) | null = null
+  private disconnectCb: (() => void) | null = null
   private eventCb: ((ev: SessionEvent) => void) | null = null
   private startCb: (() => void) | null = null
   private playerJoinedCb: ((playerId: string, name: string) => void) | null = null
@@ -33,6 +35,7 @@ export class NetClient {
 
   constructor(public transport: Transport) {
     this.transport.onMessage((msg: NetMessage) => this.handle(msg))
+    this.transport.onClose(() => this.disconnectCb?.())
   }
 
   join(name: string): void {
@@ -113,7 +116,9 @@ export class NetClient {
   }
 
   onSnapshot(cb: (s: Snapshot) => void): void { this.snapshotCb = cb }
-  onWelcome(cb: (playerId: string, mode: GameMode, players: string[]) => void): void { this.welcomeCb = cb }
+  onWelcome(cb: (playerId: string, mode: GameMode, players: string[], started: boolean) => void): void { this.welcomeCb = cb }
+  onJoinRejected(cb: (reason: 'badPassword' | 'full') => void): void { this.joinRejectedCb = cb }
+  onDisconnect(cb: () => void): void { this.disconnectCb = cb }
   onEvent(cb: (ev: SessionEvent) => void): void { this.eventCb = cb }
   onStart(cb: () => void): void { this.startCb = cb }
   onPlayerJoined(cb: (playerId: string, name: string) => void): void { this.playerJoinedCb = cb }
@@ -124,7 +129,9 @@ export class NetClient {
       this.playerId = msg.playerId
       this.config = msg.config
       this.mode = msg.config.mode
-      this.welcomeCb?.(msg.playerId, msg.config.mode, msg.players)
+      this.welcomeCb?.(msg.playerId, msg.config.mode, msg.players, msg.started)
+    } else if (msg.type === 'joinRejected') {
+      this.joinRejectedCb?.(msg.reason)
     } else if (msg.type === 'start') {
       this.startCb?.()
     } else if (msg.type === 'snapshot') {

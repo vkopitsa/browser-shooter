@@ -8,6 +8,7 @@ function fakeTransport() {
   const t: Transport = {
     send: () => {},
     onMessage: (cb: (m: NetMessage) => void) => { handler = cb },
+    onClose: () => {},
   } as unknown as Transport
   return { t, deliver: (m: NetMessage) => handler?.(m) }
 }

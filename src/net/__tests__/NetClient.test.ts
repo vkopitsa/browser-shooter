@@ -1,7 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { createLinkedTransports } from '../../session/Transport'
 import { emptyInput, type NetMessage, type Snapshot } from '../../session/protocol'
 import { NetClient } from '../NetClient'
+import type { MatchConfig } from '../../session/MatchConfig'
+
+const cfg: MatchConfig = { mode: 'pvp', damagePolicy: 'team', fragLimit: 0, joinPolicy: 'free' }
 
 describe('NetClient', () => {
   it('join sends a join message and welcome sets playerId', () => {
@@ -158,5 +161,34 @@ describe('NetClient', () => {
     expect(pos).not.toBeNull()
     expect(pos!.x).toBeGreaterThanOrEqual(1)
     expect(pos!.x).toBeLessThanOrEqual(3)
+  })
+})
+
+describe('NetClient join-policy hooks', () => {
+  it('onWelcome surfaces the started flag', () => {
+    const [hostSide, clientSide] = createLinkedTransports()
+    const client = new NetClient(clientSide)
+    const seen: boolean[] = []
+    client.onWelcome((_id, _mode, _players, started) => seen.push(started))
+    hostSide.send({ type: 'welcome', playerId: 'player-2', mode: 'pvp', config: cfg, players: [], started: true })
+    expect(seen).toEqual([true])
+  })
+
+  it('onJoinRejected fires with the reason', () => {
+    const [hostSide, clientSide] = createLinkedTransports()
+    const client = new NetClient(clientSide)
+    const cb = vi.fn()
+    client.onJoinRejected(cb)
+    hostSide.send({ type: 'joinRejected', reason: 'badPassword' })
+    expect(cb).toHaveBeenCalledWith('badPassword')
+  })
+
+  it('onDisconnect fires when the transport closes', () => {
+    const [hostSide, clientSide] = createLinkedTransports()
+    const client = new NetClient(clientSide)
+    const cb = vi.fn()
+    client.onDisconnect(cb)
+    hostSide.close!()
+    expect(cb).toHaveBeenCalledTimes(1)
   })
 })
