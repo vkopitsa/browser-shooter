@@ -25,7 +25,7 @@ describe('MultiplayerMenu', () => {
     const onJoin = vi.fn()
     render(<MultiplayerMenu {...baseProps} onJoin={onJoin} />)
     fireEvent.change(screen.getByPlaceholderText(/room code/i), { target: { value: 'ABC123' } })
-    fireEvent.click(screen.getByText(/^join$/i))
+    fireEvent.click(screen.getByRole('button', { name: /join by code/i }))
     expect(onJoin).toHaveBeenCalledWith('ABC123')
   })
 
@@ -59,7 +59,7 @@ describe('MultiplayerMenu', () => {
       status: 'in-progress' as const, mode: 'pvp', joinPolicy: 'free' as const, protected: true, ping: 10,
     }]
     render(<MultiplayerMenu {...baseProps} servers={servers} onJoinFree={onJoinFree} />)
-    fireEvent.click(screen.getByText('Join'))                 // open prompt
+    fireEvent.click(screen.getAllByText('Join')[0])           // server-row Join (comes before room-code Join in DOM)
     fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'pw' } })
     fireEvent.click(screen.getByText(/join match/i))
     expect(onJoinFree).toHaveBeenCalledWith('FREE1', 'ct', 'pw')
@@ -72,7 +72,7 @@ describe('MultiplayerMenu', () => {
       status: 'lobby' as const, mode: 'pvp', joinPolicy: 'lobby' as const, ping: 10,
     }]
     render(<MultiplayerMenu {...baseProps} servers={servers} onJoin={onJoin} />)
-    fireEvent.click(screen.getByText('Join'))
+    fireEvent.click(screen.getAllByText('Join')[0]) // server-row Join (comes before room-code Join in DOM)
     expect(onJoin).toHaveBeenCalledWith('LOB1')
   })
 })

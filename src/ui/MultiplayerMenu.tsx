@@ -127,7 +127,7 @@ export const MultiplayerMenu: React.FC<MultiplayerMenuProps> = (p) => {
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
           <input placeholder="Room code" value={code} onChange={(e) => setCode(e.target.value)}
             style={{ padding: 10, fontSize: 16 }} />
-          {code.trim() && <button style={btn} onClick={() => onJoinClick()}>Join</button>}
+          <button style={btn} aria-label="join by code" onClick={() => onJoinClick()}>Join</button>
         </div>
 
         <button style={{ ...btn, background: '#555' }} onClick={p.onBack}>Back</button>
