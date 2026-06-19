@@ -42,7 +42,7 @@ describe('extended protocol', () => {
   it('NetMessage includes join/welcome/playerJoined/playerLeft', () => {
     const msgs: NetMessage[] = [
       { type: 'join', name: 'Ann' },
-      { type: 'welcome', playerId: 'player-1', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [] },
+      { type: 'welcome', playerId: 'player-1', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [], started: false },
       { type: 'playerJoined', playerId: 'player-1', name: 'Ann' },
       { type: 'playerLeft', playerId: 'player-1' },
     ]

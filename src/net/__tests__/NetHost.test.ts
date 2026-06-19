@@ -96,3 +96,48 @@ describe('NetHost', () => {
     }
   })
 })
+
+describe('NetHost join policy', () => {
+  it('passwordOk: open game accepts any password', () => {
+    const host = new NetHost(new GameSession(), { mode: 'pvp', damagePolicy: 'team', fragLimit: 0, joinPolicy: 'free' })
+    expect(host.passwordOk(undefined)).toBe(true)
+    expect(host.passwordOk('whatever')).toBe(true)
+  })
+
+  it('passwordOk: protected game accepts only the matching password', () => {
+    const host = new NetHost(new GameSession(), { mode: 'pvp', damagePolicy: 'team', fragLimit: 0, joinPolicy: 'free', password: 'hunter2' })
+    expect(host.passwordOk('hunter2')).toBe(true)
+    expect(host.passwordOk('nope')).toBe(false)
+    expect(host.passwordOk(undefined)).toBe(false)
+  })
+
+  it('welcome reports started=false before startMatch', () => {
+    const host = new NetHost(new GameSession(), { mode: 'pvp', damagePolicy: 'team', fragLimit: 0, joinPolicy: 'lobby' })
+    const [h, c] = createLinkedTransports()
+    const got: NetMessage[] = []; c.onMessage(m => got.push(m))
+    host.addClient('player-2', 'Bob', h)
+    const w = got.find(m => m.type === 'welcome')
+    expect(w && w.type === 'welcome' && w.started).toBe(false)
+  })
+
+  it('free game already started sends a targeted start to a late joiner', () => {
+    const host = new NetHost(new GameSession(), { mode: 'pvp', damagePolicy: 'team', fragLimit: 0, joinPolicy: 'free' })
+    host.startMatch()
+    const [h, c] = createLinkedTransports()
+    const got: NetMessage[] = []; c.onMessage(m => got.push(m))
+    host.addClient('player-3', 'Cara', h)
+    expect(got.some(m => m.type === 'start')).toBe(true)
+    const w = got.find(m => m.type === 'welcome')
+    expect(w && w.type === 'welcome' && w.started).toBe(true)
+  })
+
+  it('lobby game already started does NOT auto-start a late joiner', () => {
+    const host = new NetHost(new GameSession(), { mode: 'pvp', damagePolicy: 'team', fragLimit: 0, joinPolicy: 'lobby' })
+    host.startMatch()
+    const [h, c] = createLinkedTransports()
+    const got: NetMessage[] = []; c.onMessage(m => got.push(m))
+    got.length = 0 // ignore the broadcast start from startMatch (no client linked yet anyway)
+    host.addClient('player-4', 'Dee', h)
+    expect(got.some(m => m.type === 'start')).toBe(false)
+  })
+})

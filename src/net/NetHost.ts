@@ -17,8 +17,15 @@ export class NetHost {
   private lastSeq = new Map<string, number>()
   /** Monotonically increasing snapshot sequence number. */
   private snapSeq = 0
+  private started = false
 
   constructor(private session: GameSession, private config: MatchConfig) {}
+
+  /** True if `pw` may join: open games accept anything; protected games require an exact match. */
+  passwordOk(pw?: string): boolean {
+    const want = this.config.password
+    return !want || want === pw
+  }
 
   addClient(playerId: string, name: string, transport: Transport, team: Team = 'ct'): void {
     this.session.addPlayer(playerId, name, team)
@@ -45,13 +52,18 @@ export class NetHost {
       }
     })
     const players = this.links.map(l => this.session.getPlayer(l.playerId)?.name ?? l.playerId)
-    transport.send({ type: 'welcome', playerId, mode: this.config.mode, config: this.config, players })
+    transport.send({ type: 'welcome', playerId, mode: this.config.mode, config: this.config, players, started: this.started })
     this.links.push({ playerId, transport })
     this.broadcast({ type: 'playerJoined', playerId, name })
+    // Free game already running: drop the new client straight into the live match.
+    if (this.started && this.config.joinPolicy === 'free') {
+      transport.send({ type: 'start' })
+    }
   }
 
   /** Tell every client to leave the lobby and begin the match. */
   startMatch(): void {
+    this.started = true
     this.broadcast({ type: 'start' })
   }
 

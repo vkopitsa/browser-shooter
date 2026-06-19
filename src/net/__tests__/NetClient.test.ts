@@ -13,7 +13,7 @@ describe('NetClient', () => {
     client.join('Ann')
     expect(hostGot).toContainEqual({ type: 'join', name: 'Ann' })
 
-    hostSide.send({ type: 'welcome', playerId: 'player-2', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [] })
+    hostSide.send({ type: 'welcome', playerId: 'player-2', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [], started: false })
     expect(client.playerId).toBe('player-2')
     expect(client.mode).toBe('coop')
   })
@@ -24,7 +24,7 @@ describe('NetClient', () => {
     hostSide.onMessage(m => hostGot.push(m))
     const client = new NetClient(clientSide)
     client.join('Ann')
-    hostSide.send({ type: 'welcome', playerId: 'player-2', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [] })
+    hostSide.send({ type: 'welcome', playerId: 'player-2', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [], started: false })
 
     const snap: Snapshot = { tick: 5, seq: 0, ack: {}, players: [], enemies: [], grenades: [], events: [], scores: { teams: { ct: 0, t: 0 }, players: {}, matchOver: false, winningTeam: null } }
     hostSide.send({ type: 'snapshot', snapshot: snap })
@@ -51,7 +51,7 @@ describe('NetClient', () => {
     const [clientSide, hostSide] = createLinkedTransports()
     const client = new NetClient(clientSide)
     client.join('Ann')
-    hostSide.send({ type: 'welcome', playerId: 'p2', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [] })
+    hostSide.send({ type: 'welcome', playerId: 'p2', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [], started: false })
 
     client.sendInput({ ...emptyInput(), forward: true, seq: 1, renderTime: 100 })
     client.sendInput({ ...emptyInput(), forward: true, seq: 2, renderTime: 110 })
@@ -76,7 +76,7 @@ describe('NetClient', () => {
     const [clientSide, hostSide] = createLinkedTransports()
     const client = new NetClient(clientSide)
     client.join('Ann')
-    hostSide.send({ type: 'welcome', playerId: 'p2', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [] })
+    hostSide.send({ type: 'welcome', playerId: 'p2', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [], started: false })
 
     const events: any[] = []
     client.onEvent(ev => events.push(ev))
@@ -100,7 +100,7 @@ describe('NetClient', () => {
     const [clientSide, hostSide] = createLinkedTransports()
     const client = new NetClient(clientSide)
     client.join('Ann')
-    hostSide.send({ type: 'welcome', playerId: 'p2', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [] })
+    hostSide.send({ type: 'welcome', playerId: 'p2', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [], started: false })
 
     hostSide.send({
       type: 'snapshot',
@@ -123,7 +123,7 @@ describe('NetClient', () => {
     const [clientSide, hostSide] = createLinkedTransports()
     const client = new NetClient(clientSide)
     client.join('Ann')
-    hostSide.send({ type: 'welcome', playerId: 'p2', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [] })
+    hostSide.send({ type: 'welcome', playerId: 'p2', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [], started: false })
 
     hostSide.send({
       type: 'snapshot',
