@@ -101,6 +101,7 @@ function App() {
   const [showScoreboard, setShowScoreboard] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  const [showInGameHelp, setShowInGameHelp] = useState(false)
   const [scoreboardPlayers, setScoreboardPlayers] = useState<EntityState[]>([])
   const [showMatchSetup, setShowMatchSetup] = useState(false)
   const [myTeam, setMyTeam] = useState<Team>('ct')
@@ -506,7 +507,7 @@ function App() {
     })
     client.transport.send({
       type: 'join',
-      name: settingsRef.current.playerName,
+      name: settingsRef.current.playerName?.trim() || 'Player',
       team: opts?.team ?? myTeam,
       ...(opts?.password ? { password: opts.password } : {}),
     })
@@ -896,10 +897,17 @@ function App() {
       if (!controls || !client || !particleSystem) return
 
       const m = controls.getMovement()
+      const latestSnap = client.latestSnapshot
+      const meSnap = latestSnap?.players.find(p => p.id === client.playerId)
+      const isDead = meSnap?.isDead ?? false
       client.sendInput({
         ...emptyInput(),
-        forward: m.forward, backward: m.backward, left: m.left, right: m.right, jump: m.jump,
-        shoot: controls.shoot && !storeOpenRef.current,
+        forward: isDead ? false : m.forward,
+        backward: isDead ? false : m.backward,
+        left: isDead ? false : m.left,
+        right: isDead ? false : m.right,
+        jump: isDead ? false : m.jump,
+        shoot: !isDead && controls.shoot && !storeOpenRef.current,
         yaw: lookRef.current.yaw,
         pitch: lookRef.current.pitch,
       })
@@ -914,7 +922,7 @@ function App() {
       const weaponMgr = data.session.weaponManager
       weaponMgr.update(dt)
       let firedThisFrame = false
-      if (controls.shoot && !storeOpenRef.current && weaponMgr.current.shoot()) {
+      if (!isDead && controls.shoot && !storeOpenRef.current && weaponMgr.current.shoot()) {
         firedThisFrame = true
         data.viewmodel?.fire()
         data.audio.playWeaponShoot(weaponVisual(weaponMgr.current.type), client.getLocalPosition())
@@ -1034,6 +1042,10 @@ function App() {
 
       if (e.code === 'KeyM') {
         data.audio.toggleMute()
+      }
+
+      if (e.code === 'KeyH' && (gameStateRef.current === 'playing' || gameStateRef.current === 'paused')) {
+        setShowInGameHelp((prev) => !prev)
       }
 
       if (e.code === 'KeyR') {
@@ -1269,6 +1281,10 @@ function App() {
         </>
       )}
 
+      {gameState === 'playing' && showInGameHelp && (
+        <HelpModal onClose={() => setShowInGameHelp(false)} inGame />
+      )}
+
       {gameState === 'playing' && storeOpen && (
         <BuyMenu
           team={team}
@@ -1337,11 +1353,16 @@ function App() {
             engineRef.current?.resume()
             updateGameState('playing')
           }}
+          onHelp={() => setShowInGameHelp(true)}
           onMainMenu={() => {
             engineRef.current?.stop()
             updateGameState('menu')
           }}
         />
+      )}
+
+      {gameState === 'paused' && showInGameHelp && (
+        <HelpModal onClose={() => setShowInGameHelp(false)} inGame />
       )}
 
       {gameState === 'gameover' && (

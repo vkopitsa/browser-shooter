@@ -401,6 +401,10 @@ export class GameSession {
     for (const entity of this.playerMap.values()) {
       const input = this.getInput(entity.id)
       const player = entity.player
+      if (player.isDead) {
+        // Dead players cannot rotate, move, or shoot.
+        continue
+      }
       player.rotation.y = input.yaw
       player.rotation.x = THREE.MathUtils.clamp(input.pitch, -Math.PI / 2, Math.PI / 2)
       player.update(dt, input, ARENA_SIZE, this.collisionWorld ?? undefined)
