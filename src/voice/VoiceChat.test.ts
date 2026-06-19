@@ -120,7 +120,7 @@ describe('VoiceChat', () => {
     s.chat.peerDisconnected('p2')
     expect(s.peer.calls[0].closed).toBe(true)
     expect(s.stopStream).toHaveBeenCalledWith('zzz')
-    expect(s.onSpeakersChanged).toHaveBeenLastCalledWith([])
+    expect(s.onSpeakersChanged).toHaveBeenLastCalledWith([{ playerId: 'me', name: 'Me' }])
   })
 
   it('resends a talk heartbeat after the interval while holding', async () => {

@@ -78,7 +78,6 @@ export class VoiceChat {
     const entry = this.roster.find(r => r.playerId === playerId)
     if (entry) this.closeCall(entry.peerId)
     this.registry.remove(playerId)
-    this.stopTalking()
     this.emit()
   }
 
