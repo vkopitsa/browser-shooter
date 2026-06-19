@@ -85,6 +85,8 @@ function App() {
   const [owned, setOwned] = useState<string[]>([])
   const [maxHealth, setMaxHealth] = useState(100)
   const [roomCode, setRoomCode] = useState<string | null>(null)
+  const [joinError, setJoinError] = useState<string | null>(null)
+  const [hostNotice, setHostNotice] = useState<string | null>(null)
   const [lobbyPlayers, setLobbyPlayers] = useState<string[]>([])
   const [isHost, setIsHost] = useState(false)
   const [servers, setServers] = useState<ServerRow[]>([])
@@ -319,10 +321,11 @@ function App() {
     })
   }, [myTeam])
 
-  const joinGame = useCallback(async (code: string) => {
+  const joinGame = useCallback(async (code: string, opts?: { team?: Team; password?: string }) => {
     const data = gameDataRef.current
     data.role = 'client'
     setIsHost(false)
+    setJoinError(null)
     const peerClient = new PeerClient()
     data.peerClient = peerClient
     const transport = await peerClient.connect(code)
@@ -415,23 +418,39 @@ function App() {
           break
       }
     })
-    client.onWelcome((_, mode, players) => {
+    client.onWelcome((_, mode, players, _started) => {
       const data = gameDataRef.current
       if (data.netClient?.config) { data.matchConfig = data.netClient.config }
       setRoomCode(code)
       setLobbyPlayers(players)
       setRoster({ ct: players, t: [] })
-      void mode
+      void mode; void _started
     })
     client.onStart(() => startNetGame('client'))
+    client.onJoinRejected((reason) => {
+      setJoinError(reason === 'full' ? 'Game is full' : 'Wrong password')
+      data.peerClient?.stop(); data.peerClient = null; data.netClient = null
+    })
+    client.onDisconnect(() => {
+      if (data.role !== 'client') return
+      resetNetworking()
+      setHostNotice('Host disconnected')
+      setRoomCode(null); setLobbyPlayers([]); setIsHost(false)
+      updateGameState('mpmenu')
+    })
     client.onPlayerJoined((_id, name) => {
       setLobbyPlayers((prev) => prev.includes(name) ? prev : [...prev, name])
     })
     client.onPlayerLeft(() => {
       setLobbyPlayers((prev) => prev.slice(0, -1))
     })
-    client.transport.send({ type: 'join', name: settingsRef.current.playerName, team: myTeam })
-  }, [startNetGame, myTeam, pushKill])
+    client.transport.send({
+      type: 'join',
+      name: settingsRef.current.playerName,
+      team: opts?.team ?? myTeam,
+      ...(opts?.password ? { password: opts.password } : {}),
+    })
+  }, [startNetGame, myTeam, pushKill, resetNetworking, updateGameState])
 
   const refreshServers = useCallback(async () => {
     const dialed = await dialDirectory()
@@ -465,6 +484,7 @@ function App() {
   const leaveMultiplayer = useCallback(() => {
     resetNetworking()
     setRoomCode(null); setLobbyPlayers([]); setIsHost(false); setServers([])
+    setHostNotice(null); setJoinError(null)
     updateGameState('menu')
   }, [updateGameState, resetNetworking])
 
@@ -1050,36 +1070,49 @@ function App() {
       )}
 
       {gameState === 'mpmenu' && (
-        <MultiplayerMenu
-          roomCode={roomCode}
-          players={lobbyPlayers}
-          isHost={isHost}
-          servers={servers}
-          onHost={() => setShowMatchSetup(true)}
-          onJoin={joinGame}
-          onStart={() => {
-            gameDataRef.current.matchStarted = true
-            gameDataRef.current.hostDirectory?.setStatus('in-progress')
-            gameDataRef.current.netHost?.startMatch()
-            startNetGame('host')
-          }}
-          onBack={leaveMultiplayer}
-          onRefresh={refreshServers}
-          onQuickMatch={handleQuickMatch}
-          myTeam={myTeam}
-          onSelectTeam={(t) => {
-            setMyTeam(t)
-            setRoster((prev) => moveToTeam(prev, settingsRef.current.playerName, t))
-            const data = gameDataRef.current
-            if (data.role === 'host') {
-              const me = data.session.getPlayer(data.session.localId)
-              if (me) me.team = t
-            } else if (data.netClient) {
-              data.netClient.transport.send({ type: 'setTeam', playerId: data.netClient.playerId!, team: t })
-            }
-          }}
-          roster={roster}
-        />
+        <>
+          <MultiplayerMenu
+            roomCode={roomCode}
+            players={lobbyPlayers}
+            isHost={isHost}
+            servers={servers}
+            onHost={() => setShowMatchSetup(true)}
+            onJoin={joinGame}
+            onJoinFree={(code, team, password) => joinGame(code, { team, password })}
+            joinError={joinError}
+            onCancelJoin={() => setJoinError(null)}
+            onStart={() => {
+              gameDataRef.current.matchStarted = true
+              gameDataRef.current.hostDirectory?.setStatus('in-progress')
+              gameDataRef.current.netHost?.startMatch()
+              startNetGame('host')
+            }}
+            onBack={leaveMultiplayer}
+            onRefresh={refreshServers}
+            onQuickMatch={handleQuickMatch}
+            myTeam={myTeam}
+            onSelectTeam={(t) => {
+              setMyTeam(t)
+              setRoster((prev) => moveToTeam(prev, settingsRef.current.playerName, t))
+              const data = gameDataRef.current
+              if (data.role === 'host') {
+                const me = data.session.getPlayer(data.session.localId)
+                if (me) me.team = t
+              } else if (data.netClient) {
+                data.netClient.transport.send({ type: 'setTeam', playerId: data.netClient.playerId!, team: t })
+              }
+            }}
+            roster={roster}
+          />
+          {hostNotice && (
+            <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)',
+              background: '#5f1d1d', color: '#fff', padding: '8px 16px', borderRadius: 6,
+              fontFamily: 'monospace', zIndex: 70 }}
+              onClick={() => setHostNotice(null)}>
+              {hostNotice} — click to dismiss
+            </div>
+          )}
+        </>
       )}
       {gameState === 'mpmenu' && showMatchSetup && (
         <MatchSetup
