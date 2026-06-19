@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render } from '@testing-library/react'
 import * as THREE from 'three'
 import { Minimap } from '../Minimap'
@@ -45,10 +45,28 @@ const mockCtx = {
   closePath: mockClosePath,
 }
 
+let rafCallback: FrameRequestCallback | null = null
+
 beforeEach(() => {
   vi.clearAllMocks()
   HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCtx) as any
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+    rafCallback = cb
+    return 1
+  })
+  vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
 })
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  rafCallback = null
+})
+
+function flushRaf() {
+  if (rafCallback) {
+    rafCallback(performance.now())
+  }
+}
 
 describe('Minimap', () => {
   it('renders a canvas element', () => {
@@ -58,6 +76,7 @@ describe('Minimap', () => {
 
   it('draws player indicator on canvas', () => {
     render(<Minimap {...defaultProps} />)
+    flushRaf()
     expect(mockSave).toHaveBeenCalled()
     expect(mockTranslate).toHaveBeenCalled()
     expect(mockRotate).toHaveBeenCalledWith(expect.any(Number))
@@ -67,11 +86,13 @@ describe('Minimap', () => {
   it('draws enemy markers on canvas when enemies are present', () => {
     const enemies = [new THREE.Vector3(10, 0, 10)]
     render(<Minimap {...defaultProps} enemies={enemies} />)
+    flushRaf()
     expect(mockArc).toHaveBeenCalled()
   })
 
   it('does not draw enemy markers when enemies list is empty', () => {
     render(<Minimap {...defaultProps} enemies={[]} />)
+    flushRaf()
     expect(mockArc).not.toHaveBeenCalled()
   })
 })
@@ -94,6 +115,7 @@ describe('bombsite markers', () => {
       { id: 'B', position: { x: 0, z: 10 } },
     ]
     render(<Minimap {...defaultProps} bombsites={bombsites} />)
+    flushRaf()
     expect(mockFillText).toHaveBeenCalledTimes(2)
     expect(mockFillText).toHaveBeenCalledWith('A', expect.any(Number), expect.any(Number))
     expect(mockFillText).toHaveBeenCalledWith('B', expect.any(Number), expect.any(Number))
@@ -104,12 +126,14 @@ describe('bombsite markers', () => {
       { id: 'A', position: { x: 0, z: -200 } },
     ]
     render(<Minimap {...defaultProps} bombsites={bombsites} />)
+    flushRaf()
     expect(mockFillText).not.toHaveBeenCalled()
   })
 
   it('draws bomb position marker on canvas when in range', () => {
     const bombPosition = { x: 5, z: 5 }
     render(<Minimap {...defaultProps} bombPosition={bombPosition} />)
+    flushRaf()
     expect(mockArc).toHaveBeenCalledWith(
       expect.any(Number),
       expect.any(Number),
@@ -122,6 +146,7 @@ describe('bombsite markers', () => {
   it('does not draw bomb position marker outside bounds', () => {
     const bombPosition = { x: 0, z: -200 }
     render(<Minimap {...defaultProps} bombPosition={bombPosition} />)
+    flushRaf()
     expect(mockArc).not.toHaveBeenCalled()
   })
 
