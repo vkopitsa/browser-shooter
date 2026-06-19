@@ -25,4 +25,23 @@ describe('buildPeerOptions', () => {
     const opts = buildPeerOptions({ VITE_PEER_HOST: 'peer.example.com', VITE_PEER_KEY: 'mykey' })
     expect(opts).toEqual({ host: 'peer.example.com', secure: false, key: 'mykey' })
   })
+
+  it('parses VITE_PEER_ICE into config.iceServers', () => {
+    const ice = '[{"urls":"stun:of-it.pp.ua:3478"},{"urls":"turn:of-it.pp.ua:3478","username":"u","credential":"p"}]'
+    const opts = buildPeerOptions({ VITE_PEER_HOST: 'peerjs.of-it.pp.ua', VITE_PEER_SECURE: 'true', VITE_PEER_ICE: ice })
+    expect(opts?.config?.iceServers).toEqual([
+      { urls: 'stun:of-it.pp.ua:3478' },
+      { urls: 'turn:of-it.pp.ua:3478', username: 'u', credential: 'p' },
+    ])
+  })
+
+  it('returns ICE config even when no broker host is set', () => {
+    const opts = buildPeerOptions({ VITE_PEER_ICE: '[{"urls":"stun:of-it.pp.ua:3478"}]' })
+    expect(opts).toEqual({ config: { iceServers: [{ urls: 'stun:of-it.pp.ua:3478' }] } })
+  })
+
+  it('ignores invalid VITE_PEER_ICE JSON and falls back to defaults', () => {
+    expect(buildPeerOptions({ VITE_PEER_ICE: 'not json' })).toBeUndefined()
+    expect(buildPeerOptions({ VITE_PEER_ICE: '[]' })).toBeUndefined()
+  })
 })
