@@ -6,6 +6,11 @@ const entry = (roomCode: string): DirectoryEntry => ({
   roomCode, hostName: 'Alice', players: 1, maxPlayers: 8, status: 'lobby',
 })
 
+const entryWithFields = (over: Partial<DirectoryEntry> = {}): DirectoryEntry => ({
+  roomCode: 'ROOM1', hostName: 'Ann', players: 1, maxPlayers: 8,
+  status: 'lobby', mode: 'pvp', ...over,
+})
+
 describe('DirectoryRoster', () => {
   it('upsert adds an entry that list() returns without lastSeen', () => {
     const r = new DirectoryRoster()
@@ -33,5 +38,13 @@ describe('DirectoryRoster', () => {
     r.upsert(entry('ROOM1'), 1000)
     r.remove('ROOM1')
     expect(r.list()).toEqual([])
+  })
+
+  it('preserves joinPolicy and protected through upsert -> list', () => {
+    const r = new DirectoryRoster()
+    r.upsert(entryWithFields({ joinPolicy: 'free', protected: true }), 1000)
+    const [e] = r.list()
+    expect(e.joinPolicy).toBe('free')
+    expect(e.protected).toBe(true)
   })
 })

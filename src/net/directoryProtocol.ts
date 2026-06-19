@@ -6,6 +6,7 @@ export const ENTRY_TTL_MS = 15_000
 export const HEARTBEAT_MS = 5_000
 
 export type ServerStatus = 'lobby' | 'in-progress'
+export type JoinPolicy = 'lobby' | 'free'
 
 export interface DirectoryEntry {
   roomCode: string
@@ -14,6 +15,8 @@ export interface DirectoryEntry {
   maxPlayers: number
   status: ServerStatus
   mode?: string
+  joinPolicy?: JoinPolicy   // 'lobby' (default) | 'free'
+  protected?: boolean       // true when a free game has a non-empty password
 }
 
 /** Messages carried on the directory channel (distinct from the game NetMessage protocol). */
