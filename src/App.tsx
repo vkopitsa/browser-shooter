@@ -551,6 +551,7 @@ function App() {
     data.viewmodel = new Viewmodel(engine.camera)
     data.particleSystem = new ParticleSystem(engine.scene)
     data.controls = new Controls(container, () => gameStateRef.current)
+    data.controls.onIsStoreOpen = () => storeOpenRef.current
     data.controls.onMouseMove = onMouseMove
     data.controls.onCycleWeapon = () => {
       if (gameStateRef.current !== 'playing') return

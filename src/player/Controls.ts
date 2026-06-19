@@ -24,6 +24,7 @@ export class Controls {
   onThrowGrenade: ((mode: 'long' | 'short') => void) | null = null
   onSelectGrenade: ((type: 'he' | 'flash' | 'smoke') => void) | null = null
   onCycleGrenade: (() => void) | null = null
+  onIsStoreOpen: (() => boolean) | null = null
   /** Fired on push-to-talk key down / up (hold to transmit voice). */
   onTalkStart: (() => void) | null = null
   onTalkStop: (() => void) | null = null
@@ -107,7 +108,7 @@ export class Controls {
   private onMouseDown(e: MouseEvent) {
     if (e.button === 0) {
       this.shoot = true
-      if (this.getGameState() === 'playing' && document.pointerLockElement !== this.element) {
+      if (this.getGameState() === 'playing' && document.pointerLockElement !== this.element && !this.onIsStoreOpen?.()) {
         this.element.requestPointerLock()
       }
       this.onThrowGrenade?.('long')
