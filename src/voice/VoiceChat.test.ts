@@ -120,6 +120,7 @@ describe('VoiceChat', () => {
     s.chat.peerDisconnected('p2')
     expect(s.peer.calls[0].closed).toBe(true)
     expect(s.stopStream).toHaveBeenCalledWith('zzz')
+    expect(s.stopStream).toHaveBeenCalledTimes(1)
     expect(s.onSpeakersChanged).toHaveBeenLastCalledWith([{ playerId: 'me', name: 'Me' }])
   })
 

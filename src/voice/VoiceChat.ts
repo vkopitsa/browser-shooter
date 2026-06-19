@@ -133,16 +133,19 @@ export class VoiceChat {
   private wireCall(call: VoiceCall): void {
     this.calls.set(call.peerId, call)
     call.onStream((stream) => this.deps.playStream(call.peerId, stream))
-    call.onClose(() => {
-      this.calls.delete(call.peerId)
-      this.deps.stopStream(call.peerId)
-    })
+    call.onClose(() => this.cleanupCall(call.peerId))
   }
 
   private closeCall(peerId: string): void {
     const call = this.calls.get(peerId)
     if (!call) return
     call.close()
+    this.cleanupCall(peerId)
+  }
+
+  /** Idempotent teardown: runs once per peer whether closed locally or remotely. */
+  private cleanupCall(peerId: string): void {
+    if (!this.calls.has(peerId)) return
     this.calls.delete(peerId)
     this.deps.stopStream(peerId)
   }
