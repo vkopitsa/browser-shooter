@@ -115,6 +115,7 @@ function App() {
   const [grenadeInventory, setGrenadeInventory] = useState({ he: 0, flash: 0, smoke: 0 })
   const [selectedGrenade, setSelectedGrenade] = useState<GrenadeType | null>(null)
   const [speakers, setSpeakers] = useState<Speaker[]>([])
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null)
 
   const lastWaveRef = useRef(0)
   const ownedRef = useRef<string[]>([])
@@ -200,6 +201,7 @@ function App() {
     data.clientEnemies.clear()
     data.voiceChat?.dispose(); data.voiceChat = null
     data.audioSink.dispose(); data.audioSink = new AudioSink()
+    data.micProvider = new BrowserMicProvider()
     setSpeakers([])
     data.role = 'single'
   }, [])
@@ -591,7 +593,12 @@ function App() {
 
     data.controls.onTalkStart = () => {
       if (gameStateRef.current !== 'playing') return
-      void gameDataRef.current.voiceChat?.startTalking()
+      const chat = gameDataRef.current.voiceChat
+      if (!chat) return
+      chat.startTalking().catch(() => {
+        setVoiceNotice('Microphone unavailable — push-to-talk disabled')
+        setTimeout(() => setVoiceNotice(null), 4000)
+      })
     }
     data.controls.onTalkStop = () => {
       gameDataRef.current.voiceChat?.stopTalking()
@@ -1223,6 +1230,13 @@ function App() {
           <DamageOverlay indicator={damageIndicator} />
           <KillFeed lines={killFeed} />
           <VoiceIndicator speakers={speakers} />
+          {voiceNotice && (
+            <div style={{ position: 'absolute', left: 16, bottom: 64, zIndex: 60,
+              background: 'rgba(95,29,29,0.85)', color: '#fff', padding: '6px 12px',
+              borderRadius: 6, fontFamily: 'monospace', fontSize: 13, pointerEvents: 'none' }}>
+              {voiceNotice}
+            </div>
+          )}
           {respawnIn !== null && <RespawnOverlay seconds={respawnIn} />}
           {showScoreboard && <Scoreboard players={scoreboardPlayers} roomCode={roomCode} scores={matchScores ?? undefined} />}
           {mobileControlsActive(settings) && gameDataRef.current.controls && (
