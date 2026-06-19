@@ -13,4 +13,8 @@ export class PeerConnection implements Transport {
   onMessage(cb: (msg: NetMessage) => void): void {
     this.conn.on('data', (data) => cb(data as NetMessage))
   }
+
+  onClose(cb: () => void): void {
+    this.conn.on('close', () => cb())
+  }
 }
