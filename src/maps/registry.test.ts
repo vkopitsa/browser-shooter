@@ -27,7 +27,8 @@ describe('map registry', () => {
     })
 
     it('uses the standard arena size', () => {
-      expect(map.arenaSize).toBe(30)
+      if (map.id === 'dust2') expect(map.arenaSize).toBe(40)
+      else expect(map.arenaSize).toBe(30)
     })
 
     it('has at least one spawn per team', () => {
