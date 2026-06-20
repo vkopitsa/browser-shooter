@@ -19,6 +19,8 @@ import { raycastPlayerCapsule } from './PlayerHit'
 import type { HitZone } from '../systems/DamageZones'
 import { Bombsite } from './Bombsite'
 import { BombCarrier, BombState } from './BombCarrier'
+import type { MapDef } from '../maps/MapDef'
+import { getMap } from '../maps/registry'
 import { Grenade } from '../weapons/Grenade'
 import { GRENADE_DEFS, calcHeDamage, calcFlashBlindDuration } from '../weapons/GrenadeDefs'
 import { SmokeCloud } from '../effects/SmokeCloud'
@@ -50,6 +52,7 @@ export class GameSession {
   tick = 0
 
   config: MatchConfig
+  map: MapDef
   scoreboard: Scoreboard
   respawnQueue = new RespawnQueue()
   roundManager: RoundManager | null = null
@@ -65,16 +68,16 @@ export class GameSession {
 
   constructor(config: MatchConfig = defaultMatchConfig()) {
     this.config = config
+    this.map = getMap(config.mapId)
     this.scoreboard = new Scoreboard(config.fragLimit)
     this.addPlayer(LOCAL_ID, 'You', 'ct')
 
     if (config.mode === 'competitive') {
       this.roundManager = new RoundManager()
       this.economy = new Economy(800)
-      this.bombsites = [
-        new Bombsite('A', { x: 0, y: 0, z: -25 }),
-        new Bombsite('B', { x: 0, y: 0, z: 25 }),
-      ]
+      this.bombsites = this.map.bombsites.map(
+        (b) => new Bombsite(b.id, { x: b.center[0], y: 0, z: b.center[1] })
+      )
     }
   }
 
@@ -198,7 +201,7 @@ export class GameSession {
     this.bomb.reset()
     for (const entity of this.playerMap.values()) {
       entity.player.revive()
-      entity.player.position.copy(pickSpawn(entity.team))
+      entity.player.position.copy(pickSpawn(entity.team, this.map))
       if (this.config.mode === 'competitive') entity.weapons.reset()
     }
     events.push({ type: 'roundStart', round: rm.round, money: this.economy?.money ?? 800, ctScore: rm.ctScore, tScore: rm.tScore })
@@ -447,7 +450,7 @@ export class GameSession {
     for (const id of this.respawnQueue.update(dt)) {
       const entity = this.playerMap.get(id)
       if (!entity) continue
-      entity.player.position.copy(pickSpawn(entity.team))
+      entity.player.position.copy(pickSpawn(entity.team, this.map))
       entity.player.revive()
       events.push({ type: 'playerRespawned', playerId: id })
     }
