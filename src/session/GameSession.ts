@@ -30,6 +30,8 @@ import { SmokeCloud } from '../effects/SmokeCloud'
 export const ARENA_SIZE = 30
 const LOCAL_ID = 'local'
 export const RESPAWN_DELAY = 3 // seconds
+/** Hard ceiling on AI bots per session — each one is iterated every tick. */
+export const MAX_BOTS = 20
 
 function toVec3(v: THREE.Vector3): Vec3 {
   return { x: v.x, y: v.y, z: v.z }
@@ -109,8 +111,10 @@ export class GameSession {
     this.inputs.delete(id)
   }
 
-  /** Spawn an AI bot on `team` with a rifle and a CS-style name. */
+  /** Spawn an AI bot on `team` with a rifle and a CS-style name.
+   *  Returns null once {@link MAX_BOTS} are already registered. */
   addBot(team: Team): PlayerEntity | null {
+    if (this.bots.size >= MAX_BOTS) return null
     const id = `bot-${this.nextBotNum++}`
     const entity = this.addPlayer(id, botDisplayName(this.nextBotName()), team, true)
     this.giveBotLoadout(entity)

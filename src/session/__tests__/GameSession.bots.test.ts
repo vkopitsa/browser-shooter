@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { GameSession } from '../GameSession'
+import { GameSession, MAX_BOTS } from '../GameSession'
 import { defaultCompetitiveConfig } from '../MatchConfig'
 import { RoundState } from '../RoundManager'
 import * as THREE from 'three'
@@ -65,6 +65,14 @@ describe('GameSession bots', () => {
     const bot = s.addBot('ct')!
     s.handleDeath(bot.id)
     expect(bot.weapons.current.type).toBe('rifle')
+  })
+
+  it('caps the number of bots and returns null once the cap is reached', () => {
+    const s = pvpSession()
+    for (let i = 0; i < MAX_BOTS; i++) {
+      expect(s.addBot(i % 2 === 0 ? 'ct' : 't')).not.toBeNull()
+    }
+    expect(s.addBot('ct')).toBeNull()
   })
 
   it('records a bot kill on the scoreboard by id', () => {
