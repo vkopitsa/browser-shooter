@@ -1,50 +1,95 @@
-# Browser Shooter
+<div align="center">
 
-**3D first-person arena wave survival game — runs entirely in the browser**
+# 🎯 Browser Shooter
 
-[Live Demo](https://hermes98761234.github.io/browser-shooter/)
+**A 3D first-person shooter that runs entirely in your browser — from solo wave survival to CS-style 5v5 competitive with a bomb objective, an economy, and a buy menu.**
 
-## Description
+[**▶ Play the Live Demo**](https://hermes98761234.github.io/browser-shooter/)
 
-Browser Shooter is a fast-paced 3D FPS arena survival game built with Three.js and React. Fight off waves of increasingly difficult enemies, switch between weapons, collect pickups, and survive as long as you can. All rendering, physics, audio, and game logic run client-side in the browser with no server required.
+[![CI](https://github.com/hermes98761234/browser-shooter/actions/workflows/ci.yml/badge.svg)](https://github.com/hermes98761234/browser-shooter/actions/workflows/ci.yml)
+[![Deploy](https://github.com/hermes98761234/browser-shooter/actions/workflows/deploy.yml/badge.svg)](https://github.com/hermes98761234/browser-shooter/actions/workflows/deploy.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#license)
+[![Tests](https://img.shields.io/badge/tests-775%20unit%20%2B%20E2E-brightgreen.svg)](#testing)
 
-## Tech Stack
+![Three.js](https://img.shields.io/badge/Three.js-000000?logo=three.js&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)
+![WebRTC](https://img.shields.io/badge/Multiplayer-PeerJS%20%2F%20WebRTC-FF6600)
 
-| Technology | Purpose |
-|------------|---------|
-| [Three.js](https://threejs.org/) | 3D rendering, scene graph, materials, shadows |
-| [React](https://react.dev/) | UI layer — HUD, menus, overlays |
-| [TypeScript](https://www.typescriptlang.org/) | Type-safe game logic and tooling |
-| [Vite](https://vitejs.dev/) | Build tool and dev server |
-| [Vitest](https://vitest.dev/) | Unit testing (257 tests across 14 files) |
-| [Playwright](https://playwright.dev/) | End-to-end browser testing (36 tests across 3 files) |
+</div>
+
+---
+
+## Overview
+
+Browser Shooter is a fast-paced 3D FPS built with **Three.js** and **React**. Everything — rendering, physics, audio, AI, networking, and game logic — runs client-side. There is **no game server**: multiplayer is peer-to-peer over WebRTC, with one player acting as the host-authoritative simulation.
+
+It ships with two distinct experiences:
+
+- 🧟 **Singleplayer** — Classic arena **wave survival**. Fight escalating waves of enemies, collect pickups, chase a persistent high score. Add AI bots to fill out the arena.
+- 🔫 **Multiplayer** — Peer-to-peer **PvP** with a full **CS-style competitive mode**: Terrorists vs. Counter-Terrorists, round-based play, a plantable/defusable **C4 bomb objective**, a money **economy**, and a **buy menu** — on five hand-built competitive maps, with AI teammates and opponents.
+
+## Game Modes
+
+| Mode | Description |
+|------|-------------|
+| **Singleplayer — Wave Survival** | Survive progressively harder waves of Grunts, Runners, and Tanks. Health/ammo pickups spawn between waves. High score persists in `localStorage`. |
+| **Multiplayer — Deathmatch / PvP** | Host or join a room over WebRTC. Host-authoritative simulation with lag compensation and client-side prediction. |
+| **Multiplayer — Competitive (CS-style)** | Round-based CT vs. T play with a bomb objective, per-round economy, a buy phase, and a match score (first to the configured round limit). Fill empty slots with **AI bots**. |
 
 ## Features
 
-- **3D Arena** — Fully rendered 3D environment with dynamic lighting, shadows, and a skybox
-- **Three Weapons** — Pistol (balanced), Shotgun (spread, high close-range damage), Rifle (accurate, high damage)
-- **Enemy Variety** — Grunts (standard), Runners (fast, weak), Tanks (slow, high HP) with chase/attack AI
-- **Wave System** — Progressive difficulty with increasing enemy counts and variety between waves
-- **Particle Effects** — Muzzle flash, bullet impact sparks, blood splatter, death explosions
-- **Sound Effects** — Web Audio API with spatial HRTF audio, pitch variation, and synthesized fallbacks for all actions (shooting, hits, deaths, pickups, wave starts)
-- **HUD** — Health bar, ammo counter, weapon indicator, score, wave number, kill feed, minimap, damage overlay
-- **Pickups** — Health and ammo pickups spawn between waves
-- **Persistent High Score** — Saved to localStorage
-- **Pause Menu** — Full pause overlay with controls reminder
-- **Responsive UI** — React-based HUD components with wave announcements and game over screen
+- **Two full game modes** — solo wave survival and peer-to-peer multiplayer, including CS-style competitive.
+- **Bomb objective** — Terrorists carry and plant the C4 at site A or B; Counter-Terrorists race to defuse (faster with a defuse kit). Plant/defuse timers, explosion, and win conditions are fully simulated.
+- **Economy & buy menu** — Earn money from kills, wins, and losses; spend it each round on weapons, armor, grenades, a defuse kit, and utility upgrades.
+- **Deep weapon roster** — Pistols (USP, Glock, Deagle), rifles (M4, AUG, AK-47, Galil), MP5, Shotgun, and the AWP, each with distinct damage, fire rate, spread, range, and reload.
+- **Grenades** — HE grenade, Flashbang (with screen-flash blinding), and Smoke grenade, with full and short throws.
+- **AI bots** — CS-style team bots that buy, navigate, fight, and play the objective. Add/remove them on the fly.
+- **Five competitive maps** — Dust II, Inferno, Mirage, Nuke, and Overpass, selectable from the room setup.
+- **Voice chat** — In-game push-to-talk voice over the peer mesh, with on-screen speaker indicators.
+- **Configurable crosshair** — Live crosshair editor with dynamic bloom that reacts to movement and firing.
+- **Enemy variety & AI** — Grunts, Runners, and Tanks with chase/attack behavior and difficulty scaling.
+- **Particle & visual effects** — Muzzle flash, bullet-impact sparks, blood splatter, death explosions, damage vignette, flash overlay.
+- **Spatial audio** — Web Audio API with HRTF spatialization, pitch variation, and synthesized fallbacks.
+- **Rich HUD** — Health/armor, ammo, weapon & money indicators, round/score state, kill feed, minimap, scoreboard, respawn and match-over overlays.
+- **Server directory & matchmaking** — Browse, filter, and ping public rooms, or use quick matchmaking.
+- **Mobile-ready** — Responsive UI with on-screen touch controls and a rotate hint for portrait devices.
 
 ## Controls
 
 | Key / Input | Action |
 |-------------|--------|
 | `W` `A` `S` `D` | Move |
-| Mouse | Look around |
-| Left Click | Shoot |
-| `1` `2` `3` | Switch weapon (Pistol / Shotgun / Rifle) |
+| Mouse | Look |
+| Left Click | Shoot / Throw grenade |
+| Right Click | Short-throw grenade |
+| `1` – `3` | Switch weapon |
+| `4` – `6` | Select grenade (HE / Flash / Smoke) |
+| `G` | Cycle grenade type |
 | `R` | Reload |
 | `Space` | Jump |
+| `B` | Buy menu |
+| `5` | Plant bomb (T, in a bombsite) |
+| `E` | Defuse bomb (CT, near the bomb) |
+| `Tab` | Scoreboard |
+| `K` | Push-to-talk (voice) |
 | `M` | Toggle mute |
+| `H` | Help |
 | `ESC` | Pause / Resume |
+| `[` `]` `\` | Add / remove bots |
+
+## Tech Stack
+
+| Technology | Purpose |
+|------------|---------|
+| [Three.js](https://threejs.org/) | 3D rendering, scene graph, materials, shadows |
+| [React 19](https://react.dev/) | UI layer — HUD, menus, overlays |
+| [TypeScript](https://www.typescriptlang.org/) | Type-safe game logic and tooling |
+| [Vite 6](https://vitejs.dev/) | Build tool and dev server |
+| [PeerJS / WebRTC](https://peerjs.com/) | Peer-to-peer multiplayer signalling & transport, voice |
+| [Vitest](https://vitest.dev/) | Unit testing (775 tests across 93 files) |
+| [Playwright](https://playwright.dev/) | End-to-end browser testing (10 spec files) |
 
 ## Getting Started
 
@@ -70,119 +115,76 @@ npm run dev          # Start Vite dev server (http://localhost:5173)
 ### Testing
 
 ```bash
-npm test                # Run all 257 unit tests (Vitest)
-npm run test:e2e        # Run all 36 E2E tests (Playwright, Chromium)
+npm test             # Run all unit tests (Vitest)
+npm run test:e2e     # Run E2E tests (Playwright, Chromium)
+npm run lint         # ESLint
 ```
-
-### Multiplayer broker
-
-Multiplayer signalling runs over PeerJS. By default the app uses the **public
-`0.peerjs.com` cloud broker**, which is rate-limited — heavy testing can earn a
-temporary Cloudflare 1015 IP ban, after which room codes and the server list stop
-appearing. To avoid that, run your own broker:
-
-```bash
-npm run peerserver   # local PeerJS broker on :9000
-```
-
-Then copy `.env.example` to `.env.local`, uncomment the `VITE_PEER_*` lines, and
-restart `npm run dev`. For two machines on a LAN, set `VITE_PEER_HOST` to the
-broker host's LAN IP. With no `.env.local`, the app keeps using the public broker.
 
 ### Build
 
 ```bash
 npm run build        # Production build → dist/
-npm run preview      # Preview production build locally
+npm run preview      # Preview the production build locally
 ```
 
-### Lint
+## Multiplayer Broker
+
+Multiplayer signalling runs over PeerJS. By default the app uses the **public `0.peerjs.com` cloud broker**, which is rate-limited — heavy testing can earn a temporary Cloudflare `1015` IP ban, after which room codes and the server list stop appearing. To avoid that, run your own broker:
 
 ```bash
-npm run lint         # ESLint
+npm run peerserver   # local PeerJS broker on :9000
 ```
+
+Then copy `.env.example` to `.env.local`, uncomment the `VITE_PEER_*` lines, and restart `npm run dev`. For two machines on a LAN, set `VITE_PEER_HOST` to the broker host's LAN IP. With no `.env.local`, the app keeps using the public broker.
 
 ## Project Structure
 
 ```
 browser-shooter/
-├── .github/workflows/        # CI/CD pipelines (ci.yml, deploy.yml, release.yml)
-├── e2e/                      # Playwright E2E tests
-│   ├── controls.spec.ts      # Input and controls tests
-│   ├── game.spec.ts          # Core gameplay flow tests
-│   └── ui.spec.ts            # HUD and overlay tests
-├── public/                   # Static assets
+├── .github/workflows/   # CI/CD: ci.yml, deploy.yml, release.yml
+├── e2e/                 # Playwright E2E specs (gameplay, UI, competitive, bomb, buy menu, multiplayer…)
+├── public/              # Static assets (audio samples)
 ├── src/
-│   ├── audio/                # AudioManager, SoundEffects, MP3 samples
-│   │   ├── sounds/           # Weapon, hit, death, pickup audio files
-│   │   ├── AudioManager.ts   # Web Audio API: loading, caching, spatial audio
-│   │   └── SoundEffects.ts   # Semantic sound playback helpers
-│   ├── effects/              # Visual particle effects
-│   │   ├── BulletImpact.ts   # Spark particles on hit
-│   │   ├── DamageIndicator.ts # Directional damage feedback
-│   │   ├── Explosion.ts      # Enemy death explosions
-│   │   ├── MuzzleFlash.ts    # Muzzle flash on shoot
-│   │   └── ParticleSystem.ts # Reusable particle pool
-│   ├── enemies/              # Enemy AI and wave management
-│   │   ├── Enemy.ts          # Enemy entity with chase/attack behavior
-│   │   ├── EnemyDefs.ts      # Enemy type definitions (Grunt, Runner, Tank)
-│   │   └── WaveManager.ts    # Wave spawning and difficulty scaling
-│   ├── engine/               # Core Three.js engine
-│   │   ├── Arena.ts          # Arena geometry, walls, floor, skybox
-│   │   ├── Camera.ts         # First-person camera controller
-│   │   ├── GameEngine.ts     # Main game loop, scene management, state
-│   │   ├── Lighting.ts       # Ambient, directional, and point lights
-│   │   └── Renderer.ts       # WebGL renderer setup with shadows
-│   ├── player/               # Player logic
-│   │   ├── Controls.ts       # Keyboard/mouse input handling
-│   │   └── Player.ts         # Player state, movement, health
-│   ├── systems/              # Gameplay systems
-│   │   ├── AmmoSystem.ts     # Ammo tracking and reloading
-│   │   ├── HealthSystem.ts   # Health, damage, death handling
-│   │   ├── Pickup.ts         # Health/ammo pickup spawning and collection
-│   │   └── ScoreSystem.ts    # Scoring and high score persistence
-│   ├── ui/                   # React UI components
-│   │   ├── DamageOverlay.tsx # Red vignette on damage
-│   │   ├── GameOver.tsx      # Game over screen with score
-│   │   ├── HUD.tsx           # In-game HUD (health, ammo, score, wave)
-│   │   ├── MainMenu.tsx      # Start screen
-│   │   ├── Minimap.tsx       # Top-down minimap
-│   │   ├── PauseMenu.tsx     # Pause overlay with controls
-│   │   └── WaveAnnounce.tsx  # Wave number announcement overlay
-│   ├── weapons/              # Weapon system
-│   │   ├── Weapon.ts         # Individual weapon logic (fire, reload, spread)
-│   │   ├── WeaponDefs.ts     # Weapon type definitions and stats
-│   │   └── WeaponManager.ts  # Weapon switching and ammo management
-│   ├── App.tsx               # Root React component, game state orchestration
-│   ├── main.tsx              # Entry point — mounts React app
-│   ├── types.ts              # Shared TypeScript type definitions
-│   └── index.css             # Global styles
-├── index.html                # HTML entry point
-├── vite.config.ts            # Vite + Vitest configuration
-├── tsconfig.json             # TypeScript config (project references)
-├── tsconfig.app.json         # App-specific TS config
-├── tsconfig.node.json        # Node/tooling TS config
-├── eslint.config.js          # ESLint flat config
-├── playwright.config.ts      # Playwright configuration
-└── package.json              # Dependencies and scripts
+│   ├── audio/           # Web Audio: AudioManager, SoundEffects, spatial audio
+│   ├── bots/            # AI bot controller, behavior, names
+│   ├── effects/         # Particle systems — muzzle flash, impacts, explosions, flash
+│   ├── enemies/         # Singleplayer enemy AI, defs, wave manager
+│   ├── engine/          # Three.js engine — renderer, camera, arena, lighting, game loop
+│   ├── entities/        # Shared 3D character model
+│   ├── maps/            # Competitive maps (Dust II, Inferno, Mirage, Nuke, Overpass) + registry
+│   ├── net/             # P2P networking — host/client, PeerJS, directory, matchmaking, lag comp
+│   ├── player/          # Player state, controls, purchase application
+│   ├── session/         # Authoritative game session — rounds, bomb, economy, spawns, scoreboard
+│   ├── settings/        # Settings & crosshair persistence
+│   ├── systems/         # Health, ammo, score, pickups
+│   ├── ui/              # React components — HUD, menus, buy menu, scoreboard, overlays, touch
+│   ├── voice/           # Push-to-talk voice chat over the peer mesh
+│   ├── weapons/         # Weapon defs, manager, viewmodel, grenades, store catalog, crosshair bloom
+│   ├── App.tsx          # Root component & game-state orchestration
+│   ├── main.tsx         # Entry point
+│   └── types.ts         # Shared type definitions
+├── index.html
+├── vite.config.ts       # Vite + Vitest configuration
+├── playwright.config.ts
+└── package.json
 ```
 
 ## Deployment
 
 Pushing to `main` triggers GitHub Actions:
 
-1. **CI** — Lint, unit tests (257), E2E tests (36), and production build
-2. **Deploy** — Automatic deployment to [GitHub Pages](https://hermes98761234.github.io/browser-shooter/)
+1. **CI** — Lint, unit tests, E2E tests, and a production build.
+2. **Deploy** — Automatic deployment to [GitHub Pages](https://hermes98761234.github.io/browser-shooter/).
 
 Tag with `v*` (e.g. `v1.0.0`) to trigger a release build with a distributable zip attached to the GitHub Release.
 
-## Known Follow-ups (TODO)
+## Known Follow-ups
 
-PvP is functional and host-authoritative. Two client-side polish gaps remain (host side is correct):
+PvP is functional and host-authoritative. Two client-side polish gaps remain (the host side is correct):
 
-- [ ] **Client lobby rosters are empty.** The host shows who is on CT vs T, but it never broadcasts roster/team changes to clients, so a joined client's CT/T roster panels render empty. Fix: have the host push the roster (names + teams) to clients on join and on `setTeam` (a small lobby-sync message or snapshot piggyback).
-- [ ] **Client kill feed shows raw player IDs instead of names.** Remote players aren't in the client's local player map, so the client kill feed prints e.g. `player-2`. Fix: carry the attacker/victim names in the `playerKilledPlayer` event (or resolve them from the snapshot's `players`).
+- [ ] **Client lobby rosters are empty.** The host knows who is on CT vs T but doesn't broadcast roster/team changes, so a joined client's roster panels render empty. Fix: have the host push the roster (names + teams) to clients on join and on `setTeam`.
+- [ ] **Client kill feed shows raw player IDs.** Remote players aren't in the client's local player map, so the client kill feed prints e.g. `player-2`. Fix: carry attacker/victim names in the `playerKilledPlayer` event (or resolve them from the snapshot).
 
 ## License
 
-MIT
+[MIT](LICENSE)
