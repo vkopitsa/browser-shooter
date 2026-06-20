@@ -64,6 +64,22 @@ describe('competitive mode', () => {
   })
 })
 
+describe('arena bounds', () => {
+  it('clamps movement to the active map size, not a hardcoded constant', () => {
+    // Dust2 declares arenaSize 40; bombsite A and the spawn ring extend past 30.
+    // The movement clamp must honor map.arenaSize so the outer map is reachable.
+    const config = defaultCompetitiveConfig()
+    const session = new GameSession(config)
+    expect(session.map.arenaSize).toBe(40)
+    // Place the local player in the outer ring (|x| > 30 but < 40) and step with
+    // no movement input; it should stay put rather than be yanked back to ±30.
+    session.player.position.set(35, 2, 35)
+    session.step(0.1)
+    expect(session.player.position.x).toBeCloseTo(35)
+    expect(session.player.position.z).toBeCloseTo(35)
+  })
+})
+
 describe('bomb mechanics', () => {
   it('creates bombsites in competitive mode', () => {
     const config = defaultCompetitiveConfig()

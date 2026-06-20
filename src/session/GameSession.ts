@@ -521,7 +521,7 @@ export class GameSession {
       }
       player.rotation.y = input.yaw
       player.rotation.x = THREE.MathUtils.clamp(input.pitch, -Math.PI / 2, Math.PI / 2)
-      player.update(dt, input, ARENA_SIZE, this.collisionWorld ?? undefined)
+      player.update(dt, input, this.map.arenaSize, this.collisionWorld ?? undefined)
 
       entity.weapons.update(dt)
       if (input.shoot && entity.weapons.current.canShoot()) {
