@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import * as THREE from 'three'
-import { createArena } from '../Arena'
+import { createArena, rebuildArena, ARENA_GROUP_NAME } from '../Arena'
+import { getMap, MAPS } from '../../maps/registry'
 
 // Mock WebGLRenderer to avoid needing a real GL context
 vi.mock('three', async () => {
@@ -17,27 +18,44 @@ vi.mock('three', async () => {
   }
 })
 
+function countRings(scene: THREE.Scene): number {
+  let n = 0
+  scene.traverse((child) => {
+    if (child instanceof THREE.Mesh && child.geometry instanceof THREE.RingGeometry) n++
+  })
+  return n
+}
+
 describe('createArena', () => {
-  it('creates bombsite markers', () => {
+  it('builds the arena into a single named group with 2 bombsite markers', () => {
     const scene = new THREE.Scene()
-    createArena(scene)
-    
-    // Count total children in scene (floor, walls, crates, lights, bombsite markers)
-    const initialChildCount = scene.children.length
-    
-    // The arena should add at least 2 additional meshes for bombsite markers
-    // We can check that the scene has children and that the function doesn't throw
-    expect(initialChildCount).toBeGreaterThan(0)
-    
-    // More specific: check that we have ring geometries for bombsite markers
-    const ringGeometries = scene.children.filter(child => {
-      if (child instanceof THREE.Mesh) {
-        return child.geometry instanceof THREE.RingGeometry
-      }
-      return false
-    })
-    
-    // Should have exactly 2 ring geometries for bombsite markers
-    expect(ringGeometries).toHaveLength(2)
+    const world = createArena(scene)
+
+    const group = scene.getObjectByName(ARENA_GROUP_NAME)
+    expect(group).toBeDefined()
+    expect(countRings(scene)).toBe(2)
+    // Collision world should have the perimeter walls plus structures.
+    expect(world.boxes.length).toBeGreaterThan(4)
+  })
+
+  it('builds every registered map without throwing', () => {
+    for (const map of MAPS) {
+      const scene = new THREE.Scene()
+      const world = createArena(scene, map)
+      expect(countRings(scene)).toBe(2)
+      expect(world.boxes.length).toBeGreaterThan(0)
+    }
+  })
+})
+
+describe('rebuildArena', () => {
+  it('replaces the existing arena, leaving exactly one arena group', () => {
+    const scene = new THREE.Scene()
+    createArena(scene, getMap('dust2'))
+    rebuildArena(scene, getMap('mirage'))
+
+    const groups = scene.children.filter((c) => c.name === ARENA_GROUP_NAME)
+    expect(groups).toHaveLength(1)
+    expect(countRings(scene)).toBe(2)
   })
 })

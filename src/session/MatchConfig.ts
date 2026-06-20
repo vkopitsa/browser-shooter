@@ -13,10 +13,11 @@ export interface MatchConfig {
   roundDuration?: number
   joinPolicy?: JoinPolicy   // 'lobby' (default) | 'free'
   password?: string         // only meaningful when joinPolicy === 'free'; blank/undefined = open
+  mapId?: string            // selected map id; undefined falls back to the default map (Dust2)
 }
 
 export function defaultMatchConfig(): MatchConfig {
-  return { mode: 'coop', damagePolicy: 'team', fragLimit: 30, joinPolicy: 'lobby' }
+  return { mode: 'coop', damagePolicy: 'team', fragLimit: 30, joinPolicy: 'lobby', mapId: 'dust2' }
 }
 
 export function defaultCompetitiveConfig(): MatchConfig {
@@ -28,6 +29,7 @@ export function defaultCompetitiveConfig(): MatchConfig {
     buyPhaseDuration: 15,
     roundDuration: 115,
     joinPolicy: 'lobby',
+    mapId: 'dust2',
   }
 }
 

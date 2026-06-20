@@ -1,7 +1,8 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import * as THREE from 'three'
 import { GameEngine } from './engine/GameEngine'
-import { createArena } from './engine/Arena'
+import { createArena, rebuildArena } from './engine/Arena'
+import { getMap } from './maps/registry'
 import { Controls } from './player/Controls'
 import { Viewmodel } from './weapons/Viewmodel'
 import { Pickup } from './systems/Pickup'
@@ -253,7 +254,9 @@ function App() {
     for (const pickup of data.session.pickups) { scene?.remove(pickup.mesh); pickup.dispose() }
 
     const fresh = new GameSession(data.matchConfig)
-    fresh.collisionWorld = data.session.collisionWorld
+    fresh.collisionWorld = scene
+      ? rebuildArena(scene, getMap(data.matchConfig.mapId))
+      : data.session.collisionWorld
     fresh.waveManager.wavePauseTimer = 2 // 2s grace before wave 1 (matches pre-refactor behavior)
     fresh.waveManager.onEnemySpawned = data.session.waveManager.onEnemySpawned
     fresh.waveManager.onWaveComplete = data.session.waveManager.onWaveComplete
@@ -292,6 +295,8 @@ function App() {
     const engine = engineRef.current
     if (!engine) return
     data.role = role
+    // Ensure the rendered arena and collision world match the host's selected map.
+    data.session.collisionWorld = rebuildArena(engine.scene, getMap(data.matchConfig.mapId))
     const localId = data.netClient?.playerId ?? data.session.localId
     data.remotePlayers = new RemotePlayerManager(engine.scene, localId)
     lookRef.current = { yaw: 0, pitch: 0 }
@@ -313,7 +318,9 @@ function App() {
     const scene = engineRef.current?.scene
     for (const enemy of data.session.enemies) { scene?.remove(enemy.mesh); enemy.dispose() }
     const fresh = new GameSession(config)
-    fresh.collisionWorld = data.session.collisionWorld
+    fresh.collisionWorld = scene
+      ? rebuildArena(scene, getMap(config.mapId))
+      : data.session.collisionWorld
     fresh.waveManager.onEnemySpawned = data.session.waveManager.onEnemySpawned
     fresh.waveManager.onWaveComplete = data.session.waveManager.onWaveComplete
     fresh.getPlayer(fresh.localId)!.name = settingsRef.current.playerName
@@ -595,7 +602,7 @@ function App() {
     const engine = new GameEngine(container)
     engineRef.current = engine
     const data = gameDataRef.current
-    data.session.collisionWorld = createArena(engine.scene)
+    data.session.collisionWorld = createArena(engine.scene, getMap(data.session.config.mapId))
     engine.scene.add(engine.camera) // so the camera-parented viewmodel renders
     data.viewmodel = new Viewmodel(engine.camera)
     data.particleSystem = new ParticleSystem(engine.scene)
