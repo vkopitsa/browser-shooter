@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { GameSession } from '../GameSession'
+import { defaultCompetitiveConfig } from '../MatchConfig'
+import { RoundState } from '../RoundManager'
 import * as THREE from 'three'
 
 function pvpSession(): GameSession {
@@ -46,6 +48,23 @@ describe('GameSession bots', () => {
     const fwd = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(bot.player.rotation.x, bot.player.rotation.y, 0, 'YXZ'))
     const dirToHuman = new THREE.Vector3(0, 0, -10).normalize()
     expect(fwd.dot(dirToHuman)).toBeGreaterThan(0.95)
+  })
+
+  it('keeps bots armed with a rifle through a competitive round reset', () => {
+    const s = new GameSession(defaultCompetitiveConfig())
+    const bot = s.addBot('t')!
+    expect(bot.weapons.current.type).toBe('rifle')
+    // Force the round to end; step() concludes it and respawns everyone with a fresh loadout.
+    s.roundManager!.state = RoundState.Over
+    s.step(0.016)
+    expect(bot.weapons.current.type).toBe('rifle')
+  })
+
+  it('re-arms a bot with a rifle after a competitive death reset', () => {
+    const s = new GameSession(defaultCompetitiveConfig())
+    const bot = s.addBot('ct')!
+    s.handleDeath(bot.id)
+    expect(bot.weapons.current.type).toBe('rifle')
   })
 
   it('records a bot kill on the scoreboard by id', () => {

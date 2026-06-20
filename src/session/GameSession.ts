@@ -113,9 +113,15 @@ export class GameSession {
   addBot(team: Team): PlayerEntity | null {
     const id = `bot-${this.nextBotNum++}`
     const entity = this.addPlayer(id, botDisplayName(this.nextBotName()), team, true)
-    entity.weapons.equip('rifle', 'primary')
+    this.giveBotLoadout(entity)
     this.bots.set(id, new BotController(id))
     return entity
+  }
+
+  /** Bots never visit the buy menu, so hand them a standing rifle loadout.
+   *  Used on spawn and after any competitive weapon reset so bots stay armed. */
+  private giveBotLoadout(entity: PlayerEntity): void {
+    entity.weapons.equip('rifle', 'primary')
   }
 
   /** Remove a bot (defaults to the most recently added). */
@@ -165,6 +171,7 @@ export class GameSession {
       const entity = this.playerMap.get(playerId)
       if (entity) {
         entity.weapons.reset()
+        if (entity.isBot) this.giveBotLoadout(entity)
       }
       // If the bomb carrier dies, drop the bomb at their position
       if (this.bomb.carrier === playerId) {
@@ -234,7 +241,10 @@ export class GameSession {
     for (const entity of this.playerMap.values()) {
       entity.player.revive()
       entity.player.position.copy(pickSpawn(entity.team, this.map))
-      if (this.config.mode === 'competitive') entity.weapons.reset()
+      if (this.config.mode === 'competitive') {
+        entity.weapons.reset()
+        if (entity.isBot) this.giveBotLoadout(entity)
+      }
     }
     events.push({ type: 'roundStart', round: rm.round, money: this.economy?.money ?? 800, ctScore: rm.ctScore, tScore: rm.tScore })
     events.push({ type: 'buyPhaseStart', duration: rm.buyPhaseTimer })
