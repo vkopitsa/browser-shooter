@@ -66,10 +66,13 @@ export class BotController {
     else if (dist < STANDOFF * 0.6) move = flat.clone().multiplyScalar(-1)
     if (move) this.applyMove(input, move)
 
+    // Engage any enemy with a clear line of sight, regardless of distance — the bot
+    // shouldn't wait for the target to wander into weapon range before reacting.
+    // (fireWeapon already caps the shot at the weapon's range, so long shots simply
+    // fall short rather than reaching unrealistically far.)
     const hasLOS = !world || world.segmentBlocked(self.player.position, targetPos) === null
-    const range = self.weapons.current.def.range
 
-    if (hasLOS && dist <= range) {
+    if (hasLOS) {
       this.aimTimer += dt
       if (this.aimTimer >= REACTION_TIME) {
         input.shoot = true
