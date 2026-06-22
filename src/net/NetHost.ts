@@ -5,6 +5,7 @@ import type { MatchConfig } from '../session/MatchConfig'
 import type { Team } from '../types'
 import { applyItem } from '../player/applyPurchase'
 import { findItem } from '../weapons/StoreCatalog'
+import { pickSpawn } from '../session/Spawns'
 
 interface ClientLink { playerId: string; transport: Transport; voicePeerId?: string }
 
@@ -114,7 +115,7 @@ export class NetHost {
         if (this.config.mode !== 'pvp') this.session.waveManager.spawnNextWave()
       } else if (msg.type === 'setTeam' && msg.playerId === playerId) {
         const entity = this.session.getPlayer(playerId)
-        if (entity && (msg.team === 'ct' || msg.team === 't')) { entity.team = msg.team; this.refreshVoiceRoster() }
+        if (entity && (msg.team === 'ct' || msg.team === 't')) { entity.team = msg.team; entity.player.position.copy(pickSpawn(msg.team, this.session.map)); this.refreshVoiceRoster() }
       } else if (msg.type === 'plantBomb' && msg.playerId === playerId) {
         this.session.tryPlant(playerId)
       } else if (msg.type === 'defuseBomb' && msg.playerId === playerId) {

@@ -14,6 +14,7 @@ import { createDamageIndicatorState, triggerDamage, updateDamageIndicator, type 
 import { createFlashEffect, triggerFlash, updateFlash, type FlashEffectState } from './effects/FlashEffect'
 import type { GameState, Team, GrenadeType, Vec3 } from './types'
 import { GameSession, ARENA_SIZE } from './session/GameSession'
+import { pickSpawn } from './session/Spawns'
 import { emptyInput, type EntityState } from './session/protocol'
 import { NetHost } from './net/NetHost'
 import { NetClient } from './net/NetClient'
@@ -1316,7 +1317,7 @@ function App() {
               const data = gameDataRef.current
               if (data.role === 'host') {
                 const me = data.session.getPlayer(data.session.localId)
-                if (me) me.team = t
+                if (me) { me.team = t; me.player.position.copy(pickSpawn(t, data.session.map)) }
               } else if (data.netClient) {
                 data.netClient.transport.send({ type: 'setTeam', playerId: data.netClient.playerId!, team: t })
               }
