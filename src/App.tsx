@@ -341,6 +341,10 @@ function App() {
       // rendered arena and collision world match.
       data.session.collisionWorld = rebuildArena(engine.scene, getMap(data.matchConfig.mapId))
     }
+    // Grenade inventory lives client-side; without this it stays null in net games,
+    // so buying/selecting/throwing grenades silently no-ops (the buy button never leaves 0/N).
+    data.grenadeManager = new GrenadeManager()
+    setGrenadeInventory({ he: 0, flash: 0, smoke: 0 }); setSelectedGrenade(null)
     const localId = data.netClient?.playerId ?? data.session.localId
     // Dispose any prior game's remote-player (bot) meshes so they don't linger in the
     // scene when re-hosting/re-joining — RemotePlayerManager replacement alone orphans them.
