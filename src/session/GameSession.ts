@@ -684,6 +684,14 @@ export class GameSession {
       const dir = weapon.getSpreadDirection(forward)
       this.resolveShot(entity, entity.player.position, dir, weapon.def.range, weapon.def.damage, events)
     }
+    // Visible tracer/muzzle-flash for everyone else: emit one shot ray so remote players
+    // and bots show their gunfire (the local player already gets local fire feedback).
+    const origin = entity.player.position
+    const wallDist = this.collisionWorld
+      ? this.collisionWorld.segmentBlocked(origin, origin.clone().addScaledVector(forward, weapon.def.range))
+      : null
+    const end = origin.clone().addScaledVector(forward, wallDist ?? weapon.def.range)
+    events.push({ type: 'playerShot', shooterId: entity.id, from: toVec3(origin), to: toVec3(end) })
   }
 
   private resolveShot(shooter: PlayerEntity, origin: THREE.Vector3, direction: THREE.Vector3, range: number, baseDamage: number, events: SessionEvent[]): void {

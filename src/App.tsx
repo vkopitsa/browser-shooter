@@ -12,7 +12,7 @@ import { AudioManager } from './audio/AudioManager'
 import { SoundEffects } from './audio/SoundEffects'
 import { createDamageIndicatorState, triggerDamage, updateDamageIndicator, type DamageIndicatorState } from './effects/DamageIndicator'
 import { createFlashEffect, triggerFlash, updateFlash, type FlashEffectState } from './effects/FlashEffect'
-import type { GameState, Team, GrenadeType } from './types'
+import type { GameState, Team, GrenadeType, Vec3 } from './types'
 import { GameSession, ARENA_SIZE } from './session/GameSession'
 import { emptyInput, type EntityState } from './session/protocol'
 import { NetHost } from './net/NetHost'
@@ -78,6 +78,17 @@ function moveToTeam(roster: { ct: string[]; t: string[] }, name: string, team: '
   const t = roster.t.filter(n => n !== name)
   if (team === 'ct') ct.push(name); else t.push(name)
   return { ct, t }
+}
+
+/** Render another player's/bot's gunfire (audio + muzzle flash + tracer). Caller skips
+ *  the local shooter, who gets its own fire feedback. */
+function renderRemoteShot(particleSystem: ParticleSystem, audio: SoundEffects, ev: { from: Vec3; to: Vec3 }) {
+  const from = new THREE.Vector3(ev.from.x, ev.from.y, ev.from.z)
+  const to = new THREE.Vector3(ev.to.x, ev.to.y, ev.to.z)
+  const dir = to.clone().sub(from).normalize()
+  audio.playWeaponShoot('rifle', from)
+  particleSystem.muzzleFlash(from.clone().add(dir.clone().multiplyScalar(0.4)), dir)
+  particleSystem.tracer(from, to, 0xfff0a0, 0.2)
 }
 
 function App() {
@@ -313,6 +324,9 @@ function App() {
       data.session.collisionWorld = rebuildArena(engine.scene, getMap(data.matchConfig.mapId))
     }
     const localId = data.netClient?.playerId ?? data.session.localId
+    // Dispose any prior game's remote-player (bot) meshes so they don't linger in the
+    // scene when re-hosting/re-joining — RemotePlayerManager replacement alone orphans them.
+    data.remotePlayers?.clear()
     data.remotePlayers = new RemotePlayerManager(engine.scene, localId)
     lookRef.current = { yaw: 0, pitch: 0 }
     setHealth(100)
@@ -443,6 +457,9 @@ function App() {
           break
         case 'wallImpact':
           particleSystem.bulletImpact(new THREE.Vector3(ev.point.x, ev.point.y, ev.point.z))
+          break
+        case 'playerShot':
+          if (ev.shooterId !== data.netClient?.playerId) renderRemoteShot(particleSystem, data.audio, ev)
           break
         case 'enemyShoot': {
           const from = new THREE.Vector3(ev.from.x, ev.from.y, ev.from.z)
@@ -775,6 +792,10 @@ function App() {
             break
           case 'wallImpact':
             data.particleSystem!.bulletImpact(new THREE.Vector3(ev.point.x, ev.point.y, ev.point.z))
+            break
+          case 'playerShot':
+            // The local player already draws its own muzzle flash; only render others'.
+            if (ev.shooterId !== session.localId) renderRemoteShot(particleSystem, data.audio, ev)
             break
           case 'enemyShoot': {
             const from = new THREE.Vector3(ev.from.x, ev.from.y, ev.from.z)
