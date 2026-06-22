@@ -16,6 +16,7 @@ const btn = (active: boolean): React.CSSProperties => ({
   cursor: 'pointer',
   fontFamily: 'monospace',
   fontSize: 12,
+  whiteSpace: 'nowrap',
   background: active ? '#ff6600' : '#1d1d2a',
   color: active ? '#000' : '#fff',
   border: '1px solid #3a3a55',
@@ -37,10 +38,10 @@ export function ServerFilters({ filter, onChange }: ServerFiltersProps) {
   ]
 
   return (
-    <div style={{ display: 'flex', gap: 16, marginBottom: 12, fontFamily: 'monospace' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 12, fontFamily: 'monospace' }}>
       <div>
         <div style={{ fontSize: 10, color: '#8a8aad', marginBottom: 4 }}>Mode</div>
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
           {modes.map((m) => (
             <button
               key={m.value}
@@ -56,7 +57,7 @@ export function ServerFilters({ filter, onChange }: ServerFiltersProps) {
 
       <div>
         <div style={{ fontSize: 10, color: '#8a8aad', marginBottom: 4 }}>Status</div>
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
           {statuses.map((s) => (
             <button
               key={s.value}

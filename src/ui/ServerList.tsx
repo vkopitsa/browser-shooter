@@ -54,7 +54,7 @@ export const ServerList: React.FC<ServerListProps> = ({ servers, onJoin, onRefre
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
       <ServerFilters filter={filter} onChange={setFilter} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: 460 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', maxWidth: 460 }}>
         <strong>Games</strong>
         <button style={{ ...refreshBtn, marginLeft: 'auto' }} onClick={onRefresh}>Refresh</button>
       </div>
