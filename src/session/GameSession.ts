@@ -805,6 +805,10 @@ export class GameSession {
           this.economy.recordKillReward(shooter.weapons.current.type)
           events.push({ type: 'moneyUpdate', playerId: shooter.id, amount: this.economy.money })
         }
+        if (shooter.isBot && this.config.mode === 'competitive') {
+          const botEco = this.botEconomies.get(shooter.id)
+          if (botEco) botEco.recordKillReward(shooter.weapons.current.type)
+        }
         if (this.scoreboard.matchOver) events.push({ type: 'matchOver', winningTeam: this.scoreboard.winningTeam! })
       }
       return
