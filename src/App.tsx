@@ -1519,6 +1519,7 @@ function App() {
         <MatchOver
           winningTeam={matchScores?.winningTeam ?? null}
           scores={matchScores ?? { teams: { ct: 0, t: 0 }, players: {}, matchOver: true, winningTeam: null }}
+          onRestart={gameDataRef.current.role === 'single' ? startGame : undefined}
           onBackToLobby={() => {
             engineRef.current?.stop()
             setKillFeed([]); setRespawnIn(null)

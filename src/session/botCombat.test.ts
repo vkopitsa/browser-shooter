@@ -20,6 +20,20 @@ describe('bot reload (bug 3)', () => {
   })
 })
 
+describe('bots engage enemies at any distance, not only when near', () => {
+  it('fires at an enemy past weapon range when line of sight is clear', () => {
+    const s = new GameSession({ ...defaultMatchConfig(), mode: 'pvp' })
+    const ct = s.addBot('ct')!
+    const t = s.addBot('t')!
+    ct.player.position.set(0, 2, 0)
+    t.player.position.set(0, 2, -80) // far beyond pistol range (50m)
+    const bot = new BotController(ct.id)
+    // dt past REACTION_TIME so a single tick clears the open-fire delay.
+    const input = bot.computeInput(ct, [ct, t], null, 0.4)
+    expect(input.shoot).toBe(true)
+  })
+})
+
 describe('coop bots fight the wave, not each other (bug 6)', () => {
   it('a coop bot aims at the supplied wave hostile, never a teammate/enemy player', () => {
     const s = new GameSession({ ...defaultMatchConfig(), mode: 'coop' })
