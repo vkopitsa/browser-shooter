@@ -117,6 +117,9 @@ export function BuyMenu({ team, money, owned, onBuy, onClose, buyPhase, buyPhase
                           onPointerEnter={() => setSelectedItem(item)}
                           style={{
                             display: 'flex', flexDirection: 'column', alignItems: 'center',
+                            // ponytail: min-width:0 lets 1fr tracks shrink; without it the
+                            // 48px icon forces min-content and a 5-wide row overflows the panel.
+                            minWidth: 0,
                             padding: '14px 8px', minHeight: 96, background: disabled ? '#1a1a24' : '#23233a',
                             color: disabled ? '#666' : '#fff', border: '1px solid #3a3a55',
                             cursor: disabled ? 'not-allowed' : 'pointer',

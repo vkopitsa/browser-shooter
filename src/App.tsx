@@ -1231,7 +1231,7 @@ function App() {
       )}
 
       {gameState === 'teamselect' && (
-        <TeamSelect onSelect={(t, mapId) => {
+        <TeamSelect onBack={() => updateGameState('menu')} onSelect={(t, mapId) => {
           setTeam(t)
           gameDataRef.current.matchConfig = { ...gameDataRef.current.matchConfig, mapId }
           startGame()

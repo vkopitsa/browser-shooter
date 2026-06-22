@@ -4,11 +4,12 @@ import { MAPS, DEFAULT_MAP_ID } from '../maps/registry'
 
 interface TeamSelectProps {
   onSelect: (team: Team, mapId: string) => void
+  onBack?: () => void
   selected?: Team
   counts?: { ct: number; t: number }
 }
 
-export function TeamSelect({ onSelect, selected, counts }: TeamSelectProps) {
+export function TeamSelect({ onSelect, onBack, selected, counts }: TeamSelectProps) {
   const [mapId, setMapId] = useState<string>(DEFAULT_MAP_ID)
 
   const card = (team: Team, label: string, bg: string, border: string) => (
@@ -56,6 +57,13 @@ export function TeamSelect({ onSelect, selected, counts }: TeamSelectProps) {
         {card('ct', 'Counter-Terrorist', '#1d3a5f', '#3a6ea5')}
         {card('t', 'Terrorist', '#5f3a1d', '#a5703a')}
       </div>
+
+      {onBack && (
+        <button onClick={onBack} style={{
+          marginTop: 24, padding: '10px 24px', background: '#1d1d2a', color: '#fff',
+          border: '1px solid #3a3a55', cursor: 'pointer', fontFamily: 'monospace', fontSize: 14,
+        }}>Back</button>
+      )}
     </div>
   )
 }
