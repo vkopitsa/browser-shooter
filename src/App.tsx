@@ -313,6 +313,9 @@ function App() {
       data.session.collisionWorld = rebuildArena(engine.scene, getMap(data.matchConfig.mapId))
     }
     const localId = data.netClient?.playerId ?? data.session.localId
+    // Dispose any prior game's remote-player (bot) meshes so they don't linger in the
+    // scene when re-hosting/re-joining — RemotePlayerManager replacement alone orphans them.
+    data.remotePlayers?.clear()
     data.remotePlayers = new RemotePlayerManager(engine.scene, localId)
     lookRef.current = { yaw: 0, pitch: 0 }
     setHealth(100)
@@ -444,6 +447,16 @@ function App() {
         case 'wallImpact':
           particleSystem.bulletImpact(new THREE.Vector3(ev.point.x, ev.point.y, ev.point.z))
           break
+        case 'playerShot': {
+          if (ev.shooterId === data.netClient?.playerId) break
+          const from = new THREE.Vector3(ev.from.x, ev.from.y, ev.from.z)
+          const to = new THREE.Vector3(ev.to.x, ev.to.y, ev.to.z)
+          const dir = to.clone().sub(from).normalize()
+          data.audio.playWeaponShoot('rifle', from)
+          particleSystem.muzzleFlash(from.clone().add(dir.clone().multiplyScalar(0.4)), dir)
+          particleSystem.tracer(from, to, 0xfff0a0, 0.2)
+          break
+        }
         case 'enemyShoot': {
           const from = new THREE.Vector3(ev.from.x, ev.from.y, ev.from.z)
           const to = new THREE.Vector3(ev.to.x, ev.to.y, ev.to.z)
@@ -776,6 +789,17 @@ function App() {
           case 'wallImpact':
             data.particleSystem!.bulletImpact(new THREE.Vector3(ev.point.x, ev.point.y, ev.point.z))
             break
+          case 'playerShot': {
+            // The local player already draws its own muzzle flash; only render others'.
+            if (ev.shooterId === session.localId) break
+            const from = new THREE.Vector3(ev.from.x, ev.from.y, ev.from.z)
+            const to = new THREE.Vector3(ev.to.x, ev.to.y, ev.to.z)
+            const dir = to.clone().sub(from).normalize()
+            data.audio.playWeaponShoot('rifle', from)
+            particleSystem.muzzleFlash(from.clone().add(dir.clone().multiplyScalar(0.4)), dir)
+            particleSystem.tracer(from, to, 0xfff0a0, 0.2)
+            break
+          }
           case 'enemyShoot': {
             const from = new THREE.Vector3(ev.from.x, ev.from.y, ev.from.z)
             const to = new THREE.Vector3(ev.to.x, ev.to.y, ev.to.z)

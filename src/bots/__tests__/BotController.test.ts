@@ -4,7 +4,7 @@ import { BotController } from '../BotController'
 import { Player } from '../../player/Player'
 import { WeaponManager } from '../../weapons/WeaponManager'
 import type { PlayerEntity } from '../../session/GameSession'
-import type { CollisionWorld } from '../../engine/CollisionWorld'
+import { CollisionWorld } from '../../engine/CollisionWorld'
 
 function entity(id: string, team: 'ct' | 't', pos: THREE.Vector3): PlayerEntity {
   const player = new Player()
@@ -53,6 +53,24 @@ describe('BotController', () => {
     let input = ctrl.computeInput(bot, [enemy], blocked, 0.1)
     for (let i = 0; i < 10; i++) input = ctrl.computeInput(bot, [enemy], blocked, 0.1)
     expect(input.shoot).toBe(false)
+  })
+
+  it('steers around a wall instead of grinding straight into it', () => {
+    const bot = entity('bot-0', 't', new THREE.Vector3(0, 2, 0))
+    const enemy = entity('e', 'ct', new THREE.Vector3(0, 2, -20)) // far → bot approaches
+    const ctrl = new BotController('bot-0')
+
+    // Open arena: straight line is clear, so the bot just walks forward (no strafe).
+    const open = new CollisionWorld()
+    const clear = ctrl.computeInput(bot, [enemy], open, 0.016)
+    expect(clear.forward).toBe(true)
+    expect(clear.left || clear.right).toBe(false)
+
+    // Drop a thin wall right in front of the bot; it must deflect (strafe) to get around it.
+    const walled = new CollisionWorld()
+    walled.addBox(new THREE.Vector3(0, 1, -2.5), new THREE.Vector3(1, 4, 0.5))
+    const avoided = ctrl.computeInput(bot, [enemy], walled, 0.016)
+    expect(avoided.left || avoided.right).toBe(true)
   })
 
   it('idles (no shoot, no movement) when there is no enemy', () => {
