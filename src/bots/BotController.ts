@@ -10,12 +10,19 @@ const REACTION_TIME = 0.35  // seconds of continuous sight before opening fire
 const AIM_ERROR = 0.04      // radians of random aim jitter while firing
 const LOOKAHEAD = 2.5       // (m) how far ahead to probe for walls before committing to a heading
 // Yaw offsets (radians) tried in order when the straight path is blocked — small deflections
-// first, then sharper, then sidesteps. ponytail: fixed fan beats A* for a flat arena.
-const DEFLECTIONS = [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6]
+// first, then sharper, then sidesteps, finally backtrack. ponytail: fixed fan beats A* for a flat arena.
+const DEFLECTIONS = [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6, Math.PI]
+const STUCK_CHECK = 1.0     // seconds between position snapshots for stuck detection
+const STUCK_DIST  = 1.0     // metres — less movement than this in STUCK_CHECK means stuck
+const STUCK_ESCAPE = 1.5    // seconds to wander randomly after detecting stuck
 
 /** Drives one bot: reads the world, returns the PlayerInput for this tick. */
 export class BotController {
   private aimTimer = 0
+  private checkTimer = 0
+  private lastCheckPos = new THREE.Vector3()
+  private escapeTimer = 0
+  private escapeAngle = 0
 
   constructor(readonly id: string) {}
 
@@ -31,7 +38,7 @@ export class BotController {
     hostiles?: THREE.Vector3[],
   ): PlayerInput {
     const input = emptyInput()
-    if (self.player.isDead) { this.aimTimer = 0; return input }
+    if (self.player.isDead) { this.aimTimer = 0; this.escapeTimer = 0; this.checkTimer = 0; return input }
 
     // Bots never visit the buy menu; reload as soon as the mag runs dry so they don't
     // stand around with an empty gun. canShoot() already blocks fire while reloading.
@@ -57,13 +64,32 @@ export class BotController {
     input.yaw = Math.atan2(-aimDir.x, -aimDir.z)
     input.pitch = Math.asin(THREE.MathUtils.clamp(aimDir.y, -1, 1))
 
+    // Stuck detection: snapshot position every STUCK_CHECK seconds; if the bot barely moved
+    // while it should be closing on the target, trigger a random escape walk.
+    this.checkTimer += dt
+    if (this.checkTimer >= STUCK_CHECK) {
+      if (dist > STANDOFF && self.player.position.distanceTo(this.lastCheckPos) < STUCK_DIST) {
+        this.escapeTimer = STUCK_ESCAPE
+        this.escapeAngle = Math.random() * Math.PI * 2
+      }
+      this.lastCheckPos.copy(self.player.position)
+      this.checkTimer = 0
+    }
+
     // Choose a horizontal travel heading: approach the target, hold, or back off — then
     // steer that heading around any wall in the way so the bot doesn't grind into geometry.
     const flat = new THREE.Vector3(dir.x, 0, dir.z)
     if (flat.lengthSq() > 1e-6) flat.normalize()
     let move: THREE.Vector3 | null = null
-    if (dist > STANDOFF) move = this.steer(self.player.position, flat, world)
-    else if (dist < STANDOFF * 0.6) move = flat.clone().multiplyScalar(-1)
+    if (this.escapeTimer > 0) {
+      // ponytail: random wander breaks wall-grinding; no pathfinding needed for flat arena
+      this.escapeTimer -= dt
+      move = new THREE.Vector3(Math.sin(this.escapeAngle), 0, Math.cos(this.escapeAngle))
+    } else if (dist > STANDOFF) {
+      move = this.steer(self.player.position, flat, world)
+    } else if (dist < STANDOFF * 0.6) {
+      move = flat.clone().multiplyScalar(-1)
+    }
     if (move) this.applyMove(input, move)
 
     // Engage any enemy with a clear line of sight, regardless of distance — the bot
