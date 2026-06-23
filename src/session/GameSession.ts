@@ -105,7 +105,7 @@ export class GameSession {
   private spawnPosition(index: number): THREE.Vector3 {
     if (index === 0) return new THREE.Vector3(0, 2, 0)
     const angle = (index - 1) * (Math.PI / 4) // 45 degrees apart
-    const r = ARENA_SIZE / 3
+    const r = this.map.arenaSize / 3
     return new THREE.Vector3(Math.cos(angle) * r, 2, Math.sin(angle) * r)
   }
 
@@ -569,7 +569,7 @@ export class GameSession {
     }
 
     // Waves + enemies (enemy AI targets the nearest living player).
-    this.waveManager.update(dt, ARENA_SIZE)
+    this.waveManager.update(dt, this.map.arenaSize)
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i]
       const target = this.nearestPlayer(enemy.mesh.position)

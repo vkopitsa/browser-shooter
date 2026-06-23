@@ -352,8 +352,12 @@ function App() {
       fresh.waveManager.onWaveComplete = data.session.waveManager.onWaveComplete
       fresh.getPlayer(fresh.localId)!.name = settingsRef.current.playerName
       data.session = fresh
-      // Pass the collision world to the net client so client-side prediction respects walls.
-      if (data.netClient) data.netClient.collisionWorld = fresh.collisionWorld
+      // Pass the collision world and arena size to the net client so client-side prediction
+      // respects walls and uses the correct map bounds.
+      if (data.netClient) {
+        data.netClient.collisionWorld = fresh.collisionWorld
+        data.netClient.arenaSize = getMap(data.matchConfig.mapId).arenaSize
+      }
     } else {
       // Host already rebuilt its session with the chosen map in hostGame(); just ensure the
       // rendered arena and collision world match.

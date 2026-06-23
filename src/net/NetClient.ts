@@ -19,7 +19,7 @@ export class NetClient {
   mode: GameMode | null = null
   config: MatchConfig | null = null
   latestSnapshot: Snapshot | null = null
-  collisionWorld: CollisionWorld | null = null
+  arenaSize: number = ARENA_SIZE
 
   private localSeq = 0
   private pendingInputs: PlayerInput[] = []
@@ -59,7 +59,7 @@ export class NetClient {
     if (!this.playerId || this.pendingInputs.length === 0) return
     this.lastDt = dt
     const input = this.pendingInputs[this.pendingInputs.length - 1]
-    this.localPlayer.update(dt, input, ARENA_SIZE, this.collisionWorld ?? undefined)
+    this.localPlayer.update(dt, input, this.arenaSize, this.collisionWorld ?? undefined)
   }
 
   getLocalPosition(): THREE.Vector3 {
@@ -179,7 +179,7 @@ export class NetClient {
     this.localPlayer.health = me.health
 
     for (const input of this.pendingInputs) {
-      this.localPlayer.update(this.lastDt, input, ARENA_SIZE, this.collisionWorld ?? undefined)
+      this.localPlayer.update(this.lastDt, input, this.arenaSize, this.collisionWorld ?? undefined)
     }
   }
 
