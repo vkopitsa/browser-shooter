@@ -111,6 +111,21 @@ export class ParticleSystem {
     this.explosions.push(handle)
   }
 
+  /** Brilliant white light burst for a flashbang: a brief bright flash, no debris. */
+  flashBang(position: THREE.Vector3) {
+    this.emit(position, 24, 0xffffff, 9, 0.15, 1.5)
+    const handle = createExplosion(this.scene, {
+      position,
+      particleCount: 0,
+      color: 0xffffff,
+      secondaryColor: 0xffffcc,
+      life: 0.25,
+      lightIntensity: 14,
+      lightDistance: 30,
+    })
+    this.explosions.push(handle)
+  }
+
   update(dt: number) {
     // Update core particles
     for (let i = this.particles.length - 1; i >= 0; i--) {

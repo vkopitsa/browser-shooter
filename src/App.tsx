@@ -566,9 +566,12 @@ function App() {
           if (ev.grenadeType === 'he') {
             data.particleSystem?.explosion(new THREE.Vector3(ev.position.x, ev.position.y + 1, ev.position.z), 'grunt', 2.2)
           }
-          if (ev.grenadeType === 'flash' && localId && ev.affectedPlayers.includes(localId)) {
-            data.flashEffect = triggerFlash(data.flashEffect, ev.blindDurations?.[localId] ?? 0)
-            setFlashEffect({ ...data.flashEffect })
+          if (ev.grenadeType === 'flash') {
+            data.particleSystem?.flashBang(new THREE.Vector3(ev.position.x, ev.position.y + 1, ev.position.z))
+            if (localId && ev.affectedPlayers.includes(localId)) {
+              data.flashEffect = triggerFlash(data.flashEffect, ev.blindDurations?.[localId] ?? 0)
+              setFlashEffect({ ...data.flashEffect })
+            }
           }
           break
         }
@@ -934,9 +937,14 @@ function App() {
               // puff at floor level (which is easy to miss, especially at throwing distance).
               particleSystem.explosion(new THREE.Vector3(ev.position.x, ev.position.y + 1, ev.position.z), 'grunt', 2.2)
             }
-            if (ev.grenadeType === 'flash' && ev.affectedPlayers.includes(session.localId)) {
-              data.flashEffect = triggerFlash(data.flashEffect, ev.blindDurations?.[session.localId] ?? 0)
-              setFlashEffect({ ...data.flashEffect })
+            if (ev.grenadeType === 'flash') {
+              // Always show the world burst so you see it pop even when thrown away from you;
+              // the full-screen blind only triggers if you're close enough and facing it.
+              particleSystem.flashBang(new THREE.Vector3(ev.position.x, ev.position.y + 1, ev.position.z))
+              if (ev.affectedPlayers.includes(session.localId)) {
+                data.flashEffect = triggerFlash(data.flashEffect, ev.blindDurations?.[session.localId] ?? 0)
+                setFlashEffect({ ...data.flashEffect })
+              }
             }
             break
           }
