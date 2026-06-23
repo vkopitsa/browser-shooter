@@ -33,6 +33,12 @@ export interface MapDef {
   /** Half-extent of the (square) arena. All current maps use 30 (60x60 world). */
   arenaSize: number
   floorColor: number
+  /** Sky/fog colour for outdoor maps. Omit for indoor maps (uses engine default). */
+  skyColor?: number
+  /** Fog start distance (default 30). */
+  fogNear?: number
+  /** Fog end distance (default 100). */
+  fogFar?: number
   lighting: MapLighting
   structures: MapStructure[]
   /** CT spawn points [x, z]. */
