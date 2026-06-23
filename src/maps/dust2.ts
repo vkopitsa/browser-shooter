@@ -1,128 +1,124 @@
 import type { MapDef, MapStructure } from './MapDef'
 import { DAYLIGHT } from './MapDef'
-import { building, buildingWithRooms, stairs } from './buildings'
+import { doorway, stairs } from './buildings'
 
-// Helper: create a crate stack (2 side-by-side + 1 on top)
-function crateStack(x: number, z: number): MapStructure[] {
-  return [
-    { center: [x, 1, z], size: [2, 2, 2], material: 'crate' },
-    { center: [x + 2, 1, z], size: [2, 2, 2], material: 'crate' },
-    { center: [x + 1, 2.6, z], size: [2, 1.4, 2], material: 'crate' },
-  ]
-}
+// Faithful Dust2 layout in the box-geometry MapDef format.
+// Radar orientation: +x = east (A side), -x = west (B side),
+// +z = south (T spawn), -z = north (CT side). Mid runs vertically through x≈2.
+// All structures stay within ±48 so they sit inside the auto perimeter (±50).
 
-// Helper: create scattered cover objects
-function coverCluster(x: number, z: number): MapStructure[] {
-  return [
-    { center: [x, 0.6, z], size: [4, 1.2, 1], material: 'concrete' },  // sandbag
-    { center: [x + 3, 1, z + 1], size: [2, 2, 2], material: 'crate' },
-    { center: [x - 1, 1, z + 2], size: [1.5, 2, 1.5], material: 'metal' },  // barrel
-  ]
-}
+type Mat = MapStructure['material']
 
-/**
- * Dust2 — redesigned with enterable buildings, alleys, elevated walkways,
- * and varied cover. Arena expanded to 80x80.
- */
+const box = (center: [number, number, number], size: [number, number, number], material: Mat): MapStructure =>
+  ({ center, size, material })
+
+// Flat-topped platform sitting on the floor, top surface at height `h`.
+const platform = (cx: number, cz: number, w: number, d: number, h: number, material: Mat): MapStructure =>
+  box([cx, h / 2, cz], [w, h, d], material)
+
+// Two side-by-side crates with one stacked on top — a climbable step.
+const crateStack = (x: number, z: number): MapStructure[] => [
+  box([x, 1, z], [2, 2, 2], 'crate'),
+  box([x + 2, 1, z], [2, 2, 2], 'crate'),
+  box([x + 1, 2.6, z], [2, 1.4, 2], 'crate'),
+]
+
 export const DUST2: MapDef = {
   id: 'dust2',
   name: 'Dust II',
-  description: 'Urban combat with buildings, alleys, and elevated positions.',
-  arenaSize: 40,
+  description: 'The classic four-lane bomb-defusal map: Mid, A Long, A Short, and B Tunnels.',
+  arenaSize: 50,
   floorColor: 0xc2a878,
   lighting: DAYLIGHT,
   structures: [
-    // === T SPAWN AREA (North) ===
-    // Building T1: Large building with 2 rooms
-    ...buildingWithRooms(-15, -30, 10, 8, 'south'),
-    // Table and crates inside T1
-    { center: [-17, 0.5, -30], size: [4, 1, 2], material: 'wood' },
-    ...crateStack(-13, -32),
-    
-    // Building T2: Small guard post
-    ...building(15, -28, 6, 6, 'south'),
-    ...crateStack(14, -28),
-    
-    // === MID AREA ===
-    // Central mid structure (smaller than before)
-    { center: [0, 1.5, 0], size: [4, 3, 4], material: 'concrete' },
-    
-    // Elevated walkway (metal)
-    { center: [0, 3, 0], size: [20, 0.3, 3], material: 'metal' },
-    // Walkway supports
-    { center: [-8, 1.5, 0], size: [1, 3, 1], material: 'concrete' },
-    { center: [8, 1.5, 0], size: [1, 3, 1], material: 'concrete' },
-    // Walkway railings
-    { center: [0, 3.8, -1.5], size: [20, 0.8, 0.2], material: 'metal' },
-    { center: [0, 3.8, 1.5], size: [20, 0.8, 0.2], material: 'metal' },
-    
-    // Stairs to walkway (east side)
-    ...stairs(12, 0, 3, 'west'),
-    // Stairs to walkway (west side)
-    ...stairs(-12, 0, 3, 'east'),
-    
-    // Mid cover
-    ...coverCluster(-6, -6),
-    ...coverCluster(6, 6),
-    ...crateStack(-4, 8),
-    ...crateStack(4, -8),
-    
-    // === ALLEYS ===
-    // North alley (T to mid)
-    { center: [-8, 2, -18], size: [0.5, 4, 12], material: 'wall' },
-    { center: [-4, 2, -18], size: [0.5, 4, 12], material: 'wall' },
-    
-    // South alley (mid to CT)
-    { center: [8, 2, 18], size: [0.5, 4, 12], material: 'wall' },
-    { center: [12, 2, 18], size: [0.5, 4, 12], material: 'wall' },
-    
-    // === BOMBSITE A (East - Indoor) ===
-    // Building A: Large building with bombsite inside
-    ...buildingWithRooms(28, 8, 12, 10, 'west'),
-    // Raised platform inside
-    { center: [30, 1, 8], size: [6, 2, 6], material: 'concrete' },
-    // Cover inside
-    ...crateStack(26, 6),
-    { center: [32, 0.75, 10], size: [1.5, 1.5, 1.5], material: 'wood' },
-    
-    // === BOMBSITE B (West - Courtyard) ===
-    // Courtyard walls (3 sides)
-    { center: [-28, 2, -8], size: [12, 4, 0.5], material: 'wall' },  // north wall
-    { center: [-28, 2, 8], size: [12, 4, 0.5], material: 'wall' },   // south wall
-    { center: [-34, 2, 0], size: [0.5, 4, 16], material: 'wall' },   // west wall
-    // East side open (entrance from mid)
-    
-    // Courtyard furniture
-    { center: [-28, 0.4, -4], size: [3, 0.8, 1], material: 'concrete' },  // bench
-    { center: [-28, 0.4, 4], size: [3, 0.8, 1], material: 'concrete' },   // bench
-    { center: [-30, 1, 0], size: [2, 2, 2], material: 'wood' },           // planter
-    
-    // === CT SPAWN AREA (South) ===
-    // Building CT1: Large building with 2 rooms (mirrors T1)
-    ...buildingWithRooms(15, 30, 10, 8, 'north'),
-    // Table and crates inside CT1
-    { center: [17, 0.5, 30], size: [4, 1, 2], material: 'wood' },
-    ...crateStack(13, 32),
-    
-    // Building CT2: Small guard post (mirrors T2)
-    ...building(-15, 28, 6, 6, 'north'),
-    ...crateStack(-14, 28),
-    
-    // === PERIMETER COVER ===
-    // scattered cover around edges
-    ...coverCluster(-20, -20),
-    ...coverCluster(20, 20),
-    ...coverCluster(-20, 20),
-    ...coverCluster(20, -20),
+    // ===== T SPAWN (south) — open courtyard with three exits =====
+    ...crateStack(16, 44), // east cover (toward Long)
+    ...crateStack(-18, 44), // west cover (toward Tunnels)
+    box([4, 1, 40], [4, 2, 1], 'wood'), // central crate facing Mid
+
+    // ===== MID (central spine, x≈2) =====
+    // West wall of Mid (separates Mid from Tunnels/B); gap near z+2 = Lower Tunnel exit.
+    ...doorway(-8, 18, 32, 'z', false), // z +34 → +2
+    // East wall of Mid (separates Mid from A Short approach), under the catwalk; z +34 → 0.
+    ...doorway(12, 17, 34, 'z', false),
+    // Mid Doors — double doors with the famous T↔CT sightline through the gap.
+    ...doorway(2, -4, 20, 'x', true),
+    // Xbox — crate in front of Mid Doors; jump up to reach Catwalk.
+    box([6, 1, -1], [2, 2, 2], 'crate'),
+    // Suicide / Top Mid — short incline dropping from T into the Mid corridor.
+    ...stairs(4, 32, 3, 'north'),
+
+    // ===== A LONG (east corridor, x 30→48) =====
+    // Long divider wall: Long vs. Catwalk/Mid; runs z +38 → -8, opens into A site at the top.
+    ...doorway(29, 15, 46, 'z', false),
+    // Long Doors — two sequential double-door sets bottlenecking T into Long.
+    ...doorway(39, 34, 18, 'x', true),
+    ...doorway(39, 30, 18, 'x', true),
+    // A Car — burnt-out sedan on the ramp side of Long.
+    box([36, 1, 4], [3, 2, 5], 'metal'),
+    // The Pit — sniper nook at the far (north) end of Long.
+    // ponytail: flat floor can't recess below y=0, so the pit is a waist-high 3-sided box.
+    box([47, 0.6, -2], [0.5, 1.2, 9], 'concrete'),
+    box([44, 0.6, -6], [6, 1.2, 0.5], 'concrete'),
+    box([44, 0.6, 2], [6, 1.2, 0.5], 'concrete'),
+    // A Ramp — slope from Long up onto the A platform.
+    ...stairs(34, -17, 2, 'north'),
+
+    // ===== A SITE (north-east) =====
+    // Default-plant platform set back toward the rear wall; the plant spot
+    // (bombsite A) stays on open ground just in front of it.
+    platform(34, -22, 12, 6, 2, 'concrete'),
+    // Back wall of the platform.
+    ...doorway(34, -25, 16, 'x', false),
+    // Goose — recessed alcove in the back-right corner (two short walls form the nook).
+    box([40, 2.5, -22], [0.5, 5, 5], 'wall'),
+    box([44, 2.5, -22], [0.5, 5, 5], 'wall'),
+    // Site crates flanking the platform.
+    ...crateStack(28, -22),
+    box([40, 3, -14], [2, 2, 2], 'crate'),
+
+    // ===== A SHORT / CATWALK (Mid → A, over CT) =====
+    // Narrow elevated ledge snaking from Top Mid up the right wall toward A.
+    platform(16, 4, 4, 22, 2.2, 'metal'),
+    // Stairs up onto the Catwalk from the Mid floor.
+    ...stairs(16, 16, 2, 'north'),
+    // Short — straight walkway overlooking CT before opening into A.
+    platform(20, -10, 5, 8, 2.2, 'concrete'),
+
+    // ===== CT SPAWN (north-center, under A Short / behind Mid Doors) =====
+    ...doorway(-4, -36, 28, 'x', false), // back wall (x -18 → +10)
+    box([-12, 1, -30], [3, 2, 3], 'concrete'), // cover
+    box([6, 1, -32], [3, 2, 3], 'concrete'),
+
+    // ===== B TUNNELS (west, x -40 → -24) =====
+    // Inner tunnel wall separating Tunnels from Mid/B-approach; z +40 → -8.
+    ...doorway(-24, 16, 48, 'z', false),
+    // Upper Tunnel — entry corridor from outside T spawn.
+    ...doorway(-32, 38, 16, 'x', true), // mouth at T end
+    // Lower Tunnel — branch down stairs that opens into Mid near Xbox.
+    ...stairs(-20, 6, 3, 'east'),
+
+    // ===== B SITE (north-west courtyard) =====
+    ...doorway(-34, -28, 16, 'x', false), // north wall
+    ...doorway(-44, -20, 16, 'z', false), // west wall
+    ...doorway(-30, -13, 14, 'x', true), // B Doors — facing Mid/CT
+    // The Window — hole blown in the east wall next to the doors.
+    // ponytail: a window is a wall with a gap, so it's a low + high segment, open in the middle.
+    box([-26, 1, -22], [0.5, 2, 12], 'wall'), // sill (low)
+    box([-26, 4.5, -22], [0.5, 1, 12], 'wall'), // lintel (high)
+    // Humvee / Car — parked just outside B doors in Lower Mid / Hole.
+    box([-22, 1.2, -8], [3, 2.4, 6], 'metal'),
+    // Site crates.
+    ...crateStack(-40, -24),
+    box([-30, 1, -24], [2, 2, 2], 'crate'),
   ],
-  
-  // Spawn points adjusted for 80x80 arena
-  ctSpawns: [[-25, 25], [-30, 20], [-20, 30], [-25, 15]],
-  tSpawns: [[25, -25], [30, -20], [20, -30], [25, -15]],
-  
-  // Bombsite positions
+
+  // Spawns clustered in their courtyards, clear of geometry.
+  tSpawns: [[-2, 44], [8, 45], [12, 42], [-10, 45]],
+  ctSpawns: [[-2, -32], [4, -33], [-8, -32], [8, -31]],
+
   bombsites: [
-    { id: 'A', center: [30, 10] },  // Inside Building A
-    { id: 'B', center: [-28, 0] },  // Center of Courtyard B
+    { id: 'A', center: [34, -18] }, // on the A platform
+    { id: 'B', center: [-34, -20] }, // B courtyard
   ],
 }
