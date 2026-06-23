@@ -70,8 +70,8 @@ describe('GameSession respawn', () => {
     for (let i = 0; i < 100; i++) s.step(1 / 30)
     expect(b.player.isDead).toBe(false)
     expect(b.player.health).toBe(100)
-    // moved to t-side spawn (positive x region per Spawns)
-    expect(b.player.position.x).toBeGreaterThan(0)
+    // moved to t-side spawn (T spawns south, positive z region per Spawns)
+    expect(b.player.position.z).toBeGreaterThan(0)
   })
 })
 

@@ -64,6 +64,12 @@ export function createArena(scene: THREE.Scene, map: MapDef = getMap()): Collisi
   // Map-specific structures
   for (const s of map.structures) addSolid(s.center, s.size, materialFor(s.material))
 
+  // Sky / fog — outdoor maps supply a skyColor; indoor maps leave the engine default
+  if (map.skyColor !== undefined) {
+    scene.background = new THREE.Color(map.skyColor)
+    scene.fog = new THREE.Fog(map.skyColor, map.fogNear ?? 30, map.fogFar ?? 100)
+  }
+
   // Lighting
   const lit = map.lighting
   group.add(new THREE.AmbientLight(lit.ambientColor, lit.ambientIntensity))

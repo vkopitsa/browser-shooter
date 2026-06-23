@@ -1331,7 +1331,7 @@ function App() {
       data.viewmodel?.dispose()
       keepAliveWorker.postMessage('stop')
       keepAliveWorker.terminate()
-      engine.stop()
+      engine.dispose()
     }
   }, [updateGameState])
 

@@ -1,12 +1,15 @@
 import type { MapStructure } from './MapDef'
 
+export { wall as doorway }
+
 const WALL_H = 5
 const WALL_THICK = 0.5
 const DOOR_W = 2.5
 
 // One wall of a building: a solid box, or two segments around a centered door.
 // axis 'x' => wall runs along x (a north/south face); 'z' => runs along z.
-function wall(cx: number, cz: number, len: number, axis: 'x' | 'z', door: boolean): MapStructure[] {
+// Exported as `doorway` for standalone use (lane walls + double-doors in maps).
+export function wall(cx: number, cz: number, len: number, axis: 'x' | 'z', door: boolean): MapStructure[] {
   const size = (l: number): [number, number, number] =>
     axis === 'x' ? [l, WALL_H, WALL_THICK] : [WALL_THICK, WALL_H, l]
   if (!door) return [{ center: [cx, WALL_H / 2, cz], size: size(len), material: 'wall' }]

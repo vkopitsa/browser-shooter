@@ -75,6 +75,12 @@ export class GameEngine {
     }
   }
 
+  dispose() {
+    this.stop()
+    this.renderer.domElement.remove()
+    this.renderer.dispose()
+  }
+
   private animate = () => {
     this.animationId = requestAnimationFrame(this.animate)
     if (this.state !== 'playing') return

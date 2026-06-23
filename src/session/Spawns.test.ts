@@ -10,8 +10,8 @@ describe('pickSpawn', () => {
     const t = pickSpawn('t', dust2, 0)
     expect(ct.y).toBe(2)
     expect(t.y).toBe(2)
-    // teams spawn on opposite sides
-    expect(Math.sign(ct.x)).not.toBe(Math.sign(t.x))
+    // teams spawn on opposite sides (Dust2 separates T south / CT north along z)
+    expect(Math.sign(ct.z)).not.toBe(Math.sign(t.z))
   })
 
   it('cycles through a team\'s spawn list by index', () => {

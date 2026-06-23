@@ -27,7 +27,7 @@ describe('map registry', () => {
     })
 
     it('uses the standard arena size', () => {
-      if (map.id === 'dust2') expect(map.arenaSize).toBe(40)
+      if (map.id === 'dust2') expect(map.arenaSize).toBe(50)
       else expect(map.arenaSize).toBe(30)
     })
 

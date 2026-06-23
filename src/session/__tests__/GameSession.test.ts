@@ -66,17 +66,17 @@ describe('competitive mode', () => {
 
 describe('arena bounds', () => {
   it('clamps movement to the active map size, not a hardcoded constant', () => {
-    // Dust2 declares arenaSize 40; bombsite A and the spawn ring extend past 30.
+    // Dust2 declares arenaSize 50; bombsite A and the spawn ring extend past 30.
     // The movement clamp must honor map.arenaSize so the outer map is reachable.
     const config = defaultCompetitiveConfig()
     const session = new GameSession(config)
-    expect(session.map.arenaSize).toBe(40)
-    // Place the local player in the outer ring (|x| > 30 but < 40) and step with
-    // no movement input; it should stay put rather than be yanked back to ±30.
-    session.player.position.set(35, 2, 35)
+    expect(session.map.arenaSize).toBe(50)
+    // Place the local player in the outer ring (|x| > 30 but < 50) and step with
+    // no movement input; it should stay put rather than be yanked back to a hardcoded ±30.
+    session.player.position.set(44, 2, 44)
     session.step(0.1)
-    expect(session.player.position.x).toBeCloseTo(35)
-    expect(session.player.position.z).toBeCloseTo(35)
+    expect(session.player.position.x).toBeCloseTo(44)
+    expect(session.player.position.z).toBeCloseTo(44)
   })
 })
 
@@ -114,7 +114,7 @@ describe('bomb mechanics', () => {
     const session = new GameSession(config)
     const t = session.addPlayer('t1', 'TPlayer', 't')
     session.assignBomb()
-    t.player.position.set(30, 2, 10) // stay inside site A so the plant progresses
+    t.player.position.set(34, 2, -22) // stay inside site A so the plant progresses
     session.bomb.startPlant('A')
     session.step(1)
     expect(session.bomb.state).toBe(BombState.Planting)
@@ -126,7 +126,7 @@ describe('bomb mechanics', () => {
     const session = new GameSession(config)
     const t = session.addPlayer('t1', 'TPlayer', 't')
     session.assignBomb()
-    t.player.position.set(30, 2, 10)
+    t.player.position.set(34, 2, -22)
     session.bomb.startPlant('A')
     const events = session.step(3)
     expect(session.bomb.state).toBe(BombState.Planted)
@@ -138,7 +138,7 @@ describe('bomb mechanics', () => {
     const session = new GameSession(config)
     const t = session.addPlayer('t1', 'TPlayer', 't')
     session.assignBomb()
-    t.player.position.set(30, 2, 10)
+    t.player.position.set(34, 2, -22)
     session.bomb.startPlant('A')
     session.step(3) // plant
     const events = session.step(40) // explode
@@ -151,10 +151,10 @@ describe('bomb mechanics', () => {
     const session = new GameSession(config)
     const t = session.addPlayer('t1', 'TPlayer', 't')
     session.assignBomb()
-    t.player.position.set(30, 2, 10)
+    t.player.position.set(34, 2, -22)
     session.bomb.startPlant('A')
     session.step(3) // plant
-    session.player.position.set(30, 2, 10) // local CT stands on the site to defuse
+    session.player.position.set(34, 2, -22) // local CT stands on the site to defuse
     session.tryDefuse('local', true)
     const events = session.step(5) // defuse
     expect(session.bomb.state).toBe(BombState.Defused)
@@ -171,7 +171,7 @@ describe('bomb interaction', () => {
     const s = comp()
     const t = s.addPlayer('t1', 'T', 't')
     s.assignBomb() // t1 carries
-    t.player.position.set(30, 2, 10) // inside site A
+    t.player.position.set(34, 2, -22) // inside site A
     expect(s.tryPlant('t1')).toBe(true)
     expect(s.bomb.state).toBe(BombState.Planting)
     expect(s.bomb.site).toBe('A')
@@ -191,7 +191,7 @@ describe('bomb interaction', () => {
     s.addPlayer('t1', 'T', 't')
     const t2 = s.addPlayer('t2', 'T2', 't')
     s.assignBomb() // t1 carries
-    t2.player.position.set(30, 2, 10)
+    t2.player.position.set(34, 2, -22)
     expect(s.tryPlant('t2')).toBe(false)
   })
 
@@ -199,12 +199,12 @@ describe('bomb interaction', () => {
     const s = comp()
     const t = s.addPlayer('t1', 'T', 't')
     s.assignBomb()
-    t.player.position.set(30, 2, 10)
+    t.player.position.set(34, 2, -22)
     s.tryPlant('t1')
     s.step(3) // complete plant
     expect(s.bomb.state).toBe(BombState.Planted)
     const ct = s.getPlayer('local')!
-    ct.player.position.set(30, 2, 10)
+    ct.player.position.set(34, 2, -22)
     expect(s.tryDefuse('local', true)).toBe(true)
     expect(s.bomb.state).toBe(BombState.Defusing)
   })
@@ -213,10 +213,10 @@ describe('bomb interaction', () => {
     const s = comp()
     const t = s.addPlayer('t1', 'T', 't')
     s.assignBomb()
-    t.player.position.set(30, 2, 10)
+    t.player.position.set(34, 2, -22)
     s.tryPlant('t1')
     s.step(3)
-    t.player.position.set(30, 2, 10)
+    t.player.position.set(34, 2, -22)
     expect(s.tryDefuse('t1', true)).toBe(false)
   })
 
@@ -254,7 +254,7 @@ describe('round resolution', () => {
     s.bomb.state = BombState.Planted
     s.bomb.site = 'A'
     s.bomb.timer = 40
-    s.player.position.set(30, 2, 10) // local CT on the site to defuse
+    s.player.position.set(34, 2, -22) // local CT on the site to defuse
     s.bomb.startDefuse(true, 'local')
     s.step(5) // defuse completes this tick
     expect(s.bomb.state).toBe(BombState.Defused)
@@ -301,7 +301,7 @@ describe('round resolution', () => {
     s.bomb.state = BombState.Planted
     s.bomb.site = 'A'
     s.bomb.timer = 40
-    s.player.position.set(30, 2, 10) // local CT on the site to defuse
+    s.player.position.set(34, 2, -22) // local CT on the site to defuse
     s.bomb.startDefuse(true, 'local')
     s.step(5) // defuse completes this tick despite the round timer being "expired"
     expect(s.bomb.state).toBe(BombState.Defused)
@@ -342,7 +342,7 @@ describe('plant/defuse interruption', () => {
   function planted(s: GameSession) {
     const t = s.addPlayer('t1', 'T', 't')
     s.assignBomb()
-    t.player.position.set(30, 2, 10) // inside site A
+    t.player.position.set(34, 2, -22) // inside site A
     s.tryPlant('t1')
     s.step(3) // complete plant
   }
@@ -351,7 +351,7 @@ describe('plant/defuse interruption', () => {
     const s = comp()
     planted(s)
     const ct = s.getPlayer('local')!
-    ct.player.position.set(30, 2, 10)
+    ct.player.position.set(34, 2, -22)
     expect(s.tryDefuse('local', true)).toBe(true)
 
     ct.player.takeDamage(1000) // defuser killed mid-defuse
@@ -365,7 +365,7 @@ describe('plant/defuse interruption', () => {
     const s = comp()
     planted(s)
     const ct = s.getPlayer('local')!
-    ct.player.position.set(30, 2, 10)
+    ct.player.position.set(34, 2, -22)
     expect(s.tryDefuse('local', true)).toBe(true)
 
     ct.player.position.set(0, 2, 0) // walk off the site mid-defuse
@@ -378,7 +378,7 @@ describe('plant/defuse interruption', () => {
     const s = comp()
     const t = s.addPlayer('t1', 'T', 't')
     s.assignBomb()
-    t.player.position.set(30, 2, 10)
+    t.player.position.set(34, 2, -22)
     expect(s.tryPlant('t1')).toBe(true)
 
     t.player.position.set(0, 2, 0) // leave the site before the plant completes
