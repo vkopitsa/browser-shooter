@@ -564,7 +564,7 @@ function App() {
           const localId = data.netClient?.playerId
           data.audio.playGrenadeDetonate(ev.grenadeType, ev.position)
           if (ev.grenadeType === 'he') {
-            data.particleSystem?.explosion(new THREE.Vector3(ev.position.x, ev.position.y, ev.position.z))
+            data.particleSystem?.explosion(new THREE.Vector3(ev.position.x, ev.position.y + 1, ev.position.z), 'grunt', 2.2)
           }
           if (ev.grenadeType === 'flash' && localId && ev.affectedPlayers.includes(localId)) {
             data.flashEffect = triggerFlash(data.flashEffect, ev.blindDurations?.[localId] ?? 0)
@@ -808,6 +808,7 @@ function App() {
       const enemiesBefore = new Set(session.enemies)
       const pickupsBefore = new Set(session.pickups)
       const grenadesBefore = new Set(session.activeGrenades)
+      const smokeCloudsBefore = new Set(session.smokeClouds)
 
       const events = session.step(dt)
 
@@ -929,7 +930,9 @@ function App() {
           case 'grenadeDetonated': {
             data.audio.playGrenadeDetonate(ev.grenadeType, ev.position)
             if (ev.grenadeType === 'he') {
-              particleSystem.explosion(new THREE.Vector3(ev.position.x, ev.position.y, ev.position.z))
+              // Lift off the ground and scale up: a grenade is a big boom, not a grunt-sized
+              // puff at floor level (which is easy to miss, especially at throwing distance).
+              particleSystem.explosion(new THREE.Vector3(ev.position.x, ev.position.y + 1, ev.position.z), 'grunt', 2.2)
             }
             if (ev.grenadeType === 'flash' && ev.affectedPlayers.includes(session.localId)) {
               data.flashEffect = triggerFlash(data.flashEffect, ev.blindDurations?.[session.localId] ?? 0)
@@ -976,6 +979,14 @@ function App() {
       }
       for (const g of grenadesBefore) {
         if (!session.activeGrenades.includes(g)) engine.scene.remove(g.meshRef)
+      }
+      // Same for smoke clouds: add new ones, drop expired ones. Without this the
+      // SmokeCloud the session creates is updated but never shown.
+      for (const s of session.smokeClouds) {
+        if (!s.meshRef.parent) engine.scene.add(s.meshRef)
+      }
+      for (const s of smokeCloudsBefore) {
+        if (!session.smokeClouds.includes(s)) engine.scene.remove(s.meshRef)
       }
 
       setAmmo(session.weaponManager.current.ammo)

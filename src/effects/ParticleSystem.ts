@@ -102,8 +102,8 @@ export class ParticleSystem {
     this.impacts.push(handle)
   }
 
-  explosion(position: THREE.Vector3, enemyType: string = 'grunt') {
-    const scale = getExplosionScale(enemyType)
+  explosion(position: THREE.Vector3, enemyType: string = 'grunt', scaleOverride?: number) {
+    const scale = scaleOverride ?? getExplosionScale(enemyType)
     this.emit(position, Math.floor(30 * scale), 0xff4400, 8 * scale, 0.6, 2)
     this.emit(position, Math.floor(20 * scale), 0xffaa00, 6 * scale, 0.8, 1.5)
 
