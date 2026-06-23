@@ -20,6 +20,7 @@ export class NetClient {
   config: MatchConfig | null = null
   latestSnapshot: Snapshot | null = null
   arenaSize: number = ARENA_SIZE
+  collisionWorld: CollisionWorld | null = null
 
   private localSeq = 0
   private pendingInputs: PlayerInput[] = []
@@ -59,6 +60,8 @@ export class NetClient {
     if (!this.playerId || this.pendingInputs.length === 0) return
     this.lastDt = dt
     const input = this.pendingInputs[this.pendingInputs.length - 1]
+    this.localPlayer.rotation.y = input.yaw
+    this.localPlayer.rotation.x = THREE.MathUtils.clamp(input.pitch, -Math.PI / 2, Math.PI / 2)
     this.localPlayer.update(dt, input, this.arenaSize, this.collisionWorld ?? undefined)
   }
 
@@ -179,6 +182,8 @@ export class NetClient {
     this.localPlayer.health = me.health
 
     for (const input of this.pendingInputs) {
+      this.localPlayer.rotation.y = input.yaw
+      this.localPlayer.rotation.x = THREE.MathUtils.clamp(input.pitch, -Math.PI / 2, Math.PI / 2)
       this.localPlayer.update(this.lastDt, input, this.arenaSize, this.collisionWorld ?? undefined)
     }
   }
