@@ -6,35 +6,29 @@ interface MatchmakingButtonProps {
   queuing: boolean
 }
 
-export function MatchmakingButton({ onFind, onCancel, queuing }: MatchmakingButtonProps) {
-  const btn: React.CSSProperties = {
-    padding: '16px 32px',
-    fontSize: 18,
-    fontWeight: 'bold',
-    background: queuing ? '#ff6600' : '#3399ff',
-    color: 'white',
-    border: 'none',
-    borderRadius: 8,
-    cursor: 'pointer',
-    width: '100%',
-  }
+const base: React.CSSProperties = {
+  padding: '14px 32px', fontSize: 16, fontWeight: 'bold',
+  color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer',
+  width: '100%', fontFamily: 'monospace', letterSpacing: 2,
+}
 
+export function MatchmakingButton({ onFind, onCancel, queuing }: MatchmakingButtonProps) {
   if (queuing) {
     return (
       <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-        <button style={{ ...btn, flex: 1 }} disabled>
-          Searching...
+        <button style={{ ...base, flex: 1, background: '#ff6600', opacity: 0.75 }} disabled>
+          SEARCHING...
         </button>
-        <button style={{ ...btn, background: '#cc3300', flex: 0, padding: '16px 20px' }} onClick={onCancel}>
-          Cancel
+        <button style={{ ...base, background: '#cc3300', flex: 0, padding: '14px 20px', letterSpacing: 0 }} onClick={onCancel}>
+          CANCEL
         </button>
       </div>
     )
   }
 
   return (
-    <button style={btn} onClick={onFind}>
-      Quick Match
+    <button style={{ ...base, background: '#3399ff' }} onClick={onFind}>
+      QUICK MATCH
     </button>
   )
 }

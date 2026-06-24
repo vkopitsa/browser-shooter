@@ -3,6 +3,7 @@ import type { MatchConfig, DamagePolicy, JoinPolicy } from '../session/MatchConf
 import { defaultCompetitiveConfig } from '../session/MatchConfig'
 import type { GameMode } from '../session/protocol'
 import { MAPS, DEFAULT_MAP_ID } from '../maps/registry'
+import { BattlefieldBackground } from './BattlefieldBackground'
 
 const MODES: { value: GameMode; label: string }[] = [
   { value: 'coop', label: 'Co-op (vs AI)' },
@@ -32,10 +33,12 @@ export function MatchSetup({ onConfirm, onBack }: { onConfirm: (c: MatchConfig) 
   const [mapId, setMapId] = useState<string>(DEFAULT_MAP_ID)
 
   return (
-    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'flex-start', gap: 20, background: '#0d0d14',
-      fontFamily: 'monospace', color: '#fff', zIndex: 50, overflowY: 'auto',
-      padding: 'calc(24px + var(--safe-top)) 16px calc(24px + var(--safe-bottom))', boxSizing: 'border-box' }}>
+    <div style={{ position: 'absolute', inset: 0, isolation: 'isolate', zIndex: 50 }}>
+      <BattlefieldBackground />
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'flex-start', gap: 20,
+        fontFamily: 'monospace', color: '#fff', overflowY: 'auto',
+        padding: 'calc(24px + var(--safe-top)) 16px calc(24px + var(--safe-bottom))', boxSizing: 'border-box' }}>
       <h2 style={{ margin: 0 }}>MATCH SETUP</h2>
 
       <div><div style={{ opacity: 0.6, marginBottom: 6 }}>MODE</div>
@@ -106,6 +109,7 @@ export function MatchSetup({ onConfirm, onBack }: { onConfirm: (c: MatchConfig) 
           mapId,
           ...(joinPolicy === 'free' && password ? { password } : {}),
         })}>Create Room</button>
+      </div>
       </div>
     </div>
   )

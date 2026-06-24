@@ -8,7 +8,7 @@ describe('PreJoinPrompt', () => {
     render(<PreJoinPrompt protected error={null} onSubmit={onSubmit} onCancel={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /^T$/ }))
     fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'pw' } })
-    fireEvent.click(screen.getByText(/join match/i))
+    fireEvent.click(screen.getByRole('button', { name: /join match/i }))
     expect(onSubmit).toHaveBeenCalledWith('t', 'pw')
   })
 

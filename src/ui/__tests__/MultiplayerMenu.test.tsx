@@ -42,14 +42,14 @@ describe('MultiplayerMenu', () => {
 
   it('shows three connection options on the main menu', () => {
     render(<MultiplayerMenu {...baseProps} />)
-    expect(screen.getByText('Quick Match')).toBeInTheDocument()
-    expect(screen.getByText('Create Room')).toBeInTheDocument()
+    expect(screen.getAllByText('QUICK MATCH').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('CREATE ROOM').length).toBeGreaterThan(0)
   })
 
   it('shows server filters on the main menu', () => {
     render(<MultiplayerMenu {...baseProps} />)
-    expect(screen.getByText('Mode')).toBeInTheDocument()
-    expect(screen.getByText('Status')).toBeInTheDocument()
+    expect(screen.getByText('MODE')).toBeInTheDocument()
+    expect(screen.getByText('STATUS')).toBeInTheDocument()
   })
 
   it('opens the pre-join prompt for a free server and submits via onJoinFree', () => {
@@ -59,9 +59,9 @@ describe('MultiplayerMenu', () => {
       status: 'in-progress' as const, mode: 'pvp', joinPolicy: 'free' as const, protected: true, ping: 10,
     }]
     render(<MultiplayerMenu {...baseProps} servers={servers} onJoinFree={onJoinFree} />)
-    fireEvent.click(screen.getAllByText('Join')[0])           // server-row Join (comes before room-code Join in DOM)
+    fireEvent.click(screen.getAllByText('JOIN')[0])           // server-row JOIN (comes before room-code JOIN in DOM)
     fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'pw' } })
-    fireEvent.click(screen.getByText(/join match/i))
+    fireEvent.click(screen.getByRole('button', { name: /join match/i }))
     expect(onJoinFree).toHaveBeenCalledWith('FREE1', 'ct', 'pw')
   })
 
@@ -72,7 +72,7 @@ describe('MultiplayerMenu', () => {
       status: 'lobby' as const, mode: 'pvp', joinPolicy: 'lobby' as const, ping: 10,
     }]
     render(<MultiplayerMenu {...baseProps} servers={servers} onJoin={onJoin} />)
-    fireEvent.click(screen.getAllByText('Join')[0]) // server-row Join (comes before room-code Join in DOM)
+    fireEvent.click(screen.getAllByText('JOIN')[0]) // server-row JOIN (comes before room-code JOIN in DOM)
     expect(onJoin).toHaveBeenCalledWith('LOB1')
   })
 })

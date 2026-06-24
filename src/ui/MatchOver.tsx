@@ -1,12 +1,15 @@
 import React from 'react'
 import type { Team } from '../types'
 import type { MatchScores } from '../session/protocol'
+import { BattlefieldBackground } from './BattlefieldBackground'
 
 export const MatchOver: React.FC<{ winningTeam: Team | null; scores: MatchScores; onBackToLobby: () => void; onRestart?: () => void }>
   = ({ winningTeam, scores, onBackToLobby, onRestart }) => (
   <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-    alignItems: 'center', justifyContent: 'center', gap: 16, background: '#0d0d14',
+    alignItems: 'center', justifyContent: 'center', gap: 16,
+    isolation: 'isolate',
     color: '#fff', fontFamily: 'monospace', zIndex: 60 }}>
+    <BattlefieldBackground />
     <h1 style={{ margin: 0, color: winningTeam === 'ct' ? '#3a6ea5' : '#a5703a' }}>
       {winningTeam ? `${winningTeam === 'ct' ? 'COUNTER-TERRORISTS' : 'TERRORISTS'} WIN` : 'MATCH OVER'}
     </h1>

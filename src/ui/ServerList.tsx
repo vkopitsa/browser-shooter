@@ -14,17 +14,26 @@ interface ServerListProps {
 }
 
 const rowStyle: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 12, padding: '6px 10px',
-  background: 'rgba(255,255,255,0.06)', borderRadius: 6, width: 460,
+  display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px',
+  background: 'rgba(255,255,255,0.04)',
+  borderLeft: '2px solid rgba(0,200,80,0.25)',
+  borderRadius: 4,
+  width: '100%',
 }
-const cell: React.CSSProperties = { fontSize: 14 }
+
+const cell: React.CSSProperties = { fontSize: 13, fontFamily: 'monospace' }
+
 const joinBtn: React.CSSProperties = {
-  marginLeft: 'auto', padding: '6px 16px', background: '#3399ff', color: 'white',
-  border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 'bold',
+  marginLeft: 'auto', padding: '5px 14px',
+  background: '#3399ff', color: 'white',
+  border: 'none', borderRadius: 5, cursor: 'pointer',
+  fontWeight: 'bold', fontFamily: 'monospace', fontSize: 12, letterSpacing: 0.5,
 }
+
 const refreshBtn: React.CSSProperties = {
-  padding: '6px 16px', background: '#555', color: 'white', border: 'none',
-  borderRadius: 6, cursor: 'pointer',
+  padding: '5px 14px', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)',
+  border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer',
+  fontFamily: 'monospace', fontSize: 11, letterSpacing: 1,
 }
 
 export const ServerList: React.FC<ServerListProps> = ({ servers, onJoin, onRefresh, filterMode }) => {
@@ -52,24 +61,31 @@ export const ServerList: React.FC<ServerListProps> = ({ servers, onJoin, onRefre
   }, [servers, filter])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
       <ServerFilters filter={filter} onChange={setFilter} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', maxWidth: 460 }}>
-        <strong>Games</strong>
-        <button style={{ ...refreshBtn, marginLeft: 'auto' }} onClick={onRefresh}>Refresh</button>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', letterSpacing: 1, fontFamily: 'monospace' }}>
+          GAMES ({filteredServers.length})
+        </span>
+        <button style={{ ...refreshBtn, marginLeft: 'auto' }} onClick={onRefresh}>↻ REFRESH</button>
       </div>
       {filteredServers.length === 0
-        ? <div style={{ opacity: 0.6, padding: 12 }}>No games found</div>
+        ? (
+          <div style={{
+            opacity: 0.4, padding: '16px 0', textAlign: 'center',
+            fontSize: 13, fontFamily: 'monospace', borderTop: '1px solid rgba(255,255,255,0.06)',
+          }}>No games found</div>
+        )
         : filteredServers.map((s) => (
           <div key={s.roomCode} style={rowStyle}>
-            <span style={{ ...cell, minWidth: 120 }}>{s.hostName}</span>
-            <span style={cell}>{s.mode ?? 'Unknown'}</span>
-            <span style={cell}>{s.players}/{s.maxPlayers}</span>
-            <span style={{ ...cell, opacity: 0.8 }}>{s.joinPolicy === 'free' ? 'Free' : 'Lobby'}</span>
+            <span style={{ ...cell, minWidth: 110, color: '#fff' }}>{s.hostName}</span>
+            <span style={{ ...cell, opacity: 0.7 }}>{s.mode ?? '?'}</span>
+            <span style={{ ...cell, opacity: 0.6 }}>{s.players}/{s.maxPlayers}</span>
+            <span style={{ ...cell, opacity: 0.55 }}>{s.joinPolicy === 'free' ? 'Free' : 'Lobby'}</span>
             {s.protected && <span style={cell} title="Password required">🔒</span>}
-            <span style={{ ...cell, opacity: 0.8 }}>{s.status === 'lobby' ? 'Lobby' : 'In progress'}</span>
-            <span style={{ ...cell, opacity: 0.8 }}>{s.ping === null ? '—' : `${s.ping} ms`}</span>
-            <button style={joinBtn} onClick={() => onJoin(s)}>Join</button>
+            <span style={{ ...cell, opacity: 0.55 }}>{s.status === 'lobby' ? 'Lobby' : 'Playing'}</span>
+            <span style={{ ...cell, opacity: 0.5, minWidth: 50 }}>{s.ping === null ? '—' : `${s.ping}ms`}</span>
+            <button style={joinBtn} onClick={() => onJoin(s)}>JOIN</button>
           </div>
         ))}
     </div>

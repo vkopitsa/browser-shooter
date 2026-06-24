@@ -23,8 +23,10 @@ export class Pickup {
   }
 
   update(dt: number, time: number) {
-    this.mesh.position.y = 1 + Math.sin(time * 0.7 + this.bobOffset) * 0.2
-    this.mesh.rotation.y += dt * 0.8
+    // abs(sin) = brief ground touch, arc in air — classic bouncing jump
+    const arc = Math.abs(Math.sin(time * 0.8 + this.bobOffset))
+    this.mesh.position.y = 1 + Math.pow(arc, 0.6) * 0.5
+    this.mesh.rotation.y += dt * 0.35
   }
 
   checkCollision(playerPosition: THREE.Vector3, radius: number = 1.5): boolean {

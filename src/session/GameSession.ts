@@ -57,6 +57,7 @@ export class GameSession {
   pickups: Pickup[] = []
   collisionWorld: CollisionWorld | null = null
   tick = 0
+  elapsedTime = 0
 
   config: MatchConfig
   map: MapDef
@@ -498,6 +499,7 @@ export class GameSession {
   step(dt: number): SessionEvent[] {
     const events: SessionEvent[] = []
     this.tick++
+    this.elapsedTime += dt
 
     if (this.roundManager) {
       const prevState = this.roundManager.state
@@ -625,7 +627,7 @@ export class GameSession {
 
     // Pickups — update once, then check all players.
     for (const pickup of this.pickups) {
-      pickup.update(dt, this.tick * dt)
+      pickup.update(dt, this.elapsedTime)
     }
     for (const entity of this.playerMap.values()) {
       const player = entity.player

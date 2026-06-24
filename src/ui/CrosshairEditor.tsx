@@ -13,8 +13,10 @@ type Target = 'global' | WeaponType
 const WEAPONS = Object.keys(WEAPON_DEFS) as WeaponType[]
 const COLOR_PRESETS = ['#00ff66', '#00e5ff', '#ffe600', '#ff3b3b', '#ffffff', '#ff00ff']
 
-const label: React.CSSProperties = { fontSize: 13, opacity: 0.6, marginBottom: 6, display: 'block' }
-const rowGap: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 14 }
+const fieldLabel: React.CSSProperties = {
+  fontSize: 11, color: 'rgba(255,255,255,0.45)', letterSpacing: 1,
+  marginBottom: 6, display: 'block',
+}
 
 interface CrosshairEditorProps {
   value: CrosshairSettings
@@ -28,7 +30,6 @@ export const CrosshairEditor: React.FC<CrosshairEditorProps> = ({ value, onChang
   const active: CrosshairConfig =
     target === 'global' ? value.global : resolveCrosshair(value, target)
 
-  /** Write an edited config back to the right place, creating a per-weapon override if needed. */
   const update = (patch: Partial<CrosshairConfig>) => {
     const next = { ...active, ...patch }
     if (target === 'global') {
@@ -46,16 +47,18 @@ export const CrosshairEditor: React.FC<CrosshairEditorProps> = ({ value, onChang
   }
 
   return (
-    <div style={rowGap}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
-        <span style={label}>CROSSHAIR FOR</span>
+        <span style={fieldLabel}>WEAPON</span>
         <div style={{ display: 'flex', gap: 8 }}>
           <select
             value={target}
             onChange={(e) => setTarget(e.target.value as Target)}
             style={{
-              flex: 1, padding: 9, fontSize: 14, background: '#12121f', color: 'white',
-              border: '1px solid #2a2a3f', borderRadius: 6,
+              flex: 1, padding: '9px 10px', fontSize: 13,
+              background: 'rgba(255,255,255,0.05)', color: 'white',
+              border: '1px solid rgba(0,200,80,0.2)', borderRadius: 6,
+              fontFamily: 'monospace', outline: 'none',
             }}
           >
             <option value="global">Global default</option>
@@ -69,17 +72,17 @@ export const CrosshairEditor: React.FC<CrosshairEditorProps> = ({ value, onChang
             <button
               onClick={resetToGlobal}
               style={{
-                padding: '0 14px', fontSize: 13, background: '#2a2a3f', color: 'white',
-                border: 'none', borderRadius: 6, cursor: 'pointer',
+                padding: '0 14px', fontSize: 12,
+                background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.6)',
+                border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, cursor: 'pointer',
+                fontFamily: 'monospace', letterSpacing: 1,
               }}
-            >
-              Reset
-            </button>
+            >RESET</button>
           )}
         </div>
         {target !== 'global' && !hasOverride && (
-          <div style={{ fontSize: 12, opacity: 0.5, marginTop: 6 }}>
-            Using the global default. Change anything below to give this weapon its own crosshair.
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 6 }}>
+            Using global default. Change any setting below to create a per-weapon override.
           </div>
         )}
       </div>
@@ -87,23 +90,24 @@ export const CrosshairEditor: React.FC<CrosshairEditorProps> = ({ value, onChang
       <Preview config={active} />
 
       <div>
-        <span style={label}>STYLE</span>
+        <span style={fieldLabel}>STYLE</span>
         <div style={{ display: 'flex', gap: 8 }}>
           {(['dynamic', 'static'] as const).map((s) => (
             <button
               key={s}
               onClick={() => update({ style: s })}
               style={{
-                flex: 1, padding: '9px 0', fontSize: 14, color: 'white', border: 'none',
+                flex: 1, padding: '9px 0', fontSize: 13,
+                fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 1,
+                color: active.style === s ? '#fff' : 'rgba(255,255,255,0.45)',
+                border: active.style === s ? '1px solid #ff6600' : '1px solid rgba(255,255,255,0.1)',
                 borderRadius: 6, cursor: 'pointer',
-                background: active.style === s ? '#ff6600' : '#2a2a3f',
+                background: active.style === s ? '#ff6600' : 'rgba(255,255,255,0.05)',
               }}
-            >
-              {s === 'dynamic' ? 'Dynamic' : 'Static'}
-            </button>
+            >{s.toUpperCase()}</button>
           ))}
         </div>
-        <div style={{ fontSize: 12, opacity: 0.5, marginTop: 6 }}>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 6 }}>
           {active.style === 'dynamic'
             ? 'Expands while moving, jumping and firing.'
             : 'Fixed size — never moves.'}
@@ -111,7 +115,7 @@ export const CrosshairEditor: React.FC<CrosshairEditorProps> = ({ value, onChang
       </div>
 
       <div>
-        <span style={label}>COLOR</span>
+        <span style={fieldLabel}>COLOR</span>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {COLOR_PRESETS.map((c) => (
             <button
@@ -120,7 +124,8 @@ export const CrosshairEditor: React.FC<CrosshairEditorProps> = ({ value, onChang
               aria-label={`color ${c}`}
               style={{
                 width: 26, height: 26, background: c, borderRadius: 5, cursor: 'pointer',
-                border: active.color.toLowerCase() === c ? '2px solid white' : '2px solid #2a2a3f',
+                border: active.color.toLowerCase() === c ? '2px solid white' : '2px solid transparent',
+                outline: active.color.toLowerCase() === c ? '1px solid rgba(255,255,255,0.3)' : 'none',
               }}
             />
           ))}
@@ -143,9 +148,9 @@ export const CrosshairEditor: React.FC<CrosshairEditorProps> = ({ value, onChang
         onChange={(v) => update({ opacity: v })} />
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Toggle label="Center dot" on={active.dot} onClick={() => update({ dot: !active.dot })} />
-        <Toggle label="Outline" on={active.outline} onClick={() => update({ outline: !active.outline })} />
-        <Toggle label="T-style" on={active.tStyle} onClick={() => update({ tStyle: !active.tStyle })} />
+        <Toggle label="CENTER DOT" on={active.dot} onClick={() => update({ dot: !active.dot })} />
+        <Toggle label="OUTLINE" on={active.outline} onClick={() => update({ outline: !active.outline })} />
+        <Toggle label="T-STYLE" on={active.tStyle} onClick={() => update({ tStyle: !active.tStyle })} />
       </div>
 
       {active.outline && (
@@ -161,11 +166,11 @@ const Slider: React.FC<{
   onChange: (v: number) => void
 }> = ({ label: text, value, min, max, step, digits = 0, onChange }) => (
   <div>
-    <span style={label}>{text} — {value.toFixed(digits)}</span>
+    <span style={fieldLabel}>{text} — {value.toFixed(digits)}</span>
     <input
       type="range" min={min} max={max} step={step} value={value}
       onChange={(e) => onChange(parseFloat(e.target.value))}
-      style={{ width: '100%' }}
+      style={{ width: '100%', accentColor: '#ff6600' }}
     />
   </div>
 )
@@ -174,15 +179,18 @@ const Toggle: React.FC<{ label: string; on: boolean; onClick: () => void }> = ({
   <button
     onClick={onClick}
     style={{
-      flex: '1 1 30%', padding: '9px 0', fontSize: 13, color: 'white', border: 'none',
-      borderRadius: 6, cursor: 'pointer', background: on ? '#3399ff' : '#2a2a3f',
+      flex: '1 1 30%', padding: '9px 0', fontSize: 12,
+      fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: 0.5,
+      color: on ? '#fff' : 'rgba(255,255,255,0.4)',
+      border: on ? '1px solid #3399ff' : '1px solid rgba(255,255,255,0.1)',
+      borderRadius: 6, cursor: 'pointer',
+      background: on ? 'rgba(51,153,255,0.2)' : 'rgba(255,255,255,0.04)',
     }}
   >
-    {on ? '☑' : '☐'} {text}
+    {on ? '▣' : '▢'} {text}
   </button>
 )
 
-/** Preview canvas that animates the dynamic bloom so the effect is visible while editing. */
 const Preview: React.FC<{ config: CrosshairConfig }> = ({ config }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const cfgRef = useRef(config)
@@ -203,7 +211,6 @@ const Preview: React.FC<{ config: CrosshairConfig }> = ({ config }) => {
     const start = performance.now()
     const render = (now: number) => {
       const cfg = cfgRef.current
-      // Gently pulse bloom 0..1.2 so dynamic crosshairs visibly breathe in the preview.
       const bloom = cfg.style === 'dynamic' ? (Math.sin((now - start) / 600) * 0.5 + 0.5) * 1.2 : 0
       ctx.clearRect(0, 0, SIZE, SIZE)
       drawCrosshair(ctx, cfg, bloom, SIZE / 2, SIZE / 2)
@@ -219,8 +226,8 @@ const Preview: React.FC<{ config: CrosshairConfig }> = ({ config }) => {
         ref={canvasRef}
         style={{
           width: SIZE, height: SIZE,
-          background: 'repeating-conic-gradient(#1a1a2e 0% 25%, #15151f 0% 50%) 50% / 24px 24px',
-          borderRadius: 8, border: '1px solid #2a2a3f',
+          background: 'repeating-conic-gradient(#0a140a 0% 25%, #060e06 0% 50%) 50% / 24px 24px',
+          borderRadius: 8, border: '1px solid rgba(0,200,80,0.2)',
         }}
       />
     </div>

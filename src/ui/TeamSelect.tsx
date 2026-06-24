@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Team } from '../types'
 import { MAPS, DEFAULT_MAP_ID } from '../maps/registry'
+import { BattlefieldBackground } from './BattlefieldBackground'
 
 interface TeamSelectProps {
   onSelect: (team: Team, mapId: string) => void
@@ -30,10 +31,11 @@ export function TeamSelect({ onSelect, onBack, selected, counts }: TeamSelectPro
     <div style={{
       position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center', gap: 16,
-      background: '#0d0d14', fontFamily: 'monospace', color: '#fff', zIndex: 50,
+      isolation: 'isolate', fontFamily: 'monospace', color: '#fff', zIndex: 50,
       padding: 'calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom))',
       boxSizing: 'border-box', overflowY: 'auto',
     }}>
+      <BattlefieldBackground />
       <h2 style={{ margin: 0 }}>CHOOSE YOUR MAP</h2>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 560 }}>
         {MAPS.map((m) => {

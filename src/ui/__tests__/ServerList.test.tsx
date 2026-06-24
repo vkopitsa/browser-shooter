@@ -11,28 +11,28 @@ describe('ServerFilters', () => {
   it('renders filter controls', () => {
     const onChange = vi.fn()
     render(<ServerFilters filter={{ mode: 'all', status: 'all', playerCount: 'all' }} onChange={onChange} />)
-    expect(screen.getByText('Mode')).toBeDefined()
-    expect(screen.getByText('Status')).toBeDefined()
+    expect(screen.getByText('MODE')).toBeDefined()
+    expect(screen.getByText('STATUS')).toBeDefined()
   })
 
   it('calls onChange when mode filter changes', () => {
     const onChange = vi.fn()
     render(<ServerFilters filter={{ mode: 'all', status: 'all', playerCount: 'all' }} onChange={onChange} />)
-    fireEvent.click(screen.getByText('Competitive'))
+    fireEvent.click(screen.getByText('COMPETITIVE'))
     expect(onChange).toHaveBeenCalledWith({ mode: 'competitive', status: 'all', playerCount: 'all' })
   })
 
   it('calls onChange when status filter changes', () => {
     const onChange = vi.fn()
     render(<ServerFilters filter={{ mode: 'all', status: 'all', playerCount: 'all' }} onChange={onChange} />)
-    fireEvent.click(screen.getByText('In Progress'))
+    fireEvent.click(screen.getByText('IN PROGRESS'))
     expect(onChange).toHaveBeenCalledWith({ mode: 'all', status: 'in-progress', playerCount: 'all' })
   })
 
   it('highlights the active mode button', () => {
     const onChange = vi.fn()
     render(<ServerFilters filter={{ mode: 'coop', status: 'all', playerCount: 'all' }} onChange={onChange} />)
-    const coopBtn = screen.getByText('Co-op')
+    const coopBtn = screen.getByText('CO-OP')
     expect(coopBtn.getAttribute('data-active')).toBe('true')
   })
 })
@@ -44,7 +44,7 @@ describe('ServerList', () => {
     expect(screen.getByText('Alice')).toBeInTheDocument()
     expect(screen.getByText('2/8')).toBeInTheDocument()
     expect(screen.getAllByText(/lobby/i).length).toBeGreaterThan(0)
-    expect(screen.getByText('42 ms')).toBeInTheDocument()
+    expect(screen.getByText('42ms')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /^join$/i }))
     expect(onJoin).toHaveBeenCalledWith(expect.objectContaining({ roomCode: 'ROOM1', joinPolicy: 'free' }))
   })
@@ -58,7 +58,7 @@ describe('ServerList', () => {
     }]
     render(<ServerList servers={servers} onJoin={onJoin} onRefresh={vi.fn()} />)
     expect(screen.getByText('🔒')).toBeInTheDocument()
-    fireEvent.click(screen.getByText('Join'))
+    fireEvent.click(screen.getByText('JOIN'))
     expect(onJoin).toHaveBeenCalledWith(expect.objectContaining({ roomCode: 'ROOM1', joinPolicy: 'free' }))
   })
 

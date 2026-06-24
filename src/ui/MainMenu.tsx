@@ -1,4 +1,5 @@
 import React from 'react'
+import { BattlefieldBackground } from './BattlefieldBackground'
 
 interface MainMenuProps {
   onSingleplayer: () => void
@@ -15,15 +16,16 @@ export const MainMenu: React.FC<MainMenuProps> = ({
     <div style={{
       position: 'absolute',
       inset: 0,
+      isolation: 'isolate',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'linear-gradient(180deg, #0a0a1a 0%, #1a1a3e 100%)',
       color: 'white',
       fontFamily: 'monospace',
       padding: 'calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom))',
     }}>
+      <BattlefieldBackground />
       <h1 style={{
         fontSize: 'clamp(34px, 11vw, 64px)',
         fontWeight: 'bold',
