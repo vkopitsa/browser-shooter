@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import * as THREE from 'three'
 import { createArena, rebuildArena, ARENA_GROUP_NAME } from '../Arena'
-import { getMap, MAPS } from '../../maps/registry'
+import { getZone, ZONES } from '../../zones/registry'
 
 // Mock WebGLRenderer to avoid needing a real GL context
 vi.mock('three', async () => {
@@ -39,7 +39,7 @@ describe('createArena', () => {
   })
 
   it('builds every registered map without throwing', () => {
-    for (const map of MAPS) {
+    for (const map of ZONES) {
       const scene = new THREE.Scene()
       const world = createArena(scene, map)
       expect(countRings(scene)).toBe(2)
@@ -51,8 +51,8 @@ describe('createArena', () => {
 describe('rebuildArena', () => {
   it('replaces the existing arena, leaving exactly one arena group', () => {
     const scene = new THREE.Scene()
-    createArena(scene, getMap('dust2'))
-    rebuildArena(scene, getMap('mirage'))
+    createArena(scene, getZone('arid'))
+    rebuildArena(scene, getZone('haze'))
 
     const groups = scene.children.filter((c) => c.name === ARENA_GROUP_NAME)
     expect(groups).toHaveLength(1)

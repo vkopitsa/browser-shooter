@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { CollisionWorld } from './CollisionWorld'
-import type { MapDef, StructureMaterial } from '../maps/MapDef'
-import { getMap } from '../maps/registry'
+import type { ZoneDef, StructureMaterial } from '../zones/ZoneDef'
+import { getZone } from '../zones/registry'
 
 const WALL_H = 5
 
@@ -26,10 +26,10 @@ function materialFor(kind: StructureMaterial): THREE.MeshStandardMaterial {
 
 /**
  * Builds a map (floor, perimeter walls, cover, bombsite markers, lighting) from
- * a {@link MapDef} into a single named group added to `scene`, and returns its
+ * a {@link ZoneDef} into a single named group added to `scene`, and returns its
  * CollisionWorld. Defaults to the registry's default map (Dust2).
  */
-export function createArena(scene: THREE.Scene, map: MapDef = getMap()): CollisionWorld {
+export function createArena(scene: THREE.Scene, map: ZoneDef = getZone()): CollisionWorld {
   const world = new CollisionWorld()
   const group = new THREE.Group()
   group.name = ARENA_GROUP_NAME
@@ -122,7 +122,7 @@ function disposeGroup(obj: THREE.Object3D): void {
  * Removes any existing arena group from `scene`, then builds `map` fresh.
  * Used when the selected map changes (room creation / match start).
  */
-export function rebuildArena(scene: THREE.Scene, map: MapDef = getMap()): CollisionWorld {
+export function rebuildArena(scene: THREE.Scene, map: ZoneDef = getZone()): CollisionWorld {
   const existing = scene.getObjectByName(ARENA_GROUP_NAME)
   if (existing) {
     disposeGroup(existing)
