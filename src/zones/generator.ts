@@ -462,5 +462,7 @@ export function generateRandomZone(
     ctSpawns,
     tSpawns,
     bombsites,
+    fogNear: 40,
+    fogFar: 120,
   }
 }
