@@ -21,8 +21,8 @@ import { raycastPlayerCapsule } from './PlayerHit'
 import type { HitZone } from '../systems/DamageZones'
 import { Bombsite } from './Bombsite'
 import { BombCarrier, BombState } from './BombCarrier'
-import type { MapDef } from '../maps/MapDef'
-import { getMap } from '../maps/registry'
+import type { ZoneDef } from '../zones/ZoneDef'
+import { getZone } from '../zones/registry'
 import { Grenade } from '../weapons/Grenade'
 import { GRENADE_DEFS, calcHeDamage, calcFlashBlindDuration } from '../weapons/GrenadeDefs'
 import { SmokeCloud } from '../effects/SmokeCloud'
@@ -60,7 +60,7 @@ export class GameSession {
   elapsedTime = 0
 
   config: MatchConfig
-  map: MapDef
+  map: ZoneDef
   scoreboard: Scoreboard
   respawnQueue = new RespawnQueue()
   roundManager: RoundManager | null = null
@@ -80,7 +80,7 @@ export class GameSession {
 
   constructor(config: MatchConfig = defaultMatchConfig()) {
     this.config = config
-    this.map = getMap(config.mapId)
+    this.map = getZone(config.zoneId)
     this.scoreboard = new Scoreboard(config.fragLimit)
     this.addPlayer(LOCAL_ID, 'You', 'ct')
 

@@ -18,7 +18,7 @@ describe('canDamage', () => {
 
 describe('defaultMatchConfig', () => {
   it('defaults to coop / team / 30', () => {
-    expect(defaultMatchConfig()).toEqual({ mode: 'coop', damagePolicy: 'team', fragLimit: 30, joinPolicy: 'lobby', mapId: 'dust2' })
+    expect(defaultMatchConfig()).toEqual({ mode: 'coop', damagePolicy: 'team', fragLimit: 30, joinPolicy: 'lobby', zoneId: 'arid' })
   })
 })
 
