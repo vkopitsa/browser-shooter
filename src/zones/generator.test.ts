@@ -9,7 +9,7 @@ import {
   generateBombsites,
 } from './generator'
 import type { GenerationConstraints } from './generator'
-import type { ZoneDef, ZoneStructure, ZoneBombsite } from './ZoneDef'
+import type { ZoneDef } from './ZoneDef'
 
 describe('createSeed', () => {
   it('creates a seed with deterministic output', () => {
@@ -319,7 +319,7 @@ describe('generateSpawns', () => {
   it('T spawns are in the south (z > 0)', () => {
     const seed = createSeed(42)
     const { tSpawns } = generateSpawns(seed, constraints)
-    for (const [x, z] of tSpawns) {
+    for (const [, z] of tSpawns) {
       expect(z).toBeGreaterThan(0)
     }
   })
@@ -327,7 +327,7 @@ describe('generateSpawns', () => {
   it('CT spawns are in the north (z < 0)', () => {
     const seed = createSeed(42)
     const { ctSpawns } = generateSpawns(seed, constraints)
-    for (const [x, z] of ctSpawns) {
+    for (const [, z] of ctSpawns) {
       expect(z).toBeLessThan(0)
     }
   })
