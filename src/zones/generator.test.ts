@@ -219,6 +219,17 @@ describe('generateWalls', () => {
     // Very unlikely to be identical with different seeds
     expect(walls1.length + walls2.length).toBeGreaterThan(0)
   })
+
+  it('walls stay within arena bounds', () => {
+    const seed = createSeed(42)
+    const walls = generateWalls(seed, constraints)
+    for (const w of walls) {
+      const [cx, , cz] = w.center
+      const [wSize, , dSize] = w.size
+      expect(Math.abs(cx) + wSize / 2).toBeLessThanOrEqual(constraints.arenaSize)
+      expect(Math.abs(cz) + dSize / 2).toBeLessThanOrEqual(constraints.arenaSize)
+    }
+  })
 })
 
 describe('generateCover', () => {

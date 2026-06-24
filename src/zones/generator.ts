@@ -199,14 +199,21 @@ export function generateWalls(
   const range = Math.floor(arenaSize / WALL_GRID_STEP)
 
   // Horizontal walls (along X axis, fixed Z grid lines)
+  const halfThickness = WALL_THICKNESS / 2
+  const zMax = arenaSize - halfThickness
   for (let gz = -range; gz <= range; gz++) {
     const z = gz * WALL_GRID_STEP
+    if (Math.abs(z) > zMax) continue // skip grid lines where thickness would exceed arena
     if (seed.next() < WALL_CHANCE) {
       // Place a wall segment along X at this Z
       const segLength = (range * WALL_GRID_STEP) * (0.5 + seed.next() * 0.5)
       const startX = -range * WALL_GRID_STEP + seed.next() * (2 * range * WALL_GRID_STEP - segLength)
+      const centerX = startX + segLength / 2
+      // Clamp so the wall stays within arena bounds
+      const halfLenX = segLength / 2
+      const clampedCenterX = Math.max(-arenaSize + halfLenX, Math.min(arenaSize - halfLenX, centerX))
       walls.push({
-        center: [startX + segLength / 2, WALL_HEIGHT / 2, z],
+        center: [clampedCenterX, WALL_HEIGHT / 2, z],
         size: [segLength, WALL_HEIGHT, WALL_THICKNESS],
         material: 'wall',
       })
@@ -214,13 +221,19 @@ export function generateWalls(
   }
 
   // Vertical walls (along Z axis, fixed X grid lines)
+  const xMax = arenaSize - halfThickness
   for (let gx = -range; gx <= range; gx++) {
     const x = gx * WALL_GRID_STEP
+    if (Math.abs(x) > xMax) continue // skip grid lines where thickness would exceed arena
     if (seed.next() < WALL_CHANCE) {
       const segLength = (range * WALL_GRID_STEP) * (0.5 + seed.next() * 0.5)
       const startZ = -range * WALL_GRID_STEP + seed.next() * (2 * range * WALL_GRID_STEP - segLength)
+      const centerZ = startZ + segLength / 2
+      // Clamp so the wall stays within arena bounds
+      const halfLenZ = segLength / 2
+      const clampedCenterZ = Math.max(-arenaSize + halfLenZ, Math.min(arenaSize - halfLenZ, centerZ))
       walls.push({
-        center: [x, WALL_HEIGHT / 2, startZ + segLength / 2],
+        center: [x, WALL_HEIGHT / 2, clampedCenterZ],
         size: [WALL_THICKNESS, WALL_HEIGHT, segLength],
         material: 'wall',
       })
