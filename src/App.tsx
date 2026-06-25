@@ -302,7 +302,7 @@ function App() {
 
     const fresh = new GameSession(data.matchConfig)
     fresh.collisionWorld = scene
-      ? rebuildArena(scene, getZone(data.matchConfig.zoneId, data.matchConfig.randomSeed))
+      ? rebuildArena(scene, getZone(data.matchConfig.zoneId, data.matchConfig.randomSeed, data.matchConfig.customZone))
       : data.session.collisionWorld
     fresh.waveManager.wavePauseTimer = 2 // 2s grace before wave 1 (matches pre-refactor behavior)
     fresh.waveManager.onEnemySpawned = data.session.waveManager.onEnemySpawned
@@ -349,7 +349,7 @@ function App() {
       // host's config (received in 'welcome') so the session's map, spawns, and bombsites
       // match the real map — not just the rendered arena. Mirrors hostGame()/startGame().
       const fresh = new GameSession(data.matchConfig)
-      fresh.collisionWorld = rebuildArena(engine.scene, getZone(data.matchConfig.zoneId, data.matchConfig.randomSeed))
+      fresh.collisionWorld = rebuildArena(engine.scene, getZone(data.matchConfig.zoneId, data.matchConfig.randomSeed, data.matchConfig.customZone))
       fresh.waveManager.onEnemySpawned = data.session.waveManager.onEnemySpawned
       fresh.waveManager.onWaveComplete = data.session.waveManager.onWaveComplete
       fresh.getPlayer(fresh.localId)!.name = settingsRef.current.playerName
@@ -358,12 +358,12 @@ function App() {
       // respects walls and uses the correct map bounds.
       if (data.netClient) {
         data.netClient.collisionWorld = fresh.collisionWorld
-        data.netClient.arenaSize = getZone(data.matchConfig.zoneId, data.matchConfig.randomSeed).arenaSize
+        data.netClient.arenaSize = getZone(data.matchConfig.zoneId, data.matchConfig.randomSeed, data.matchConfig.customZone).arenaSize
       }
     } else {
       // Host already rebuilt its session with the chosen map in hostGame(); just ensure the
       // rendered arena and collision world match.
-      data.session.collisionWorld = rebuildArena(engine.scene, getZone(data.matchConfig.zoneId, data.matchConfig.randomSeed))
+      data.session.collisionWorld = rebuildArena(engine.scene, getZone(data.matchConfig.zoneId, data.matchConfig.randomSeed, data.matchConfig.customZone))
     }
     // Grenade inventory lives client-side; without this it stays null in net games,
     // so buying/selecting/throwing grenades silently no-ops (the buy button never leaves 0/N).
@@ -704,7 +704,7 @@ function App() {
     const engine = new GameEngine(container)
     engineRef.current = engine
     const data = gameDataRef.current
-    data.session.collisionWorld = createArena(engine.scene, getZone(data.session.config.zoneId, data.session.config.randomSeed))
+    data.session.collisionWorld = createArena(engine.scene, getZone(data.session.config.zoneId, data.session.config.randomSeed, data.session.config.customZone))
     engine.scene.add(engine.camera) // so the camera-parented viewmodel renders
     data.viewmodel = new Viewmodel(engine.camera)
     data.particleSystem = new ParticleSystem(engine.scene)
