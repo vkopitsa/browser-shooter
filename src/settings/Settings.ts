@@ -6,6 +6,42 @@ import {
 
 export type MobileControlsMode = 'auto' | 'on' | 'off'
 
+export interface Keymap {
+  forward: string
+  backward: string
+  left: string
+  right: string
+  jump: string
+  buy: string
+  scoreboard: string
+  cycleGrenade: string
+  selectGrenadeHE: string
+  selectGrenadeFlash: string
+  selectGrenadeSmoke: string
+  pushToTalk: string
+  addBotCT: string
+  addBotT: string
+  removeBot: string
+}
+
+export const DEFAULT_KEYMAP: Keymap = {
+  forward: 'KeyW',
+  backward: 'KeyS',
+  left: 'KeyA',
+  right: 'KeyD',
+  jump: 'Space',
+  buy: 'KeyB',
+  scoreboard: 'Tab',
+  cycleGrenade: 'KeyG',
+  selectGrenadeHE: 'Digit4',
+  selectGrenadeFlash: 'Digit5',
+  selectGrenadeSmoke: 'Digit6',
+  pushToTalk: 'KeyK',
+  addBotCT: 'BracketLeft',
+  addBotT: 'BracketRight',
+  removeBot: 'Backslash',
+}
+
 export interface Settings {
   /** Display name shown on the scoreboard and to other players. */
   playerName: string
@@ -15,6 +51,8 @@ export interface Settings {
   lookSensitivity: number
   /** Crosshair appearance: global default plus optional per-weapon overrides. */
   crosshair: CrosshairSettings
+  /** Keyboard bindings for all gameplay actions. */
+  keymap: Keymap
 }
 
 const STORAGE_KEY = 'browser-shooter-settings'
@@ -24,6 +62,7 @@ export const DEFAULT_SETTINGS: Settings = {
   mobileControls: 'auto',
   lookSensitivity: 1,
   crosshair: DEFAULT_CROSSHAIR_SETTINGS,
+  keymap: DEFAULT_KEYMAP,
 }
 
 export function loadSettings(): Settings {
@@ -34,9 +73,8 @@ export function loadSettings(): Settings {
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
-      // crosshair is nested, so merge it field-by-field rather than letting a
-      // partial/older stored blob replace the whole structure.
       crosshair: normalizeCrosshairSettings(parsed.crosshair),
+      keymap: { ...DEFAULT_KEYMAP, ...(parsed.keymap ?? {}) },
     }
   } catch {
     return { ...DEFAULT_SETTINGS, crosshair: normalizeCrosshairSettings(undefined) }

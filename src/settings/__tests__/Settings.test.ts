@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { loadSettings, saveSettings, mobileControlsActive, DEFAULT_SETTINGS } from '../Settings'
+import { loadSettings, saveSettings, mobileControlsActive, DEFAULT_SETTINGS, DEFAULT_KEYMAP } from '../Settings'
 
 describe('Settings', () => {
   beforeEach(() => localStorage.clear())
@@ -25,5 +25,25 @@ describe('Settings', () => {
   it('mobileControlsActive honours explicit on/off regardless of device', () => {
     expect(mobileControlsActive({ ...DEFAULT_SETTINGS, mobileControls: 'on' })).toBe(true)
     expect(mobileControlsActive({ ...DEFAULT_SETTINGS, mobileControls: 'off' })).toBe(false)
+  })
+
+  it('default settings include a full keymap', () => {
+    expect(DEFAULT_SETTINGS.keymap).toEqual(DEFAULT_KEYMAP)
+  })
+
+  it('loadSettings fills missing keymap keys from defaults', () => {
+    localStorage.setItem('browser-shooter-settings', JSON.stringify({ playerName: 'Neo' }))
+    const loaded = loadSettings()
+    expect(loaded.keymap).toEqual(DEFAULT_KEYMAP)
+  })
+
+  it('loadSettings merges partial stored keymap with defaults', () => {
+    localStorage.setItem(
+      'browser-shooter-settings',
+      JSON.stringify({ keymap: { forward: 'ArrowUp' } })
+    )
+    const loaded = loadSettings()
+    expect(loaded.keymap.forward).toBe('ArrowUp')
+    expect(loaded.keymap.backward).toBe(DEFAULT_KEYMAP.backward)
   })
 })
