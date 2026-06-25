@@ -8,6 +8,7 @@ interface SettingsMenuProps {
   settings: Settings
   onChange: (settings: Settings) => void
   onBack: () => void
+  onKeybinds: () => void
 }
 
 const scroll: React.CSSProperties = {
@@ -51,7 +52,7 @@ const MOBILE_OPTIONS: { value: MobileControlsMode; label: string }[] = [
   { value: 'off', label: 'OFF' },
 ]
 
-export const SettingsMenu: React.FC<SettingsMenuProps> = ({ settings, onChange, onBack }) => {
+export const SettingsMenu: React.FC<SettingsMenuProps> = ({ settings, onChange, onBack, onKeybinds }) => {
   return (
     <div style={{ position: 'absolute', inset: 0, isolation: 'isolate' }}>
       <BattlefieldBackground />
@@ -125,6 +126,15 @@ export const SettingsMenu: React.FC<SettingsMenuProps> = ({ settings, onChange, 
           />
         </div>
 
+        <button
+          onClick={onKeybinds}
+          style={{
+            padding: '12px 0', width: 'min(400px, calc(100vw - 32px))',
+            fontFamily: 'monospace', fontWeight: 'bold', fontSize: 14, letterSpacing: 2,
+            background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)',
+            border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, cursor: 'pointer',
+          }}
+        >KEYBINDS →</button>
         <button
           onClick={onBack}
           style={{

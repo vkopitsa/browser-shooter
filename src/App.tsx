@@ -52,6 +52,7 @@ import { resolveCrosshair } from './settings/Crosshair'
 import { stepBloom } from './weapons/CrosshairBloom'
 import { MatchSetup } from './ui/MatchSetup'
 import { MapEditor } from './ui/MapEditor'
+import { KeybindsScreen } from './ui/KeybindsScreen'
 import { RoundState } from './session/RoundManager'
 import { KillFeed, type KillLine } from './ui/KillFeed'
 import type { HitZone } from './systems/DamageZones'
@@ -707,7 +708,7 @@ function App() {
     engine.scene.add(engine.camera) // so the camera-parented viewmodel renders
     data.viewmodel = new Viewmodel(engine.camera)
     data.particleSystem = new ParticleSystem(engine.scene)
-    data.controls = new Controls(container, () => gameStateRef.current)
+    data.controls = new Controls(container, () => gameStateRef.current, settingsRef.current.keymap)
     data.controls.onIsStoreOpen = () => storeOpenRef.current
     data.controls.onMouseMove = onMouseMove
     data.controls.onCycleWeapon = () => {
@@ -1385,6 +1386,15 @@ function App() {
           settings={settings}
           onChange={updateSettings}
           onBack={() => updateGameState('menu')}
+          onKeybinds={() => updateGameState('keybinds')}
+        />
+      )}
+
+      {gameState === 'keybinds' && (
+        <KeybindsScreen
+          settings={settings}
+          onChange={updateSettings}
+          onBack={() => updateGameState('settings')}
         />
       )}
 
