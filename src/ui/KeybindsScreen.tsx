@@ -155,7 +155,7 @@ export const KeybindsScreen: React.FC<KeybindsScreenProps> = ({ settings, onChan
 
         <div style={{ ...card, flexDirection: 'row', gap: 8, padding: '12px 20px' }}>
           <button
-            onClick={() => onChange({ ...settings, keymap: DEFAULT_KEYMAP })}
+            onClick={() => { setWaiting(null); onChange({ ...settings, keymap: DEFAULT_KEYMAP }) }}
             style={{
               flex: 1, padding: '10px 0',
               fontFamily: 'monospace', fontWeight: 'bold', fontSize: 13, letterSpacing: 1,
