@@ -17,7 +17,11 @@ describe('zone registry', () => {
   })
 
   it('looks up each zone by id', () => {
-    for (const z of ZONES) expect(getZone(z.id)).toBe(z)
+    for (const z of ZONES) {
+      // 'random' generates a fresh zone each call, so check id not object identity
+      if (z.id === 'random') expect(getZone(z.id).id).toBe('random')
+      else expect(getZone(z.id)).toBe(z)
+    }
   })
 
   describe.each(ZONES)('zone "$id"', (zone) => {

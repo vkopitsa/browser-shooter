@@ -492,11 +492,7 @@ describe('generateRandomZone', () => {
   })
 
   it('passes connectivity validation when ensureConnectivity is true', () => {
-    // Note: randomly generated maps may not always pass connectivity.
-    // We run multiple seeds and verify at least most pass, or that the function
-    // produces a valid structure regardless.
-    const zone = generateRandomZone(42, constraints)
-    // Just verify the zone has the structural integrity to be validated
-    expect(validateConnectivity(zone)).toBeTypeOf('boolean')
+    const zone = generateRandomZone(42, { ...constraints, ensureConnectivity: true })
+    expect(validateConnectivity(zone)).toBe(true)
   })
 })

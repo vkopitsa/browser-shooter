@@ -1,4 +1,5 @@
 import type { ZoneDef, ZoneStructure, ZoneBombsite } from './ZoneDef'
+import { DAYLIGHT } from './ZoneDef'
 
 export interface GenerationSeed {
   value: number
@@ -8,7 +9,7 @@ export interface GenerationSeed {
 
 // Simple seeded PRNG (mulberry32)
 function mulberry32(seed: number): () => number {
-  let s = seed | 0
+  let s = seed >>> 0
   return () => {
     s = (s + 0x6d2b79f5) | 0
     let t = Math.imul(s ^ (s >>> 15), 1 | s)
@@ -58,7 +59,7 @@ export const DEFAULT_CONSTRAINTS: GenerationConstraints = {
 }
 
 /** Grid step size for the flood-fill connectivity check. */
-const CONNECTIVITY_GRID_STEP = 2
+const CONNECTIVITY_GRID_STEP = 1
 
 /**
  * Returns true if the given (x, z) point lies inside any structure's AABB
@@ -152,16 +153,15 @@ export function validateConnectivity(zone: ZoneDef): boolean {
       if (visited.has(key)) continue
       visited.add(key)
 
-      // Skip if blocked by a structure
-      if (isBlockedByStructure(nx, nz, structures)) continue
-
-      // Check if this cell is a target
+      // Check target before blocked: a spawn inside a structure still counts as reachable
       if (targets.has(key)) {
         reachedCount++
         if (reachedCount >= targets.size) {
           return true
         }
       }
+
+      if (isBlockedByStructure(nx, nz, structures)) continue
 
       queue.push([nx, nz])
     }
@@ -252,9 +252,11 @@ export function generateCover(
   constraints: GenerationConstraints
 ): ZoneStructure[] {
   const cover: ZoneStructure[] = []
-  const { arenaSize, minStructures } = constraints
+  const { arenaSize, minStructures, structureDensity } = constraints
+  // Normalize density so default (0.4) preserves original cover range
+  const densityScale = structureDensity / DEFAULT_CONSTRAINTS.structureDensity
   const count = Math.floor(
-    minStructures * (COVER_MIN_RATIO + seed.next() * (COVER_MAX_RATIO - COVER_MIN_RATIO))
+    minStructures * densityScale * (COVER_MIN_RATIO + seed.next() * (COVER_MAX_RATIO - COVER_MIN_RATIO))
   )
 
   for (let i = 0; i < count; i++) {
@@ -262,8 +264,8 @@ export function generateCover(
     const w = seed.nextInt(COVER_MIN_SIZE, COVER_MAX_SIZE)
     const h = seed.nextInt(COVER_MIN_SIZE, COVER_MAX_SIZE)
     const d = seed.nextInt(COVER_MIN_SIZE, COVER_MAX_SIZE)
-    const x = seed.nextInt(-arenaSize + w, arenaSize - w)
-    const z = seed.nextInt(-arenaSize + d, arenaSize - d)
+    const x = seed.nextInt(-arenaSize + Math.ceil(w / 2), arenaSize - Math.ceil(w / 2))
+    const z = seed.nextInt(-arenaSize + Math.ceil(d / 2), arenaSize - Math.ceil(d / 2))
 
     cover.push({
       center: [x, h / 2, z],
@@ -350,14 +352,7 @@ const SKY_COLORS: number[] = [
 
 /** Preset lighting configurations. */
 const LIGHTING_PRESETS: ZoneDef['lighting'][] = [
-  // DAYLIGHT preset
-  {
-    ambientColor: 0xb0b8c0,
-    ambientIntensity: 0.7,
-    sunColor: 0xfff4e0,
-    sunIntensity: 1.1,
-    sunPosition: [20, 30, 10],
-  },
+  DAYLIGHT,
   // SUNSET preset
   {
     ambientColor: 0xd4a076,
@@ -423,28 +418,29 @@ const ZONE_DESCRIPTIONS = [
  * @param constraints - Optional generation constraints. Defaults to DEFAULT_CONSTRAINTS.
  * @returns A valid ZoneDef with id='random'.
  */
-export function generateRandomZone(
-  seed?: number,
-  constraints?: GenerationConstraints
-): ZoneDef {
-  const effectiveConstraints = constraints ?? DEFAULT_CONSTRAINTS
-  const s = createSeed(seed)
+function buildZone(seedValue: number, effectiveConstraints: GenerationConstraints): ZoneDef {
+  const s = createSeed(seedValue)
 
-  // Generate structures (walls + cover)
   const walls = generateWalls(s, effectiveConstraints)
   const cover = generateCover(s, effectiveConstraints)
-  const structures = [...walls, ...cover]
-
-  // Generate spawns and bombsites
   const { tSpawns, ctSpawns } = generateSpawns(s, effectiveConstraints)
   const bombsites = generateBombsites(s, effectiveConstraints)
 
-  // Pick random presets
+  // Remove cover that overlaps any spawn point
+  const allSpawns = [...tSpawns, ...ctSpawns]
+  const safeCover = cover.filter(c => {
+    const [cx, , cz] = c.center
+    const [sw, , sd] = c.size
+    return !allSpawns.some(([sx, sz]) =>
+      sx >= cx - sw / 2 && sx <= cx + sw / 2 && sz >= cz - sd / 2 && sz <= cz + sd / 2
+    )
+  })
+
+  const structures = [...walls, ...safeCover].slice(0, effectiveConstraints.maxStructures)
+
   const floorColor = FLOOR_COLORS[s.nextInt(0, FLOOR_COLORS.length - 1)]
   const lighting = LIGHTING_PRESETS[s.nextInt(0, LIGHTING_PRESETS.length - 1)]
   const skyColor = SKY_COLORS[s.nextInt(0, SKY_COLORS.length - 1)]
-
-  // Generate name and description
   const name = ZONE_NAME_PREFIXES[s.nextInt(0, ZONE_NAME_PREFIXES.length - 1)] +
     ' ' +
     ZONE_NAME_SUFFIXES[s.nextInt(0, ZONE_NAME_SUFFIXES.length - 1)]
@@ -465,4 +461,25 @@ export function generateRandomZone(
     fogNear: 40,
     fogFar: 120,
   }
+}
+
+export function generateRandomZone(
+  seed?: number,
+  constraints?: GenerationConstraints
+): ZoneDef {
+  const effectiveConstraints = constraints ?? DEFAULT_CONSTRAINTS
+
+  if (!effectiveConstraints.ensureConnectivity) {
+    return buildZone(seed ?? Date.now(), effectiveConstraints)
+  }
+
+  // Retry up to 10 seeds to get a connected map; multiply to avoid adjacent-seed collisions
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const actualSeed = seed != null ? (seed * 1000003 + attempt) >>> 0 : Date.now() + attempt
+    const zone = buildZone(actualSeed, effectiveConstraints)
+    if (validateConnectivity(zone)) return zone
+  }
+
+  // ponytail: fallback returns last attempt even if disconnected
+  return buildZone(seed != null ? (seed * 1000003 + 9) >>> 0 : Date.now() + 9, effectiveConstraints)
 }
