@@ -17,4 +17,14 @@ describe('PreJoinPrompt', () => {
     expect(screen.queryByPlaceholderText(/password/i)).toBeNull()
     expect(screen.getByText('Wrong password')).toBeInTheDocument()
   })
+
+  it('with showTeam=false hides team selector and submits with default ct team', () => {
+    const onSubmit = vi.fn()
+    render(<PreJoinPrompt protected showTeam={false} error={null} onSubmit={onSubmit} onCancel={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /^CT$/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^T$/ })).toBeNull()
+    fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'pw' } })
+    fireEvent.click(screen.getByRole('button', { name: /join match/i }))
+    expect(onSubmit).toHaveBeenCalledWith('ct', 'pw')
+  })
 })

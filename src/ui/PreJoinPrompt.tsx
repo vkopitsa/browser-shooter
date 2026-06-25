@@ -3,6 +3,7 @@ import type { Team } from '../types'
 
 interface PreJoinPromptProps {
   protected?: boolean
+  showTeam?: boolean
   error?: string | null
   onSubmit: (team: Team, password: string) => void
   onCancel: () => void
@@ -13,7 +14,7 @@ const overlay: React.CSSProperties = {
   background: 'rgba(0,0,0,0.75)', zIndex: 60,
 }
 
-export const PreJoinPrompt: React.FC<PreJoinPromptProps> = ({ protected: isProtected, error, onSubmit, onCancel }) => {
+export const PreJoinPrompt: React.FC<PreJoinPromptProps> = ({ protected: isProtected, showTeam = true, error, onSubmit, onCancel }) => {
   const [team, setTeam] = useState<Team>('ct')
   const [password, setPassword] = useState('')
 
@@ -31,32 +32,34 @@ export const PreJoinPrompt: React.FC<PreJoinPromptProps> = ({ protected: isProte
         <div style={{ fontSize: 10, color: '#5aff8a', letterSpacing: 3, opacity: 0.8 }}>JOIN MATCH</div>
         <h3 style={{ margin: 0, fontSize: 18, letterSpacing: 2, color: '#fff' }}>SELECT TEAM</h3>
 
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button
-            onClick={() => setTeam('ct')}
-            style={{
-              flex: 1, padding: '14px 0', cursor: 'pointer',
-              fontFamily: 'monospace', fontWeight: 'bold', fontSize: 15, letterSpacing: 2,
-              background: team === 'ct' ? '#1a4a7a' : 'rgba(255,255,255,0.04)',
-              color: team === 'ct' ? '#7ab8f5' : 'rgba(255,255,255,0.4)',
-              border: team === 'ct' ? '1px solid #3a6ea5' : '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 6,
-              transition: 'all 0.1s',
-            }}
-          >CT</button>
-          <button
-            onClick={() => setTeam('t')}
-            style={{
-              flex: 1, padding: '14px 0', cursor: 'pointer',
-              fontFamily: 'monospace', fontWeight: 'bold', fontSize: 15, letterSpacing: 2,
-              background: team === 't' ? '#6b3a10' : 'rgba(255,255,255,0.04)',
-              color: team === 't' ? '#d4924a' : 'rgba(255,255,255,0.4)',
-              border: team === 't' ? '1px solid #a5703a' : '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 6,
-              transition: 'all 0.1s',
-            }}
-          >T</button>
-        </div>
+        {showTeam && (
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={() => setTeam('ct')}
+              style={{
+                flex: 1, padding: '14px 0', cursor: 'pointer',
+                fontFamily: 'monospace', fontWeight: 'bold', fontSize: 15, letterSpacing: 2,
+                background: team === 'ct' ? '#1a4a7a' : 'rgba(255,255,255,0.04)',
+                color: team === 'ct' ? '#7ab8f5' : 'rgba(255,255,255,0.4)',
+                border: team === 'ct' ? '1px solid #3a6ea5' : '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 6,
+                transition: 'all 0.1s',
+              }}
+            >CT</button>
+            <button
+              onClick={() => setTeam('t')}
+              style={{
+                flex: 1, padding: '14px 0', cursor: 'pointer',
+                fontFamily: 'monospace', fontWeight: 'bold', fontSize: 15, letterSpacing: 2,
+                background: team === 't' ? '#6b3a10' : 'rgba(255,255,255,0.04)',
+                color: team === 't' ? '#d4924a' : 'rgba(255,255,255,0.4)',
+                border: team === 't' ? '1px solid #a5703a' : '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 6,
+                transition: 'all 0.1s',
+              }}
+            >T</button>
+          </div>
+        )}
 
         {isProtected && (
           <input
