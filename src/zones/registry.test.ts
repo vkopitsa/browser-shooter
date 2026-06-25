@@ -60,3 +60,23 @@ describe('zone registry', () => {
     })
   })
 })
+
+import { DAYLIGHT } from './ZoneDef'
+import type { ZoneDef } from './ZoneDef'
+
+describe('custom zone lookup', () => {
+  const custom: ZoneDef = {
+    id: 'custom-1', name: 'Mine', description: 'd', arenaSize: 30,
+    floorColor: 0, lighting: DAYLIGHT, structures: [],
+    ctSpawns: [[0, -20]], tSpawns: [[0, 20]],
+    bombsites: [{ id: 'A', center: [10, 0] }, { id: 'B', center: [-10, 0] }],
+  }
+
+  it('returns the customZone when zoneId is "custom"', () => {
+    expect(getZone('custom', undefined, custom)).toBe(custom)
+  })
+
+  it('falls back to arid when zoneId is "custom" but no customZone provided', () => {
+    expect(getZone('custom').id).toBe('arid')
+  })
+})

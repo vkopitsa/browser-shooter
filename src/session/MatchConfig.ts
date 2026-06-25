@@ -1,5 +1,6 @@
 import type { Team } from '../types'
 import type { GameMode } from './protocol'
+import type { ZoneDef } from '../zones/ZoneDef'
 
 export type DamagePolicy = 'team' | 'friendly' | 'ffa'
 export type JoinPolicy = 'lobby' | 'free'
@@ -15,6 +16,7 @@ export interface MatchConfig {
   password?: string         // only meaningful when joinPolicy === 'free'; blank/undefined = open
   zoneId?: string           // selected zone id; undefined falls back to the default zone (Arid)
   randomSeed?: number       // seed for the random zone; host generates once, clients receive via welcome
+  customZone?: ZoneDef     // full zone definition when zoneId === 'custom'
 }
 
 export function defaultMatchConfig(): MatchConfig {

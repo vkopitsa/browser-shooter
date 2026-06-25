@@ -45,3 +45,20 @@ describe('join policy defaults', () => {
     expect(defaultCompetitiveConfig().joinPolicy).toBe('lobby')
   })
 })
+
+import type { ZoneDef } from '../zones/ZoneDef'
+import { DAYLIGHT } from '../zones/ZoneDef'
+
+const STUB_ZONE: ZoneDef = {
+  id: 'custom-xyz', name: 'My Map', description: 'test', arenaSize: 30,
+  floorColor: 0x444444, lighting: DAYLIGHT,
+  structures: [], ctSpawns: [[0, -20]], tSpawns: [[0, 20]],
+  bombsites: [{ id: 'A', center: [10, 0] }, { id: 'B', center: [-10, 0] }],
+}
+
+describe('customZone field', () => {
+  it('MatchConfig accepts a customZone', () => {
+    const c: MatchConfig = { ...defaultMatchConfig(), zoneId: 'custom', customZone: STUB_ZONE }
+    expect(c.customZone?.name).toBe('My Map')
+  })
+})
