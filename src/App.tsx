@@ -1403,7 +1403,7 @@ function App() {
             isHost={isHost}
             servers={servers}
             onHost={() => setShowMatchSetup(true)}
-            onJoin={joinGame}
+            onJoin={(code, pw) => joinGame(code, pw ? { password: pw } : undefined)}
             onJoinFree={(code, team, password) => joinGame(code, { team, password })}
             joinError={joinError}
             onCancelJoin={() => setJoinError(null)}

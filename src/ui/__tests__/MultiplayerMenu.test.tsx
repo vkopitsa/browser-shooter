@@ -75,4 +75,28 @@ describe('MultiplayerMenu', () => {
     fireEvent.click(screen.getAllByText('JOIN')[0]) // server-row JOIN (comes before room-code JOIN in DOM)
     expect(onJoin).toHaveBeenCalledWith('LOB1')
   })
+
+  it('shows pre-join prompt for protected lobby server and submits via onJoin', () => {
+    const onJoin = vi.fn()
+    const servers: ServerRow[] = [{
+      roomCode: 'LOB2', hostName: 'Bob', players: 1, maxPlayers: 8,
+      status: 'lobby' as const, mode: 'pvp', joinPolicy: 'lobby' as const, protected: true, ping: 20,
+    }]
+    render(<MultiplayerMenu {...baseProps} servers={servers} onJoin={onJoin} />)
+    fireEvent.click(screen.getAllByRole('button', { name: /^join$/i })[0])
+    // PreJoinPrompt appears — no team selector (showTeam=false), only password
+    expect(screen.queryByRole('button', { name: /^CT$/ })).toBeNull()
+    fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'secret' } })
+    fireEvent.click(screen.getByRole('button', { name: /join match/i }))
+    expect(onJoin).toHaveBeenCalledWith('LOB2', 'secret')
+  })
+
+  it('join by code passes password when provided', () => {
+    const onJoin = vi.fn()
+    render(<MultiplayerMenu {...baseProps} onJoin={onJoin} />)
+    fireEvent.change(screen.getByPlaceholderText(/room code/i), { target: { value: 'XYZ' } })
+    fireEvent.change(screen.getByPlaceholderText(/password.*optional/i), { target: { value: 'mypass' } })
+    fireEvent.click(screen.getByRole('button', { name: /join by code/i }))
+    expect(onJoin).toHaveBeenCalledWith('XYZ', 'mypass')
+  })
 })

@@ -11,7 +11,7 @@ interface MultiplayerMenuProps {
   isHost: boolean
   servers: ServerRow[]
   onHost: () => void
-  onJoin: (code: string) => void
+  onJoin: (code: string, password?: string) => void
   onStart: () => void
   onBack: () => void
   onRefresh: () => void
@@ -64,6 +64,7 @@ const heading: React.CSSProperties = {
 
 export const MultiplayerMenu: React.FC<MultiplayerMenuProps> = (p) => {
   const [code, setCode] = useState('')
+  const [codePassword, setCodePassword] = useState('')
   const [queuing, setQueuing] = useState(false)
   const [joining, setJoining] = useState<ServerRow | null>(null)
   const inLobby = p.roomCode !== null || p.players.length > 0
@@ -160,7 +161,7 @@ export const MultiplayerMenu: React.FC<MultiplayerMenuProps> = (p) => {
           <ServerList
             servers={p.servers}
             onJoin={(server) => {
-              if (server.joinPolicy === 'free') setJoining(server)
+              if (server.joinPolicy === 'free' || server.protected) setJoining(server)
               else p.onJoin(server.roomCode)
             }}
             onRefresh={p.onRefresh}
@@ -191,6 +192,20 @@ export const MultiplayerMenu: React.FC<MultiplayerMenuProps> = (p) => {
               />
               <button style={btn} aria-label="join by code" onClick={() => onJoinClick()}>JOIN</button>
             </div>
+            {!joining && (
+              <input
+                placeholder="Password (optional)"
+                value={codePassword}
+                onChange={(e) => setCodePassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && onJoinClick()}
+                style={{
+                  marginTop: 8, width: '100%', padding: '10px 12px', fontSize: 14,
+                  background: '#0a0a14', color: 'white',
+                  border: '1px solid #2a2a4f', borderRadius: 6,
+                  fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+            )}
           </div>
         </div>
 
@@ -200,13 +215,22 @@ export const MultiplayerMenu: React.FC<MultiplayerMenuProps> = (p) => {
       {joining && (
         <PreJoinPrompt
           protected={joining.protected}
+          showTeam={joining.joinPolicy === 'free'}
           error={p.joinError}
-          onSubmit={(team, password) => p.onJoinFree?.(joining.roomCode, team, password)}
+          onSubmit={(team, password) => {
+            if (joining.joinPolicy === 'free') p.onJoinFree?.(joining.roomCode, team, password)
+            else p.onJoin(joining.roomCode, password)
+          }}
           onCancel={() => { setJoining(null); p.onCancelJoin?.() }}
         />
       )}
     </div>
   )
 
-  function onJoinClick() { if (code.trim()) p.onJoin(code.trim()) }
+  function onJoinClick() {
+    if (!code.trim()) return
+    const pw = codePassword.trim()
+    if (pw) p.onJoin(code.trim(), pw)
+    else p.onJoin(code.trim())
+  }
 }
