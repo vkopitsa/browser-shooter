@@ -116,7 +116,10 @@ export class NetHost {
         if (this.config.mode !== 'pvp') this.session.waveManager.spawnNextWave()
       } else if (msg.type === 'setTeam' && msg.playerId === playerId) {
         const entity = this.session.getPlayer(playerId)
-        if (entity && (msg.team === 'ct' || msg.team === 't')) { entity.team = msg.team; entity.player.position.copy(pickSpawn(msg.team, this.session.map)); this.refreshVoiceRoster() }
+        if (entity && (msg.team === 'ct' || msg.team === 't')) {
+          entity.team = msg.team; entity.player.position.copy(pickSpawn(msg.team, this.session.map)); this.refreshVoiceRoster()
+          this.broadcast({ type: 'teamChanged', playerId, name: entity.name, team: msg.team })
+        }
       } else if (msg.type === 'plantBomb' && msg.playerId === playerId) {
         this.session.tryPlant(playerId)
       } else if (msg.type === 'defuseBomb' && msg.playerId === playerId) {
@@ -127,15 +130,24 @@ export class NetHost {
         this.relayVoice(msg, playerId)
       }
     })
-    const players = this.links.map(l => this.session.getPlayer(l.playerId)?.name ?? l.playerId)
+    const players = this.session.playerIds()
+      .filter(id => id !== playerId)
+      .map(id => this.session.getPlayer(id)!)
+      .filter(e => !e.isBot)
+      .map(e => ({ name: e.name, team: e.team }))
     transport.send({ type: 'welcome', playerId, mode: this.config.mode, config: this.config, players, started: this.started })
     this.links.push({ playerId, transport, voicePeerId })
-    this.broadcast({ type: 'playerJoined', playerId, name })
+    this.broadcast({ type: 'playerJoined', playerId, name: validName, team })
     this.refreshVoiceRoster()
     // Free game already running: drop the new client straight into the live match.
     if (this.started && this.config.joinPolicy === 'free') {
       transport.send({ type: 'start' })
     }
+  }
+
+  /** Notify clients when the host changes their own team. */
+  broadcastTeamChange(playerId: string, name: string, team: Team): void {
+    this.broadcast({ type: 'teamChanged', playerId, name, team })
   }
 
   /** Tell every client to leave the lobby and begin the match. */

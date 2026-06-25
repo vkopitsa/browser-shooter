@@ -130,10 +130,11 @@ export type NetMessage =
   | { type: 'input'; playerId: string; input: PlayerInput }
   | { type: 'snapshot'; snapshot: Snapshot }
   | { type: 'join'; name: string; team?: Team; password?: string }
-  | { type: 'welcome'; playerId: string; mode: GameMode; config: MatchConfig; players: string[]; started: boolean }
+  | { type: 'welcome'; playerId: string; mode: GameMode; config: MatchConfig; players: { name: string; team: Team }[]; started: boolean }
   | { type: 'joinRejected'; reason: 'badPassword' | 'full' }
-  | { type: 'playerJoined'; playerId: string; name: string }
+  | { type: 'playerJoined'; playerId: string; name: string; team: Team }
   | { type: 'playerLeft'; playerId: string }
+  | { type: 'teamChanged'; playerId: string; name: string; team: Team }
   | { type: 'ping'; t: number }   // host→client latency probe (echo t back)
   | { type: 'pong'; t: number }   // client→host reply carrying the original t
   | { type: 'probe'; t: number }     // pre-join latency probe from a browsing client

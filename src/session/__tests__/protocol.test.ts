@@ -43,7 +43,7 @@ describe('extended protocol', () => {
     const msgs: NetMessage[] = [
       { type: 'join', name: 'Ann' },
       { type: 'welcome', playerId: 'player-1', mode: 'coop', config: { mode: 'coop', damagePolicy: 'team', fragLimit: 30 }, players: [], started: false },
-      { type: 'playerJoined', playerId: 'player-1', name: 'Ann' },
+      { type: 'playerJoined', playerId: 'player-1', name: 'Ann', team: 'ct' as const },
       { type: 'playerLeft', playerId: 'player-1' },
     ]
     expect(msgs).toHaveLength(4)

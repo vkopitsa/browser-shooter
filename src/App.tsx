@@ -589,8 +589,11 @@ function App() {
       const data = gameDataRef.current
       if (data.netClient?.config) { data.matchConfig = data.netClient.config }
       setRoomCode(code)
-      setLobbyPlayers(players)
-      setRoster({ ct: players, t: [] })
+      setLobbyPlayers(players.map(p => p.name))
+      setRoster({
+        ct: players.filter(p => p.team === 'ct').map(p => p.name),
+        t: players.filter(p => p.team === 't').map(p => p.name),
+      })
       const peer = data.peerClient?.peer
       if (peer && client.playerId) {
         const chat = startVoice(client.playerId, peer)
@@ -622,15 +625,26 @@ function App() {
       setRoomCode(null); setLobbyPlayers([]); setIsHost(false)
       updateGameState('mpmenu')
     })
-    client.onPlayerJoined((_id, name) => {
+    client.onPlayerJoined((_id, name, team) => {
       playerIdToNameRef.current.set(_id, name)
       setLobbyPlayers((prev) => prev.includes(name) ? prev : [...prev, name])
+      setRoster((prev) => {
+        if (prev.ct.includes(name) || prev.t.includes(name)) return prev
+        return { ...prev, [team]: [...prev[team], name] }
+      })
+    })
+    client.onTeamChanged((_id, name, team) => {
+      setRoster((prev) => moveToTeam(prev, name, team))
     })
     client.onPlayerLeft((id) => {
       gameDataRef.current.voiceChat?.peerDisconnected(id)
       const name = playerIdToNameRef.current.get(id)
       playerIdToNameRef.current.delete(id)
       setLobbyPlayers((prev) => name ? prev.filter((n) => n !== name) : prev)
+      if (name) setRoster((prev) => ({
+        ct: prev.ct.filter(n => n !== name),
+        t: prev.t.filter(n => n !== name),
+      }))
     })
     client.transport.send({
       type: 'join',
@@ -1415,6 +1429,7 @@ function App() {
               if (data.role === 'host') {
                 const me = data.session.getPlayer(data.session.localId)
                 if (me) { me.team = t; me.player.position.copy(pickSpawn(t, data.session.map)) }
+                data.netHost?.broadcastTeamChange(data.session.localId, settingsRef.current.playerName, t)
               } else if (data.netClient) {
                 data.netClient.transport.send({ type: 'setTeam', playerId: data.netClient.playerId!, team: t })
               }

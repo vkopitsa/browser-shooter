@@ -3,6 +3,7 @@ import { Player } from '../player/Player'
 import { ARENA_SIZE } from '../session/GameSession'
 import type { Transport } from '../session/Transport'
 import type { GameMode, NetMessage, PlayerInput, SessionEvent, Snapshot, VoiceRosterEntry } from '../session/protocol'
+import type { Team } from '../types'
 import type { MatchConfig } from '../session/MatchConfig'
 import type { CollisionWorld } from '../engine/CollisionWorld'
 
@@ -27,12 +28,13 @@ export class NetClient {
   private localPlayer = new Player()
   private lastDt = 1 / 30
   private snapshotCb: ((s: Snapshot) => void) | null = null
-  private welcomeCb: ((playerId: string, mode: GameMode, players: string[], started: boolean) => void) | null = null
+  private welcomeCb: ((playerId: string, mode: GameMode, players: { name: string; team: Team }[], started: boolean) => void) | null = null
   private joinRejectedCb: ((reason: 'badPassword' | 'full') => void) | null = null
   private disconnectCb: (() => void) | null = null
   private eventCb: ((ev: SessionEvent) => void) | null = null
   private startCb: (() => void) | null = null
-  private playerJoinedCb: ((playerId: string, name: string) => void) | null = null
+  private playerJoinedCb: ((playerId: string, name: string, team: Team) => void) | null = null
+  private teamChangedCb: ((playerId: string, name: string, team: Team) => void) | null = null
   private playerLeftCb: ((playerId: string) => void) | null = null
   private voiceRosterCb: ((teammates: VoiceRosterEntry[]) => void) | null = null
   private voiceStartCb: ((playerId: string, name: string) => void) | null = null
@@ -124,12 +126,13 @@ export class NetClient {
   }
 
   onSnapshot(cb: (s: Snapshot) => void): void { this.snapshotCb = cb }
-  onWelcome(cb: (playerId: string, mode: GameMode, players: string[], started: boolean) => void): void { this.welcomeCb = cb }
+  onWelcome(cb: (playerId: string, mode: GameMode, players: { name: string; team: Team }[], started: boolean) => void): void { this.welcomeCb = cb }
   onJoinRejected(cb: (reason: 'badPassword' | 'full') => void): void { this.joinRejectedCb = cb }
   onDisconnect(cb: () => void): void { this.disconnectCb = cb }
   onEvent(cb: (ev: SessionEvent) => void): void { this.eventCb = cb }
   onStart(cb: () => void): void { this.startCb = cb }
-  onPlayerJoined(cb: (playerId: string, name: string) => void): void { this.playerJoinedCb = cb }
+  onPlayerJoined(cb: (playerId: string, name: string, team: Team) => void): void { this.playerJoinedCb = cb }
+  onTeamChanged(cb: (playerId: string, name: string, team: Team) => void): void { this.teamChangedCb = cb }
   onPlayerLeft(cb: (playerId: string) => void): void { this.playerLeftCb = cb }
   onVoiceRoster(cb: (teammates: VoiceRosterEntry[]) => void): void { this.voiceRosterCb = cb }
   onVoiceStart(cb: (playerId: string, name: string) => void): void { this.voiceStartCb = cb }
@@ -156,7 +159,9 @@ export class NetClient {
     } else if (msg.type === 'ping') {
       this.transport.send({ type: 'pong', t: msg.t })
     } else if (msg.type === 'playerJoined') {
-      this.playerJoinedCb?.(msg.playerId, msg.name)
+      this.playerJoinedCb?.(msg.playerId, msg.name, msg.team)
+    } else if (msg.type === 'teamChanged') {
+      this.teamChangedCb?.(msg.playerId, msg.name, msg.team)
     } else if (msg.type === 'playerLeft') {
       this.playerLeftCb?.(msg.playerId)
     } else if (msg.type === 'voiceRoster') {
