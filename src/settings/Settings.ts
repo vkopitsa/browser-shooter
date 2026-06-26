@@ -22,6 +22,9 @@ export interface Keymap {
   addBotCT: string
   addBotT: string
   removeBot: string
+  openChatAll: string
+  openChatTeam: string
+  openConsole: string
 }
 
 export const DEFAULT_KEYMAP: Keymap = {
@@ -40,6 +43,9 @@ export const DEFAULT_KEYMAP: Keymap = {
   addBotCT: 'BracketLeft',
   addBotT: 'BracketRight',
   removeBot: 'Backslash',
+  openChatAll: 'KeyY',
+  openChatTeam: 'KeyU',
+  openConsole: 'Backquote',
 }
 
 export interface Settings {

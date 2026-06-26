@@ -149,3 +149,4 @@ export type NetMessage =
   | { type: 'voiceStart'; playerId: string; name: string }
   | { type: 'voiceStop'; playerId: string }
   | { type: 'start' }
+  | { type: 'chat'; playerId: string; name: string; team: Team; scope: 'all' | 'team' | 'player'; targetName?: string; text: string }
