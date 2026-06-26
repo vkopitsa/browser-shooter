@@ -7,6 +7,8 @@ import { applyItem } from '../player/applyPurchase'
 import { findItem } from '../weapons/StoreCatalog'
 import { pickSpawn } from '../session/Spawns'
 
+const PROXIMITY_VOICE_RADIUS = 7
+
 interface ClientLink { playerId: string; transport: Transport; voicePeerId?: string }
 
 /** Host-authoritative driver: owns the session, ingests client input, broadcasts snapshots. */
@@ -18,6 +20,7 @@ export class NetHost {
   private lastSeq = new Map<string, number>()
   /** Monotonically increasing snapshot sequence number. */
   private snapSeq = 0
+  private voiceRosterAccum = 0
   private started = false
   private hostVoice: { playerId: string; peerId: string } | null = null
   private hostRosterCb: ((teammates: VoiceRosterEntry[]) => void) | null = null
@@ -36,16 +39,22 @@ export class NetHost {
   onRemoteVoiceStart(cb: (playerId: string, name: string) => void): void { this.remoteVoiceStartCb = cb }
   onRemoteVoiceStop(cb: (playerId: string) => void): void { this.remoteVoiceStopCb = cb }
 
-  /** All voice participants (host + connected clients) with team + peer id. */
-  private voiceParticipants(): { playerId: string; peerId: string; name: string; team: Team }[] {
-    const out: { playerId: string; peerId: string; name: string; team: Team }[] = []
+  /** All voice participants (host + connected clients) with team + peer id + position. */
+  private voiceParticipants(): { playerId: string; peerId: string; name: string; team: Team; x: number; y: number; z: number }[] {
+    const out: { playerId: string; peerId: string; name: string; team: Team; x: number; y: number; z: number }[] = []
     if (this.hostVoice) {
       const p = this.session.getPlayer(this.hostVoice.playerId)
-      if (p) out.push({ playerId: this.hostVoice.playerId, peerId: this.hostVoice.peerId, name: p.name, team: p.team })
+      if (p) {
+        const pos = p.player.position
+        out.push({ playerId: this.hostVoice.playerId, peerId: this.hostVoice.peerId, name: p.name, team: p.team, x: pos.x, y: pos.y, z: pos.z })
+      }
     }
     for (const link of this.links) {
       const p = this.session.getPlayer(link.playerId)
-      if (p && link.voicePeerId) out.push({ playerId: link.playerId, peerId: link.voicePeerId, name: p.name, team: p.team })
+      if (p && link.voicePeerId) {
+        const pos = p.player.position
+        out.push({ playerId: link.playerId, peerId: link.voicePeerId, name: p.name, team: p.team, x: pos.x, y: pos.y, z: pos.z })
+      }
     }
     return out
   }
@@ -54,8 +63,14 @@ export class NetHost {
     const all = this.voiceParticipants()
     const me = all.find(p => p.playerId === playerId)
     if (!me) return []
+    const passes = this.config.voiceMode === 'proximity'
+      ? (p: typeof me) => {
+          const dx = p.x - me.x, dy = p.y - me.y, dz = p.z - me.z
+          return Math.sqrt(dx * dx + dy * dy + dz * dz) <= PROXIMITY_VOICE_RADIUS
+        }
+      : (p: typeof me) => p.team === me.team
     return all
-      .filter(p => p.playerId !== playerId && p.team === me.team)
+      .filter(p => p.playerId !== playerId && passes(p))
       .map(p => ({ playerId: p.playerId, peerId: p.peerId, name: p.name }))
   }
 
@@ -71,8 +86,15 @@ export class NetHost {
     const all = this.voiceParticipants()
     const speaker = all.find(p => p.playerId === speakerId)
     if (!speaker) return
+    const inRange = (p: typeof speaker) => {
+      const dx = p.x - speaker.x, dy = p.y - speaker.y, dz = p.z - speaker.z
+      return Math.sqrt(dx * dx + dy * dy + dz * dz) <= PROXIMITY_VOICE_RADIUS
+    }
+    const shouldRelay = this.config.voiceMode === 'proximity'
+      ? (p: typeof speaker) => inRange(p)
+      : (p: typeof speaker) => p.team === speaker.team
     for (const p of all) {
-      if (p.playerId === speakerId || p.team !== speaker.team) continue
+      if (p.playerId === speakerId || !shouldRelay(p)) continue
       if (this.hostVoice && p.playerId === this.hostVoice.playerId) {
         if (msg.type === 'voiceStart') this.remoteVoiceStartCb?.(speakerId, msg.name)
         else this.remoteVoiceStopCb?.(speakerId)
@@ -202,6 +224,13 @@ export class NetHost {
   /** Advance the authoritative sim one step and broadcast the resulting snapshot. */
   tick(dt: number): SessionEvent[] {
     const events = this.session.step(dt)
+    if (this.config.voiceMode === 'proximity') {
+      this.voiceRosterAccum += dt
+      if (this.voiceRosterAccum >= 0.2) {
+        this.voiceRosterAccum = 0
+        this.refreshVoiceRoster()
+      }
+    }
     this.broadcastSnapshot(this.session.getSnapshot(), events)
     return events
   }
