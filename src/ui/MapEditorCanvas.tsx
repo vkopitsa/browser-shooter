@@ -154,7 +154,8 @@ function SceneContent({
       {zone.structures.map((s, i) => (
         <mesh key={i} position={[s.center[0], s.center[1], s.center[2]]}
           onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
+          onPointerUp={(e) => {
+            if (e.button !== 0) return
             e.stopPropagation()
             if (tool === 'eraser') onDeleteStructure(i)
             else onSelectStructure(i)
@@ -177,7 +178,7 @@ function SceneContent({
       {zone.tSpawns.map(([x, z], i) => (
         <mesh key={`t${i}`} position={[x, 0.05, z]} rotation={[-Math.PI / 2, 0, 0]}
           onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); if (tool === 'eraser') onDeleteSpawn('T', i) }}>
+          onPointerUp={(e) => { if (e.button !== 0) return; e.stopPropagation(); if (tool === 'eraser') onDeleteSpawn('T', i) }}>
           <circleGeometry args={[1.5, 16]} />
           <meshBasicMaterial color="#ff8c00" opacity={0.7} transparent />
         </mesh>
@@ -187,7 +188,7 @@ function SceneContent({
       {zone.ctSpawns.map(([x, z], i) => (
         <mesh key={`ct${i}`} position={[x, 0.05, z]} rotation={[-Math.PI / 2, 0, 0]}
           onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); if (tool === 'eraser') onDeleteSpawn('CT', i) }}>
+          onPointerUp={(e) => { if (e.button !== 0) return; e.stopPropagation(); if (tool === 'eraser') onDeleteSpawn('CT', i) }}>
           <circleGeometry args={[1.5, 16]} />
           <meshBasicMaterial color="#3c78ff" opacity={0.7} transparent />
         </mesh>
