@@ -173,7 +173,7 @@ export function MapEditor({ initial, onSave, onCancel }: {
         </div>
       </div>
 
-      {/* 3D Canvas */}
+      {/* 3D Canvas + overlay panel */}
       <div style={{ flex: 1, position: 'relative' }}>
         <MapEditorCanvas
           zone={zone} tool={tool} selectedIdx={selectedIdx}
@@ -185,16 +185,17 @@ export function MapEditor({ initial, onSave, onCancel }: {
           onDeleteStructure={handleDeleteStructure}
           onDeleteSpawn={handleDeleteSpawn}
         />
+        {/* Absolute overlay so it layers above the WebGL canvas surface */}
+        {selectedStructure && (
+          <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, zIndex: 10 }}>
+            <BlockPropertiesPanel
+              structure={selectedStructure}
+              onUpdate={handleUpdateStructure}
+              onDelete={() => handleDeleteStructure(selectedIdx!)}
+            />
+          </div>
+        )}
       </div>
-
-      {/* Right panel — shown only when a block is selected */}
-      {selectedStructure && (
-        <BlockPropertiesPanel
-          structure={selectedStructure}
-          onUpdate={handleUpdateStructure}
-          onDelete={() => handleDeleteStructure(selectedIdx!)}
-        />
-      )}
     </div>
   )
 }
