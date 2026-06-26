@@ -48,6 +48,7 @@ export function MatchSetup({
   const [password, setPassword] = useState('')
   const [zoneId, setZoneId] = useState<string>(DEFAULT_ZONE_ID)
   const [customZone, setCustomZone] = useState<ZoneDef | undefined>(undefined)
+  const [voiceMode, setVoiceMode] = useState<'team' | 'proximity'>('team')
   const [myMaps, setMyMaps] = useState<SavedMap[]>(() => loadMaps())
   const [uploadError, setUploadError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -105,6 +106,7 @@ export function MatchSetup({
     return {
       ...base,
       joinPolicy,
+      voiceMode,
       zoneId,
       ...(password ? { password } : {}),
       ...(zoneId === 'custom' && customZone ? { customZone } : {}),
@@ -142,6 +144,13 @@ export function MatchSetup({
                 </button>
               )
             })}
+          </div>
+        </div>
+
+        <div><div style={{ opacity: 0.6, marginBottom: 6 }}>VOICE</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button style={btn(voiceMode === 'team')} onClick={() => setVoiceMode('team')}>Team</button>
+            <button style={btn(voiceMode === 'proximity')} onClick={() => setVoiceMode('proximity')}>Proximity</button>
           </div>
         </div>
 
