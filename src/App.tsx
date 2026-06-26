@@ -184,6 +184,7 @@ function App() {
   const showScoreboardRef = useRef(false)
   const settingsRef = useRef(settings)
   const settingsReturnRef = useRef<'menu' | 'paused'>('menu')
+  const mapEditorReturnRef = useRef<'mpmenu' | 'teamselect'>('mpmenu')
   const crosshairRef = useRef<CrosshairRuntime>({
     config: resolveCrosshair(settings.crosshair, 'pistol'),
     bloom: 0,
@@ -1404,11 +1405,28 @@ function App() {
       )}
 
       {gameState === 'teamselect' && (
-        <TeamSelect onBack={() => updateGameState('menu')} onSelect={(t, zoneId) => {
-          setTeam(t)
-          gameDataRef.current.matchConfig = { ...gameDataRef.current.matchConfig, zoneId }
-          startGame()
-        }} />
+        <TeamSelect
+          onBack={() => updateGameState('menu')}
+          onSelect={(t, zoneId, customZone) => {
+            setTeam(t)
+            gameDataRef.current.matchConfig = {
+              ...gameDataRef.current.matchConfig,
+              zoneId,
+              ...(customZone ? { customZone } : { customZone: undefined }),
+            }
+            startGame()
+          }}
+          onCreateMap={() => {
+            mapEditorReturnRef.current = 'teamselect'
+            setEditingMap(undefined)
+            updateGameState('mapeditor')
+          }}
+          onEditMap={(map) => {
+            mapEditorReturnRef.current = 'teamselect'
+            setEditingMap(map)
+            updateGameState('mapeditor')
+          }}
+        />
       )}
 
       {gameState === 'mpmenu' && (
@@ -1476,8 +1494,22 @@ function App() {
       {gameState === 'mapeditor' && (
         <MapEditor
           initial={editingMap}
-          onSave={() => { setEditingMap(undefined); updateGameState('mpmenu'); setShowMatchSetup(true) }}
-          onCancel={() => { setEditingMap(undefined); updateGameState('mpmenu'); setShowMatchSetup(true) }}
+          onSave={() => {
+            setEditingMap(undefined)
+            if (mapEditorReturnRef.current === 'teamselect') {
+              updateGameState('teamselect')
+            } else {
+              updateGameState('mpmenu'); setShowMatchSetup(true)
+            }
+          }}
+          onCancel={() => {
+            setEditingMap(undefined)
+            if (mapEditorReturnRef.current === 'teamselect') {
+              updateGameState('teamselect')
+            } else {
+              updateGameState('mpmenu'); setShowMatchSetup(true)
+            }
+          }}
         />
       )}
 
