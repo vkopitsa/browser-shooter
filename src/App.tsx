@@ -77,6 +77,7 @@ import { BrowserMicProvider, PeerJsVoicePeer } from './voice/VoiceTransport'
 import { AudioSink } from './voice/AudioSink'
 import { VoiceIndicator } from './ui/VoiceIndicator'
 import type { Speaker } from './voice/SpeakerRegistry'
+import { GameConsole, ChatFeed, parseChatCommand, type ChatMessage } from './ui/GameConsole'
 
 function moveToTeam(roster: { ct: string[]; t: string[] }, name: string, team: 'ct' | 't') {
   const ct = roster.ct.filter(n => n !== name)
@@ -176,6 +177,10 @@ function App() {
   const [selectedGrenade, setSelectedGrenade] = useState<GrenadeType | null>(null)
   const [speakers, setSpeakers] = useState<Speaker[]>([])
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null)
+  const [consoleOpen, setConsoleOpen] = useState(false)
+  const [consolePrefill, setConsolePrefill] = useState('')
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const chatSeqRef = useRef(0)
 
   const lastWaveRef = useRef(0)
   const ownedRef = useRef<string[]>([])
@@ -250,6 +255,50 @@ function App() {
     setKillFeed((prev) => [...prev.slice(-4), { id, attacker, victim, teamkill, zone }])
     setTimeout(() => setKillFeed((prev) => prev.filter(l => l.id !== id)), 5000)
   }, [])
+
+  const handleSend = useCallback((text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) { setConsoleOpen(false); return }
+    const data = gameDataRef.current
+    const cmd = parseChatCommand(trimmed, data.lastPlayers.map(p => p.name))
+    if (!cmd) {
+      setChatMessages(prev => [...prev.slice(-199), {
+        id: chatSeqRef.current++, from: '', scope: 'all' as const,
+        text: `Unknown command: ${trimmed}`, at: Date.now(),
+      }])
+      return
+    }
+    const newMsg: ChatMessage = {
+      id: chatSeqRef.current++,
+      from: settingsRef.current.playerName,
+      scope: cmd.scope,
+      target: cmd.target,
+      text: cmd.text,
+      at: Date.now(),
+    }
+    setChatMessages(prev => [...prev.slice(-199), newMsg])
+    if (data.role === 'client' && data.netClient?.playerId) {
+      data.netClient.transport.send({
+        type: 'chat',
+        playerId: data.netClient.playerId,
+        name: settingsRef.current.playerName,
+        team: myTeam,
+        scope: cmd.scope,
+        targetName: cmd.target,
+        text: cmd.text,
+      })
+    } else if (data.role === 'host' && data.netHost) {
+      data.netHost.routeChat({
+        type: 'chat',
+        playerId: data.session.localId,
+        name: settingsRef.current.playerName,
+        team: data.session.getPlayer(data.session.localId)?.team ?? myTeam,
+        scope: cmd.scope,
+        targetName: cmd.target,
+        text: cmd.text,
+      })
+    }
+  }, [myTeam])
 
   const resetNetworking = useCallback(() => {
     const data = gameDataRef.current
@@ -414,6 +463,16 @@ function App() {
     netHost.onClientTeamChanged((_id, name, team) => {
       setRoster((prev) => moveToTeam(prev, name, team))
     })
+    netHost.onChat((msg) => {
+      setChatMessages(prev => [...prev.slice(-199), {
+        id: chatSeqRef.current++,
+        from: msg.name,
+        scope: msg.scope,
+        target: msg.targetName,
+        text: msg.text,
+        at: Date.now(),
+      }])
+    })
     fresh.waveManager.auto = false
     setLobbyPlayers([settingsRef.current.playerName])
     setRoster({ ct: myTeam === 'ct' ? [settingsRef.current.playerName] : [], t: myTeam === 't' ? [settingsRef.current.playerName] : [] })
@@ -494,6 +553,16 @@ function App() {
     // Test hook: expose the latest snapshot seq so e2e can assert the host
     // keeps broadcasting (e.g. while its tab is backgrounded).
     client.onSnapshot((s) => { (window as unknown as { __snapSeq?: number }).__snapSeq = s.seq })
+    client.onChat((msg) => {
+      setChatMessages(prev => [...prev.slice(-199), {
+        id: chatSeqRef.current++,
+        from: msg.name,
+        scope: msg.scope,
+        target: msg.targetName,
+        text: msg.text,
+        at: Date.now(),
+      }])
+    })
     client.onEvent((ev) => {
       const particleSystem = data.particleSystem!
       switch (ev.type) {
@@ -1295,6 +1364,12 @@ function App() {
         setShowInGameHelp((prev) => !prev)
       }
 
+      if (gameStateRef.current === 'playing') {
+        if (e.code === settingsRef.current.keymap.openChatAll)  { setConsolePrefill('/msg ');      setConsoleOpen(true) }
+        if (e.code === settingsRef.current.keymap.openChatTeam) { setConsolePrefill('/msg team '); setConsoleOpen(true) }
+        if (e.code === settingsRef.current.keymap.openConsole)  { setConsolePrefill('');           setConsoleOpen(true) }
+      }
+
       if (e.code === 'KeyR') {
         data.session.weaponManager.current.reload()
       }
@@ -1566,6 +1641,15 @@ function App() {
           <FlashOverlay flash={flashEffect} />
           <KillFeed lines={killFeed} />
           <VoiceIndicator speakers={speakers} />
+          <ChatFeed messages={chatMessages} />
+          <GameConsole
+            open={consoleOpen}
+            prefill={consolePrefill}
+            messages={chatMessages}
+            onSend={handleSend}
+            onClose={() => setConsoleOpen(false)}
+            playerNames={gameDataRef.current.lastPlayers.map(p => p.name)}
+          />
           {voiceNotice && (
             <div style={{ position: 'absolute', left: 16, bottom: 64, zIndex: 60,
               background: 'rgba(95,29,29,0.85)', color: '#fff', padding: '6px 12px',
