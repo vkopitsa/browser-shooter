@@ -73,7 +73,9 @@ const GRENADE_ITEM_KEY: Record<string, GrenadeType> = {
 }
 import type Peer from 'peerjs'
 import { VoiceChat } from './voice/VoiceChat'
-import { BrowserMicProvider, PeerJsVoicePeer } from './voice/VoiceTransport'
+import { VideoChat } from './voice/VideoChat'
+import { VideoTiles } from './ui/VideoTiles'
+import { BrowserMicProvider, BrowserCamProvider, PeerJsVoicePeer, PeerJsVideoPeer } from './voice/VoiceTransport'
 import { AudioSink } from './voice/AudioSink'
 import { VoiceIndicator } from './ui/VoiceIndicator'
 import type { Speaker } from './voice/SpeakerRegistry'
@@ -177,6 +179,9 @@ function App() {
   const [selectedGrenade, setSelectedGrenade] = useState<GrenadeType | null>(null)
   const [speakers, setSpeakers] = useState<Speaker[]>([])
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null)
+  const [videoStreams, setVideoStreams] = useState<Map<string, MediaStream>>(() => new Map())
+  const [localVideoStream, setLocalVideoStream] = useState<MediaStream | null>(null)
+  const [videoNotice, setVideoNotice] = useState<string | null>(null)
   const [consoleOpen, setConsoleOpen] = useState(false)
   const [consolePrefill, setConsolePrefill] = useState('')
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
@@ -246,6 +251,8 @@ function App() {
     killSeq: 0,
     grenadeManager: null as GrenadeManager | null,
     voiceChat: null as VoiceChat | null,
+    videoChat: null as VideoChat | null,
+    camProvider: new BrowserCamProvider(),
     audioSink: new AudioSink(),
     micProvider: new BrowserMicProvider(),
   })
@@ -317,9 +324,13 @@ function App() {
     for (const mesh of data.clientGrenades.values()) { engineRef.current?.scene.remove(mesh); disposeGroup(mesh) }
     data.clientGrenades.clear()
     data.voiceChat?.dispose(); data.voiceChat = null
+    data.videoChat?.dispose(); data.videoChat = null
+    data.camProvider = new BrowserCamProvider()
     data.audioSink.dispose(); data.audioSink = new AudioSink()
     data.micProvider = new BrowserMicProvider()
     setSpeakers([])
+    setVideoStreams(new Map())
+    setLocalVideoStream(null)
     data.role = 'single'
   }, [])
 
@@ -349,7 +360,17 @@ function App() {
       stopStream: (peerId) => data.audioSink.stop(peerId),
     })
     data.voiceChat = chat
-    return chat
+
+    data.videoChat?.dispose()
+    const videoChat = new VideoChat({
+      peer: new PeerJsVideoPeer(peer),
+      cam: data.camProvider,
+      localPlayerId,
+      onStreamsChanged: (streams) => setVideoStreams(new Map(streams)),
+    })
+    data.videoChat = videoChat
+
+    return { voice: chat, video: videoChat }
   }, [])
 
   const startGame = useCallback(() => {
@@ -684,8 +705,8 @@ function App() {
       })
       const peer = data.peerClient?.peer
       if (peer && client.playerId) {
-        const chat = startVoice(client.playerId, peer)
-        client.onVoiceRoster((r) => chat.setRoster(r))
+        const { voice: chat, video: videoChat } = startVoice(client.playerId, peer)
+        client.onVoiceRoster((r) => { chat.setRoster(r); videoChat.setRoster(r) })
         client.onVoiceStart((id, name) => chat.remoteStart(id, name))
         client.onVoiceStop((id) => chat.remoteStop(id))
       }
@@ -726,6 +747,7 @@ function App() {
     })
     client.onPlayerLeft((id) => {
       gameDataRef.current.voiceChat?.peerDisconnected(id)
+      gameDataRef.current.videoChat?.peerDisconnected(id)
       const name = playerIdToNameRef.current.get(id)
       playerIdToNameRef.current.delete(id)
       setLobbyPlayers((prev) => name ? prev.filter((n) => n !== name) : prev)
@@ -847,6 +869,17 @@ function App() {
     }
     data.controls.onTalkStop = () => {
       gameDataRef.current.voiceChat?.stopTalking()
+    }
+    data.controls.onVideoToggle = () => {
+      if (gameStateRef.current !== 'playing') return
+      const vc = gameDataRef.current.videoChat
+      if (!vc) return
+      vc.toggleCamera().then(() => {
+        setLocalVideoStream(vc.localStream)
+      }).catch(() => {
+        setVideoNotice('Camera unavailable — video disabled')
+        setTimeout(() => setVideoNotice(null), 4000)
+      })
     }
 
     data.controls.onIsGrenadeSelected = () => !!data.grenadeManager?.selected
@@ -1538,8 +1571,8 @@ function App() {
               startNetGame('host')
               const hostPeer = data.peerHost?.peer
               if (data.netHost && hostPeer && roomCode) {
-                const chat = startVoice(data.session.localId, hostPeer)
-                data.netHost.onHostRoster((r) => chat.setRoster(r))
+                const { voice: chat, video: videoChat } = startVoice(data.session.localId, hostPeer)
+                data.netHost.onHostRoster((r) => { chat.setRoster(r); videoChat.setRoster(r) })
                 data.netHost.onRemoteVoiceStart((id, name) => chat.remoteStart(id, name))
                 data.netHost.onRemoteVoiceStop((id) => chat.remoteStop(id))
                 data.netHost.setHostVoice(data.session.localId, roomCode)
@@ -1647,6 +1680,7 @@ function App() {
           <FlashOverlay flash={flashEffect} />
           <KillFeed lines={killFeed} />
           <VoiceIndicator speakers={speakers} />
+          <VideoTiles streams={videoStreams} selfStream={localVideoStream} />
           <ChatFeed messages={chatMessages} />
           <GameConsole
             open={consoleOpen}
@@ -1661,6 +1695,13 @@ function App() {
               background: 'rgba(95,29,29,0.85)', color: '#fff', padding: '6px 12px',
               borderRadius: 6, fontFamily: 'monospace', fontSize: 13, pointerEvents: 'none' }}>
               {voiceNotice}
+            </div>
+          )}
+          {videoNotice && (
+            <div style={{ position: 'absolute', left: 16, bottom: 88, zIndex: 60,
+              background: 'rgba(95,29,29,0.85)', color: '#fff', padding: '6px 12px',
+              borderRadius: 6, fontFamily: 'monospace', fontSize: 13, pointerEvents: 'none' }}>
+              {videoNotice}
             </div>
           )}
           {respawnIn !== null && <RespawnOverlay seconds={respawnIn} />}
