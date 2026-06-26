@@ -62,6 +62,14 @@ const GROUPS: { label: string; actions: { key: keyof Keymap; label: string }[] }
     ],
   },
   {
+    label: 'CHAT & CONSOLE',
+    actions: [
+      { key: 'openChatAll', label: 'All-chat' },
+      { key: 'openChatTeam', label: 'Team-chat' },
+      { key: 'openConsole', label: 'Console' },
+    ],
+  },
+  {
     label: 'ADMIN',
     actions: [
       { key: 'addBotCT', label: 'Add CT Bot' },
