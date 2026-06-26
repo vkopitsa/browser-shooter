@@ -17,7 +17,22 @@ const DEFAULT_HEIGHT: Record<StructureMaterial, number> = {
 }
 const STRUCTURE_MATERIALS: StructureMaterial[] = ['wall', 'crate', 'concrete', 'metal', 'wood']
 
-function snapToGrid(v: number) { return Math.round(v * 2) / 2 }
+export function snapToGrid(v: number) { return Math.round(v * 2) / 2 }
+
+export function dragRect(
+  start: { x: number; z: number },
+  end: { x: number; z: number },
+  mat: StructureMaterial,
+  defaultHeight: Record<StructureMaterial, number>
+): { center: [number, number, number]; size: [number, number, number] } {
+  const ax = Math.min(start.x, end.x), bx = Math.max(start.x, end.x)
+  const az = Math.min(start.z, end.z), bz = Math.max(start.z, end.z)
+  const h = defaultHeight[mat]
+  return {
+    center: [(ax + bx) / 2, h / 2, (az + bz) / 2],
+    size: [Math.max(1, bx - ax), h, Math.max(1, bz - az)],
+  }
+}
 
 function SceneContent({
   zone, tool, selectedIdx, onPlaceStructure, onPlaceSpawn, onMoveBombsite,
@@ -83,15 +98,8 @@ function SceneContent({
 
     if (isMaterial) {
       if (isDrag) {
-        const ax = Math.min(ds.x, x), bx = Math.max(ds.x, x)
-        const az = Math.min(ds.z, z), bz = Math.max(ds.z, z)
         const mat = tool as StructureMaterial
-        const h = DEFAULT_HEIGHT[mat]
-        onPlaceStructure({
-          center: [(ax + bx) / 2, h / 2, (az + bz) / 2],
-          size: [Math.max(1, bx - ax), h, Math.max(1, bz - az)],
-          material: mat,
-        })
+        onPlaceStructure({ ...dragRect(ds, { x, z }, mat, DEFAULT_HEIGHT), material: mat })
       } else {
         onSelectStructure(null)
       }
@@ -148,7 +156,8 @@ function SceneContent({
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation()
-            tool === 'eraser' ? onDeleteStructure(i) : onSelectStructure(i)
+            if (tool === 'eraser') onDeleteStructure(i)
+            else onSelectStructure(i)
           }}>
           <boxGeometry args={[s.size[0], s.size[1], s.size[2]]} />
           <meshStandardMaterial color={MATERIAL_COLOR[s.material]}
@@ -185,6 +194,7 @@ function SceneContent({
       ))}
 
       {/* Bombsites */}
+      {/* ponytail: bombsites intentionally not erasable — ZoneDef requires exactly 2 (A+B); use bombA/bombB tools to move them */}
       {zone.bombsites.map((b) => (
         <mesh key={b.id} position={[b.center[0], 0.05, b.center[1]]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[3, 4, 32]} />

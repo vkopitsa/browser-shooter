@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback } from 'react'
-import type { ZoneDef, ZoneStructure, StructureMaterial } from '../zones/ZoneDef'
+import type { ZoneDef, ZoneStructure } from '../zones/ZoneDef'
 import { DAYLIGHT } from '../zones/ZoneDef'
 import { saveMap, newMapId } from '../zones/mapStore'
 import type { SavedMap } from '../zones/mapStore'

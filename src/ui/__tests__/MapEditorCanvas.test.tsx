@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
-import React, { createRef } from 'react'
-import type { TopSnapRef } from '../MapEditorCanvas'
+import React from 'react'
 
 vi.mock('@react-three/fiber', () => ({
   Canvas: ({ children }: { children: React.ReactNode }) => <div data-testid="r3f-canvas">{children}</div>,
@@ -25,7 +24,6 @@ const zone: ZoneDef = {
 
 describe('MapEditorCanvas', () => {
   it('renders without crashing', () => {
-    const ref = createRef<TopSnapRef>()
     const { getByTestId } = render(
       <MapEditorCanvas
         zone={zone} tool="wall" selectedIdx={null}
