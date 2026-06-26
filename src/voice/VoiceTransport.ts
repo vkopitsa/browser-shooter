@@ -58,7 +58,54 @@ export class PeerJsVoicePeer implements VoicePeer {
     return new PeerJsVoiceCall(this.peer.call(peerId, stream))
   }
   onIncomingCall(cb: (call: VoiceCall) => void): void {
-    const wrapper = (conn: MediaConnection) => cb(new PeerJsVoiceCall(conn))
+    const wrapper = (conn: MediaConnection) => {
+      if (conn.metadata?.type === 'video') return  // video calls handled by PeerJsVideoPeer
+      cb(new PeerJsVoiceCall(conn))
+    }
+    this.callbacks.set(cb, wrapper)
+    this.peer.on('call', wrapper)
+  }
+  offIncomingCall(cb: (call: VoiceCall) => void): void {
+    const wrapper = this.callbacks.get(cb)
+    if (wrapper) {
+      this.peer.removeListener('call', wrapper)
+      this.callbacks.delete(cb)
+    }
+  }
+}
+
+/** Acquires the local camera stream (lazily, once). */
+export interface CamProvider {
+  getStream(): Promise<MediaStream>
+}
+
+export class BrowserCamProvider implements CamProvider {
+  private stream: Promise<MediaStream> | null = null
+
+  getStream(): Promise<MediaStream> {
+    if (!this.stream) {
+      this.stream = navigator.mediaDevices.getUserMedia({ video: true, audio: false }).catch((err) => {
+        this.stream = null
+        throw err
+      })
+    }
+    return this.stream
+  }
+}
+
+/** Like PeerJsVoicePeer but tags outgoing calls as video and only handles incoming video calls. */
+export class PeerJsVideoPeer implements VoicePeer {
+  private callbacks = new Map<(call: VoiceCall) => void, (conn: MediaConnection) => void>()
+  constructor(private peer: Peer) {}
+  get id(): string { return this.peer.id }
+  call(peerId: string, stream: MediaStream): VoiceCall {
+    return new PeerJsVoiceCall(this.peer.call(peerId, stream, { metadata: { type: 'video' } }))
+  }
+  onIncomingCall(cb: (call: VoiceCall) => void): void {
+    const wrapper = (conn: MediaConnection) => {
+      if (conn.metadata?.type !== 'video') return  // ignore voice calls
+      cb(new PeerJsVoiceCall(conn))
+    }
     this.callbacks.set(cb, wrapper)
     this.peer.on('call', wrapper)
   }

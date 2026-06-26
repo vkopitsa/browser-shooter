@@ -1,0 +1,113 @@
+import { reconcileMesh } from './voiceMesh'
+import type { VoicePeer, VoiceCall, CamProvider } from './VoiceTransport'
+import type { VoiceRosterEntry } from '../session/protocol'
+
+export interface VideoChatDeps {
+  peer: VoicePeer
+  cam: CamProvider
+  localPlayerId: string
+  onStreamsChanged: (streams: Map<string, MediaStream>) => void
+}
+
+export class VideoChat {
+  private roster: VoiceRosterEntry[] = []
+  private calls = new Map<string, VoiceCall>()
+  private streams = new Map<string, MediaStream>()
+  private camStream: MediaStream | null = null
+  private cameraOn = false
+  private activated = false
+  private incomingCallHandler?: (call: VoiceCall) => void
+
+  constructor(private deps: VideoChatDeps) {
+    this.incomingCallHandler = (call) => this.handleIncoming(call)
+    deps.peer.onIncomingCall(this.incomingCallHandler)
+  }
+
+  setRoster(teammates: VoiceRosterEntry[]): void {
+    this.roster = teammates
+    if (this.activated && this.cameraOn) this.reconcile()
+  }
+
+  async toggleCamera(): Promise<void> {
+    if (!this.activated) {
+      this.camStream = await this.deps.cam.getStream()
+      this.camStream.getVideoTracks().forEach(t => { t.enabled = false })
+      this.activated = true
+    }
+    this.cameraOn = !this.cameraOn
+    this.camStream!.getVideoTracks().forEach(t => { t.enabled = this.cameraOn })
+    if (this.cameraOn) {
+      this.reconcile()
+    } else {
+      for (const peerId of [...this.calls.keys()]) this.closeCall(peerId)
+    }
+  }
+
+  get localStream(): MediaStream | null {
+    return this.cameraOn ? this.camStream : null
+  }
+
+  peerDisconnected(playerId: string): void {
+    const entry = this.roster.find(r => r.playerId === playerId)
+    if (entry) this.closeCall(entry.peerId)
+  }
+
+  dispose(): void {
+    for (const peerId of [...this.calls.keys()]) this.closeCall(peerId)
+    this.camStream?.getVideoTracks().forEach(t => t.stop())
+    this.camStream = null
+    if (this.incomingCallHandler) {
+      this.deps.peer.offIncomingCall(this.incomingCallHandler)
+    }
+  }
+
+  private reconcile(): void {
+    if (!this.camStream || !this.cameraOn) return
+    const teammatePeerIds = this.roster.map(r => r.peerId)
+    const { toOpen, toClose } = reconcileMesh(this.deps.peer.id, [...this.calls.keys()], teammatePeerIds)
+    for (const peerId of toClose) this.closeCall(peerId)
+    for (const peerId of toOpen) this.openCall(peerId)
+  }
+
+  private openCall(peerId: string): void {
+    if (this.calls.has(peerId) || !this.camStream) return
+    this.wireCall(this.deps.peer.call(peerId, this.camStream))
+  }
+
+  private handleIncoming(call: VoiceCall): void {
+    const isRosterMember = this.roster.some(r => r.peerId === call.peerId)
+    if (!this.activated || !this.cameraOn || !this.camStream || !isRosterMember || this.calls.has(call.peerId)) {
+      call.close()
+      return
+    }
+    call.answer(this.camStream)
+    this.wireCall(call)
+  }
+
+  private wireCall(call: VoiceCall): void {
+    this.calls.set(call.peerId, call)
+    call.onStream((stream) => {
+      this.streams.set(call.peerId, stream)
+      this.emit()
+    })
+    call.onClose(() => this.cleanupCall(call.peerId))
+  }
+
+  private closeCall(peerId: string): void {
+    const call = this.calls.get(peerId)
+    if (!call) return
+    call.close()
+    this.cleanupCall(peerId)
+  }
+
+  private cleanupCall(peerId: string): void {
+    if (!this.calls.has(peerId)) return
+    this.calls.delete(peerId)
+    this.streams.delete(peerId)
+    this.emit()
+  }
+
+  private emit(): void {
+    this.deps.onStreamsChanged(new Map(this.streams))
+  }
+}

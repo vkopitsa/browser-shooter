@@ -1,0 +1,153 @@
+import { describe, it, expect, vi } from 'vitest'
+import { VideoChat } from './VideoChat'
+import type { VoicePeer, VoiceCall, CamProvider } from './VoiceTransport'
+
+function fakeCamStream(): MediaStream {
+  const track = { enabled: false, stop: vi.fn() }
+  return { getVideoTracks: () => [track] } as unknown as MediaStream
+}
+
+class FakeCall implements VoiceCall {
+  answered = false
+  closed = false
+  private streamCb: ((s: MediaStream) => void) | null = null
+  private closeCb: (() => void) | null = null
+  constructor(public peerId: string) {}
+  answer(): void { this.answered = true }
+  onStream(cb: (s: MediaStream) => void): void { this.streamCb = cb }
+  onClose(cb: () => void): void { this.closeCb = cb }
+  close(): void { this.closed = true; this.closeCb?.() }
+  emitStream(s: MediaStream): void { this.streamCb?.(s) }
+}
+
+class FakePeer implements VoicePeer {
+  calls: FakeCall[] = []
+  private incomingCbs = new Map<(call: VoiceCall) => void, (call: VoiceCall) => void>()
+  constructor(public id: string) {}
+  call(peerId: string): VoiceCall { const c = new FakeCall(peerId); this.calls.push(c); return c }
+  onIncomingCall(cb: (call: VoiceCall) => void): void { this.incomingCbs.set(cb, cb) }
+  offIncomingCall(cb: (call: VoiceCall) => void): void { this.incomingCbs.delete(cb) }
+  fireIncoming(call: FakeCall): void { this.incomingCbs.forEach(cb => cb(call)) }
+}
+
+function setup(myId: string) {
+  const peer = new FakePeer(myId)
+  const stream = fakeCamStream()
+  const cam: CamProvider = { getStream: vi.fn().mockResolvedValue(stream) }
+  const onStreamsChanged = vi.fn()
+  const chat = new VideoChat({ peer, cam, localPlayerId: myId, onStreamsChanged })
+  return { peer, stream, cam, onStreamsChanged, chat }
+}
+
+describe('VideoChat', () => {
+  it('acquires camera only on first toggle', async () => {
+    const s = setup('me')
+    expect(s.cam.getStream).not.toHaveBeenCalled()
+    await s.chat.toggleCamera()
+    expect(s.cam.getStream).toHaveBeenCalledTimes(1)
+    await s.chat.toggleCamera() // off
+    await s.chat.toggleCamera() // on again
+    expect(s.cam.getStream).toHaveBeenCalledTimes(1) // still once
+  })
+
+  it('enables video track when toggled on, disables when toggled off', async () => {
+    const s = setup('me')
+    await s.chat.toggleCamera()
+    expect(s.stream.getVideoTracks()[0].enabled).toBe(true)
+    expect(s.chat.localStream).toBe(s.stream)
+    await s.chat.toggleCamera()
+    expect(s.stream.getVideoTracks()[0].enabled).toBe(false)
+    expect(s.chat.localStream).toBeNull()
+  })
+
+  it('opens calls to roster teammates when camera is on (initiator has smaller id)', async () => {
+    const s = setup('aaa')
+    s.chat.setRoster([{ playerId: 'other', peerId: 'bbb', name: 'Other' }])
+    await s.chat.toggleCamera()
+    expect(s.peer.calls).toHaveLength(1)
+    expect(s.peer.calls[0].peerId).toBe('bbb')
+  })
+
+  it('does not initiate call when own peer id is larger (other side initiates)', async () => {
+    const s = setup('zzz')
+    s.chat.setRoster([{ playerId: 'other', peerId: 'aaa', name: 'Other' }])
+    await s.chat.toggleCamera()
+    expect(s.peer.calls).toHaveLength(0)
+  })
+
+  it('closes all calls when camera is toggled off', async () => {
+    const s = setup('aaa')
+    s.chat.setRoster([{ playerId: 'other', peerId: 'bbb', name: 'Other' }])
+    await s.chat.toggleCamera()
+    const call = s.peer.calls[0]
+    expect(call.closed).toBe(false)
+    await s.chat.toggleCamera()
+    expect(call.closed).toBe(true)
+  })
+
+  it('fires onStreamsChanged when remote stream arrives', async () => {
+    const s = setup('aaa')
+    s.chat.setRoster([{ playerId: 'other', peerId: 'bbb', name: 'Other' }])
+    await s.chat.toggleCamera()
+    const remoteStream = fakeCamStream()
+    s.peer.calls[0].emitStream(remoteStream)
+    expect(s.onStreamsChanged).toHaveBeenLastCalledWith(new Map([['bbb', remoteStream]]))
+  })
+
+  it('fires onStreamsChanged when a call closes', async () => {
+    const s = setup('aaa')
+    s.chat.setRoster([{ playerId: 'other', peerId: 'bbb', name: 'Other' }])
+    await s.chat.toggleCamera()
+    s.peer.calls[0].emitStream(fakeCamStream())
+    s.peer.calls[0].close()
+    expect(s.onStreamsChanged).toHaveBeenLastCalledWith(new Map())
+  })
+
+  it('rejects incoming calls when camera is off', async () => {
+    const s = setup('bbb') // bbb > aaa so bbb answers, aaa calls
+    s.chat.setRoster([{ playerId: 'caller', peerId: 'aaa', name: 'Caller' }])
+    // camera is off — must reject
+    const call = new FakeCall('aaa')
+    s.peer.fireIncoming(call)
+    expect(call.closed).toBe(true)
+    expect(call.answered).toBe(false)
+  })
+
+  it('answers incoming calls when camera is on and caller is in roster', async () => {
+    const s = setup('bbb')
+    s.chat.setRoster([{ playerId: 'caller', peerId: 'aaa', name: 'Caller' }])
+    await s.chat.toggleCamera()
+    const call = new FakeCall('aaa')
+    s.peer.fireIncoming(call)
+    expect(call.answered).toBe(true)
+    expect(call.closed).toBe(false)
+  })
+
+  it('rejects incoming calls from peers not in roster', async () => {
+    const s = setup('bbb')
+    s.chat.setRoster([]) // roster is empty
+    await s.chat.toggleCamera()
+    const call = new FakeCall('aaa')
+    s.peer.fireIncoming(call)
+    expect(call.closed).toBe(true)
+  })
+
+  it('closes call to disconnected peer', async () => {
+    const s = setup('aaa')
+    s.chat.setRoster([{ playerId: 'p2', peerId: 'bbb', name: 'P2' }])
+    await s.chat.toggleCamera()
+    const call = s.peer.calls[0]
+    s.chat.peerDisconnected('p2')
+    expect(call.closed).toBe(true)
+  })
+
+  it('dispose closes all calls and stops camera tracks', async () => {
+    const s = setup('aaa')
+    s.chat.setRoster([{ playerId: 'other', peerId: 'bbb', name: 'Other' }])
+    await s.chat.toggleCamera()
+    const call = s.peer.calls[0]
+    s.chat.dispose()
+    expect(call.closed).toBe(true)
+    expect(s.stream.getVideoTracks()[0].stop).toHaveBeenCalled()
+  })
+})
