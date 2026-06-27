@@ -49,6 +49,13 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       controls.attach()
       controlsRef.current = controls
 
+      // Disable MapLibre's built-in camera handlers that fight the FPS controls
+      engine.map.dragPan.disable()
+      engine.map.dragRotate.disable()
+      engine.map.scrollZoom.disable()
+      engine.map.doubleClickZoom.disable()
+      engine.map.touchZoomRotate.disable()
+
       collisionRef.current = new PlanetaryCollision(engine.map)
       navmeshRef.current = new PlanetaryNavmesh()
       navmeshRef.current.build(engine.map)
@@ -75,6 +82,9 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           session.collisionWorld = collisionRef.current.update(center.lng, center.lat)
         }
 
+        // Advance game simulation: bots, combat, round logic
+        session.step(dt)
+
         // Check round boundary
         const status = boundaryRef.current.check(center.lng, center.lat)
         setBoundaryStatus(status)
@@ -92,7 +102,6 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           money: session.economy?.money ?? 0,
         })
 
-        session.tick++
         rafRef.current = requestAnimationFrame(loop)
       }
       rafRef.current = requestAnimationFrame(loop)
@@ -119,7 +128,12 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      <div
+        ref={containerRef}
+        tabIndex={0}
+        style={{ width: '100%', height: '100%', outline: 'none' }}
+        onClick={() => containerRef.current?.requestPointerLock()}
+      />
 
       {showPicker && (
         <MapPicker
