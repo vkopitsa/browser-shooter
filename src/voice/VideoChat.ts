@@ -18,6 +18,7 @@ export class VideoChat {
   private activated = false
   private disposed = false
   private activating: Promise<void> | null = null  // serialises concurrent toggles
+  private closing = new Set<string>()
   private incomingCallHandler?: (call: VoiceCall) => void
 
   constructor(private deps: VideoChatDeps) {
@@ -112,8 +113,10 @@ export class VideoChat {
   private closeCall(peerId: string): void {
     const call = this.calls.get(peerId)
     if (!call) return
+    this.closing.add(peerId)
     call.close()
     this.cleanupCall(peerId)
+    this.closing.delete(peerId)
   }
 
   private cleanupCall(peerId: string): void {
@@ -121,8 +124,8 @@ export class VideoChat {
     this.calls.delete(peerId)
     this.streams.delete(peerId)
     this.emit()
-    // Retry: if camera is still on, reconcile will re-open this call if appropriate
-    if (this.cameraOn) this.reconcile()
+    // Only retry when remote closed — local close (dispose, toggleOff, peerDisconnected) sets closing flag
+    if (!this.closing.has(peerId) && this.cameraOn && !this.disposed) this.reconcile()
   }
 
   private emit(): void {
