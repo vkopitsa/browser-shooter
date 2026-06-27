@@ -181,3 +181,48 @@ describe('VideoChat', () => {
     expect(chat.localStream).toBeNull()
   })
 })
+
+describe('BrowserCamProvider track liveness', () => {
+  it('re-acquires stream when cached tracks are ended', async () => {
+    // Simulate what happens in the browser after tracks are stopped
+    const liveTrack1 = { readyState: 'live', stop: vi.fn() }
+    const deadTrack = { readyState: 'ended', stop: vi.fn() }
+    const liveTrack2 = { readyState: 'live', stop: vi.fn() }
+
+    const stream1 = { getVideoTracks: () => [liveTrack1] } as unknown as MediaStream
+    const stream2 = { getVideoTracks: () => [liveTrack2] } as unknown as MediaStream
+
+    // Mock getUserMedia to return stream1 first, stream2 second
+    let callCount = 0
+    const gum = vi.fn().mockImplementation(() =>
+      Promise.resolve(callCount++ === 0 ? stream1 : stream2)
+    )
+    // We need to test BrowserCamProvider directly — import it
+    // Since it uses navigator.mediaDevices, we patch it:
+    const originalGUM = navigator.mediaDevices?.getUserMedia
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia: gum }, configurable: true,
+    })
+
+    const { BrowserCamProvider } = await import('./VoiceTransport')
+    const provider = new BrowserCamProvider()
+
+    const s1 = await provider.getStream()
+    expect(s1).toBe(stream1)
+    expect(gum).toHaveBeenCalledTimes(1)
+
+    // Simulate track being stopped
+    ;(liveTrack1 as any).readyState = 'ended'
+
+    const s2 = await provider.getStream()
+    expect(s2).toBe(stream2)
+    expect(gum).toHaveBeenCalledTimes(2) // re-acquired
+
+    // Restore
+    if (originalGUM) {
+      Object.defineProperty(navigator, 'mediaDevices', {
+        value: { getUserMedia: originalGUM }, configurable: true,
+      })
+    }
+  })
+})
