@@ -511,6 +511,9 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
         </div>
       )}
 
+      {/* Overlay buttons sit above TouchControls look pad (zIndex: 25).
+          onPointerDown.stopPropagation prevents the full-screen look pad from
+          eating touch events on mobile — without it, onClick never fires. */}
       <button
         onClick={() => setShowPicker(true)}
         onPointerDown={(e) => e.stopPropagation()}
