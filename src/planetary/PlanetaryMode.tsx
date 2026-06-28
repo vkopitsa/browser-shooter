@@ -47,9 +47,10 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
   const touchLookRef = useRef({ yaw: 0, pitch: 0 })
   const desktopControlsRef = useRef<Controls | null>(null)
   const particleSystemRef = useRef<ParticleSystem | null>(null)
+  const audioRef = useRef<SoundEffects | null>(null)
   const viewmodelRef = useRef<Viewmodel | null>(null)
 
-  const [showPicker, setShowPicker]
+  const [showPicker, setShowPicker] = useState(true)
   const [startCenter, setStartCenter] = useState<[number, number] | null>(null)
   const [boundaryStatus, setBoundaryStatus] = useState<'safe' | 'warn' | 'out'>('safe')
   const [hudState, setHudState] = useState<HudState>({
@@ -365,6 +366,12 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       } else if (e.code === 'KeyE') {
         if (sessionRef.current) {
           sessionRef.current.tryDefuse(sessionRef.current.localId, false)
+        }
+      } else if (e.code === 'KeyQ') {
+        if (sessionRef.current) {
+          const wm = sessionRef.current.weaponManager
+          wm.cycleNext()
+          viewmodelRef.current?.setWeapon(weaponVisual(wm.current.type))
         }
       }
     }
