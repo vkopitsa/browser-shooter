@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import * as THREE from 'three'
 import { PlanetaryEngine } from './PlanetaryEngine'
 import { GeoControls } from './GeoControls'
 import { PlanetaryCollision } from './PlanetaryCollision'
@@ -16,6 +17,11 @@ import { Viewmodel } from '../weapons/Viewmodel'
 import { Controls } from '../player/Controls'
 import { mobileControlsActive, loadSettings } from '../settings/Settings'
 import type { EntityState } from '../session/protocol'
+import { ParticleSystem } from '../effects/ParticleSystem'
+import { SoundEffects } from '../audio/SoundEffects'
+import { AudioManager } from '../audio/AudioManager'
+import { weaponVisual } from '../weapons/WeaponDefs'
+import { stepBloom, BLOOM_PIXELS } from '../weapons/CrosshairBloom'
 
 interface PlanetaryModeProps {
   onExit: () => void
@@ -40,6 +46,8 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
   const rafRef = useRef<number>(0)
   const touchLookRef = useRef({ yaw: 0, pitch: 0 })
   const desktopControlsRef = useRef<Controls | null>(null)
+  const particleSystemRef = useRef<ParticleSystem | null>(null)
+  const audioRef = useRef<SoundEffects | null>(null)
 
   const [showPicker, setShowPicker] = useState(true)
   const [startCenter, setStartCenter] = useState<[number, number] | null>(null)
@@ -59,6 +67,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
   const mouseShootRef = useRef(false)
   const [mobileControls] = useState(() => mobileControlsActive(loadSettings()))
   const [csMode, setCsMode] = useState(false)
+  const [bloom, setBloom] = useState(0)
 
   // Auto-clear kill feed entries after 5 seconds
   useEffect(() => {
@@ -115,6 +124,12 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       // Add viewmodel (first-person gun) to the camera
       const viewmodel = new Viewmodel(engine.camera)
       engine.scene.add(engine.camera) // ensure camera is in scene graph
+
+      // Create feedback systems for shooting (muzzle flash, audio)
+      const particleSystem = new ParticleSystem(engine.scene)
+      const audio = new SoundEffects(new AudioManager())
+      particleSystemRef.current = particleSystem
+      audioRef.current = audio
 
       // Create a Controls instance for touch input (TouchControls writes to it)
       const gameControls = new Controls(containerRef.current!, () => 'planetary', { ...loadSettings().keymap })
@@ -287,6 +302,33 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
 
         // 9. Draw the FPS scene (lazily creates the WebGL canvas on first frame).
         engine.render()
+
+        // 10. Shooting feedback: detect fired-this-frame (same pattern as App.tsx).
+        let firedThisFrame = false
+        const weapon = session.weaponManager.current
+        if (!session.player.isDead && input.shoot && weapon.fireTimer > weapon.def.fireRate - dt) {
+          firedThisFrame = true
+          viewmodel.fire()
+          audioRef.current?.playWeaponShoot(weaponVisual(weapon.type), session.player.position)
+          const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(engine.camera.quaternion)
+          particleSystemRef.current?.muzzleFlash(session.player.position.clone().add(fwd), fwd)
+        }
+
+        // 11. Update audio listener position for 3D positional sound.
+        if (audioRef.current) {
+          const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(engine.camera.quaternion)
+          audioRef.current.updateListenerPosition(p.x, p.y, p.z)
+          audioRef.current.updateListenerOrientation(fwd.x, fwd.y, fwd.z, 0, 1, 0)
+        }
+
+        // 12. Crosshair bloom: grow on fire/movement/jump, recover when still.
+        setBloom(prev => stepBloom(prev, dt, {
+          moving: Math.hypot(session.player.velocity.x, session.player.velocity.z) > 1.5,
+          airborne: !session.player.isGrounded,
+          shotsFired: firedThisFrame ? 1 : 0,
+          weaponSpread: weapon.def.spread,
+        }))
+
         viewmodel.update(dt, false)
 
         rafRef.current = requestAnimationFrame(loop)
@@ -432,10 +474,20 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
           pointerEvents: 'none', zIndex: 50,
         }}>
-          <div style={{ width: 2, height: 14, background: '#0f0', position: 'absolute', left: -1, top: -20 }} />
-          <div style={{ width: 2, height: 14, background: '#0f0', position: 'absolute', left: -1, top: 10 }} />
-          <div style={{ width: 14, height: 2, background: '#0f0', position: 'absolute', top: -1, left: -20 }} />
-          <div style={{ width: 14, height: 2, background: '#0f0', position: 'absolute', top: -1, left: 10 }} />
+          {(() => {
+            const gapScale = 1 + (bloom * BLOOM_PIXELS) / 20
+            const hOff = 20 * gapScale  // horizontal line distance from center
+            const vOff = 10 * gapScale  // vertical line distance from center
+            const lineStyle: React.CSSProperties = { background: '#0f0', position: 'absolute' }
+            return (
+              <>
+                <div style={{ ...lineStyle, width: 2, height: 14, left: -1, top: -vOff - 7 }} />
+                <div style={{ ...lineStyle, width: 2, height: 14, left: -1, top: vOff - 7 }} />
+                <div style={{ ...lineStyle, width: 14, height: 2, top: -1, left: -hOff - 7 }} />
+                <div style={{ ...lineStyle, width: 14, height: 2, top: -1, left: hOff - 7 }} />
+              </>
+            )
+          })()}
         </div>
       )}
 
