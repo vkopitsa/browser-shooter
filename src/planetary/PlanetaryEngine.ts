@@ -7,18 +7,18 @@ const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 export class PlanetaryEngine {
   map: maplibregl.Map
   scene: THREE.Scene
-  camera: THREE.Camera
+  camera: THREE.PerspectiveCamera
   private threeRenderer: THREE.WebGLRenderer | null = null
   private readyCbs: (() => void)[] = []
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, center: [number, number] = [0, 0]) {
     this.scene = new THREE.Scene()
-    this.camera = new THREE.Camera()
+    this.camera = new THREE.PerspectiveCamera(75, 1, 0.1, 10000)
 
     this.map = new maplibregl.Map({
       container,
       style: STYLE_URL,
-      center: [0, 0],
+      center,
       zoom: 17,
       pitch: 60,
     })
@@ -50,7 +50,6 @@ export class PlanetaryEngine {
         this.camera.projectionMatrix.fromArray(matrix)
         this.threeRenderer?.resetState()
         this.threeRenderer?.render(this.scene, this.camera)
-        this.map.triggerRepaint()
       },
     } as unknown as maplibregl.CustomLayerInterface)
   }

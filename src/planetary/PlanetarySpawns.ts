@@ -47,7 +47,7 @@ export function findSpawnPoints(
     })
 
   if (points.length > 0) {
-    const offset = team === 'ct' ? 0 : Math.ceil(points.length / 2)
+    const offset = team === 'ct' ? 0 : Math.min(Math.ceil(points.length / 2), points.length - 1)
     return points.slice(offset, offset + 4)
   }
 

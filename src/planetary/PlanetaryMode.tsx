@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { PlanetaryEngine } from './PlanetaryEngine'
 import { GeoControls } from './GeoControls'
 import { PlanetaryCollision } from './PlanetaryCollision'
-import { PlanetaryNavmesh } from './PlanetaryNavmesh'
 import { MapPicker } from './MapPicker'
 import { RoundBoundary } from './RoundBoundary'
 import { GameSession } from '../session/GameSession'
@@ -27,24 +26,27 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
   const engineRef = useRef<PlanetaryEngine | null>(null)
   const controlsRef = useRef<GeoControls | null>(null)
   const collisionRef = useRef<PlanetaryCollision | null>(null)
-  const navmeshRef = useRef<PlanetaryNavmesh | null>(null)
   const sessionRef = useRef<GameSession | null>(null)
   const boundaryRef = useRef<RoundBoundary>(new RoundBoundary())
   const rafRef = useRef<number>(0)
 
   const [showPicker, setShowPicker] = useState(true)
+  const [startCenter, setStartCenter] = useState<[number, number] | null>(null)
   const [boundaryStatus, setBoundaryStatus] = useState<'safe' | 'warn' | 'out'>('safe')
   const [hudState, setHudState] = useState<HudState>({
     health: 100, maxHealth: 100, ammo: 30, maxAmmo: 30, weaponName: 'pistol', money: 800,
   })
-  const [remoteDots] = useState<Array<{ id: string; lng: number; lat: number; team: 'ct' | 't' }>>([])
 
+  // Engine is created lazily after the user picks a drop-in location.
+  // This avoids two concurrent MapLibre/WebGL contexts during the picker phase.
   useEffect(() => {
-    if (!containerRef.current) return
-    const engine = new PlanetaryEngine(containerRef.current)
+    if (!startCenter || !containerRef.current) return
+    let mounted = true
+    const engine = new PlanetaryEngine(containerRef.current, startCenter)
     engineRef.current = engine
 
     engine.onReady(() => {
+      if (!mounted) return
       const controls = new GeoControls(engine.map, containerRef.current!)
       controls.attach()
       controlsRef.current = controls
@@ -57,14 +59,10 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       engine.map.touchZoomRotate.disable()
 
       collisionRef.current = new PlanetaryCollision(engine.map)
-      navmeshRef.current = new PlanetaryNavmesh()
-      navmeshRef.current.build(engine.map)
 
-      // GameSession uses MatchConfig — competitive mode, no zone (planetary provides the map)
-      const config = { ...defaultCompetitiveConfig(), zoneId: undefined }
+      const config = defaultCompetitiveConfig()
       const session = new GameSession(config)
       session.collisionWorld = collisionRef.current.collisionWorld
-      // Add 5 bots split across teams
       for (let i = 0; i < 3; i++) session.addBot('ct')
       for (let i = 0; i < 2; i++) session.addBot('t')
       sessionRef.current = session
@@ -77,22 +75,21 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
 
         const center = engine.map.getCenter()
 
-        // Update collision from visible tiles
         if (collisionRef.current) {
           session.collisionWorld = collisionRef.current.update(center.lng, center.lat)
         }
 
-        // Advance game simulation: bots, combat, round logic
         session.step(dt)
 
-        // Check round boundary
         const status = boundaryRef.current.check(center.lng, center.lat)
         setBoundaryStatus(status)
         if (status === 'out' && !session.player.isDead) {
           session.player.takeDamage(50 * dt)
+          if (session.player.isDead) {
+            session.handleDeath(session.localId)
+          }
         }
 
-        // Sync HUD state from session
         setHudState({
           health: session.player.health,
           maxHealth: session.player.maxHealth,
@@ -108,22 +105,32 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
     })
 
     return () => {
+      mounted = false
       cancelAnimationFrame(rafRef.current)
       controlsRef.current?.detach()
       engine.dispose()
       engineRef.current = null
     }
-  }, [])
+  }, [startCenter])
 
   const handleTeleport = useCallback((lng: number, lat: number) => {
+    // Anchor the boundary immediately so the game loop never sees [0,0] as center
+    boundaryRef.current.update([[lng, lat]])
     setShowPicker(false)
-    engineRef.current?.map.flyTo({ center: [lng, lat], zoom: 17, pitch: 60, duration: 1500 })
-    setTimeout(() => {
-      if (navmeshRef.current && engineRef.current) {
-        navmeshRef.current.build(engineRef.current.map)
-        boundaryRef.current.update([[lng, lat]])
-      }
-    }, 2000)
+
+    if (!engineRef.current) {
+      // First drop-in: create the engine at the chosen location
+      setStartCenter([lng, lat])
+    } else {
+      // Re-teleport: fly to the new location; rebuild collision after tiles settle
+      engineRef.current.map.flyTo({ center: [lng, lat], zoom: 17, pitch: 60, duration: 1500 })
+      engineRef.current.map.once('idle', () => {
+        if (collisionRef.current && engineRef.current) {
+          const c = engineRef.current.map.getCenter()
+          collisionRef.current.update(c.lng, c.lat)
+        }
+      })
+    }
   }, [])
 
   return (
@@ -137,7 +144,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
 
       {showPicker && (
         <MapPicker
-          playerPositions={remoteDots}
+          playerPositions={[]}
           onTeleport={handleTeleport}
           onClose={() => setShowPicker(false)}
         />

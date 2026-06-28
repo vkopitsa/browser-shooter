@@ -6,7 +6,7 @@ export function offsetLngLat(
   eastMeters: number,
   northMeters: number,
 ): [number, number] {
-  const metersPerDegLon = METERS_PER_DEG_LAT * Math.cos((refLat * Math.PI) / 180)
+  const metersPerDegLon = METERS_PER_DEG_LAT * Math.cos((Math.min(Math.abs(refLat), 89) * Math.PI) / 180)
   return [refLng + eastMeters / metersPerDegLon, refLat + northMeters / METERS_PER_DEG_LAT]
 }
 
