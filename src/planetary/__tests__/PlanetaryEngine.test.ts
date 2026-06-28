@@ -46,10 +46,18 @@ describe('PlanetaryEngine', () => {
     const engine = new PlanetaryEngine(container)
     const world = new CollisionWorld()
     world.addBox(new THREE.Vector3(5, 10, 5), new THREE.Vector3(4, 20, 4))
+
+    // Count meshes before setBuildings
+    let beforeCount = 0
+    engine.scene.traverse(o => { if (o instanceof THREE.Mesh) beforeCount++ })
+
     engine.setBuildings(world.boxes)
-    let meshCount = 0
-    engine.scene.traverse(o => { if (o instanceof THREE.Mesh) meshCount++ })
-    expect(meshCount).toBeGreaterThan(0)
+
+    // Count meshes after setBuildings
+    let afterCount = 0
+    engine.scene.traverse(o => { if (o instanceof THREE.Mesh) afterCount++ })
+
+    expect(afterCount - beforeCount).toBe(world.boxes.length)
     engine.dispose()
   })
 
