@@ -35,24 +35,23 @@ export class PlanetaryEngine {
   }
 
   private addGameObjectsLayer() {
-    const self = this
     this.map.addLayer({
       id: 'game-objects',
       type: 'custom',
       renderingMode: '3d',
-      onAdd(_map: maplibregl.Map, gl: WebGL2RenderingContext) {
-        self.threeRenderer = new THREE.WebGLRenderer({
+      onAdd: (_map: maplibregl.Map, gl: WebGL2RenderingContext) => {
+        this.threeRenderer = new THREE.WebGLRenderer({
           canvas: _map.getCanvas(),
           context: gl,
           antialias: true,
         })
-        self.threeRenderer.autoClear = false
+        this.threeRenderer.autoClear = false
       },
-      render(_gl: WebGL2RenderingContext, matrix: number[]) {
-        self.camera.projectionMatrix.fromArray(matrix)
-        self.threeRenderer?.resetState()
-        self.threeRenderer?.render(self.scene, self.camera)
-        self.map.triggerRepaint()
+      render: (_gl: WebGL2RenderingContext, matrix: number[]) => {
+        this.camera.projectionMatrix.fromArray(matrix)
+        this.threeRenderer?.resetState()
+        this.threeRenderer?.render(this.scene, this.camera)
+        this.map.triggerRepaint()
       },
     } as maplibregl.CustomLayerInterface)
   }

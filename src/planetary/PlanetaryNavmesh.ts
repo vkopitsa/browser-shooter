@@ -53,7 +53,7 @@ export class PlanetaryNavmesh {
     const f = new Map<string, number>([[startId, dist(this.nodes.get(startId)!, goal)]])
 
     while (open.size > 0) {
-      let cur = [...open].reduce((a, b) => (f.get(a) ?? Infinity) < (f.get(b) ?? Infinity) ? a : b)
+      const cur = [...open].reduce((a, b) => (f.get(a) ?? Infinity) < (f.get(b) ?? Infinity) ? a : b)
       if (cur === goalId) return this.reconstruct(cameFrom, cur)
       open.delete(cur)
       const node = this.nodes.get(cur)!

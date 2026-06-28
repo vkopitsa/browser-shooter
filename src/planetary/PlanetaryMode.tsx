@@ -37,7 +37,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
   const [hudState, setHudState] = useState<HudState>({
     health: 100, maxHealth: 100, ammo: 30, maxAmmo: 30, weaponName: 'pistol', money: 800,
   })
-  const [remoteDots, setRemoteDots] = useState<Array<{ id: string; lng: number; lat: number; team: 'ct' | 't' }>>([])
+  const [remoteDots] = useState<Array<{ id: string; lng: number; lat: number; team: 'ct' | 't' }>>([])
 
   useEffect(() => {
     if (!containerRef.current) return
