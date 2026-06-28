@@ -12,8 +12,12 @@ import { RoundState } from '../session/RoundManager'
 import { HUD } from '../ui/HUD'
 import { BuyMenu } from '../ui/BuyMenu'
 import { Scoreboard } from '../ui/Scoreboard'
+import { TouchControls } from '../ui/TouchControls'
 import { Viewmodel } from '../weapons/Viewmodel'
 import { buildCharacter } from '../entities/CharacterModel'
+import { Controls } from '../player/Controls'
+import { mobileControlsActive } from '../settings/Settings'
+import { loadSettings } from '../settings/Settings'
 import { offsetLngLat } from './geoUtils'
 import type { EntityState } from '../session/protocol'
 
@@ -38,6 +42,8 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
   const sessionRef = useRef<GameSession | null>(null)
   const boundaryRef = useRef<RoundBoundary>(new RoundBoundary())
   const rafRef = useRef<number>(0)
+  const touchLookRef = useRef({ yaw: 0, pitch: 0 })
+  const desktopControlsRef = useRef<Controls | null>(null)
 
   const [showPicker, setShowPicker] = useState(true)
   const [startCenter, setStartCenter] = useState<[number, number] | null>(null)
@@ -122,6 +128,10 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       const viewmodel = new Viewmodel(engine.camera)
       engine.scene.add(engine.camera) // ensure camera is in scene graph
 
+      // Create a Controls instance for touch input (TouchControls writes to it)
+      const gameControls = new Controls(containerRef.current!, () => 'planetary', { ...loadSettings().keymap })
+      desktopControlsRef.current = gameControls
+
       sessionRef.current = session
 
       let last = performance.now()
@@ -129,10 +139,33 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
         const dt = Math.min((now - last) / 1000, 0.05)
         last = now
 
-        // 1. Get input from GeoControls
+        // 1. Get input from GeoControls (keyboard) and merge with touch
         const input = controls.getInput()
+        const touch = desktopControlsRef.current
+        if (touch) {
+          const mv = touch.getMovement()
+          input.forward = input.forward || mv.forward
+          input.backward = input.backward || mv.backward
+          input.left = input.left || mv.left
+          input.right = input.right || mv.right
+          input.jump = input.jump || mv.jump
+          if (touch.shoot) {
+            input.shoot = true
+          }
+        }
 
-        // 2. Mouse look (bearing/pitch)
+        // 2. Look: merge touch look delta into GeoControls bearing/pitch
+        const center = engine.map.getCenter()
+        const gcBearing = engine.map.getBearing()
+        const gcPitch = engine.map.getPitch()
+        if (touchLookRef.current.yaw !== 0 || touchLookRef.current.pitch !== 0) {
+          const newBearing = (gcBearing + touchLookRef.current.yaw * 60 + 360) % 360
+          const newPitch = Math.max(0, Math.min(85, gcPitch + touchLookRef.current.pitch * 60))
+          engine.map.setBearing(newBearing)
+          engine.map.setPitch(newPitch)
+          touchLookRef.current.yaw = 0
+          touchLookRef.current.pitch = 0
+        }
         input.yaw = engine.map.getBearing()
         input.pitch = engine.map.getPitch()
 
@@ -274,6 +307,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       mounted = false
       cancelAnimationFrame(rafRef.current)
       controlsRef.current?.detach()
+      desktopControlsRef.current?.destroy()
       engine.dispose()
       engineRef.current = null
     }
@@ -509,6 +543,20 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       >
         Exit
       </button>
+
+      {/* Mobile touch controls */}
+      {!showPicker && !showBuyMenu && desktopControlsRef.current && mobileControlsActive(loadSettings()) && (
+        <TouchControls
+          controls={desktopControlsRef.current}
+          lookRef={touchLookRef}
+          lookSensitivity={1}
+          onReload={() => { if (sessionRef.current) sessionRef.current.weaponManager.current.reload() }}
+          onCycleWeapon={() => { if (sessionRef.current) sessionRef.current.weaponManager.cycleNext() }}
+          onToggleStore={() => setShowBuyMenu(prev => !prev)}
+          onToggleScoreboard={() => setShowScoreboard(prev => !prev)}
+          onSelectGrenade={() => {}}
+        />
+      )}
     </div>
   )
 }
