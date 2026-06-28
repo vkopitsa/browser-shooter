@@ -55,6 +55,14 @@ describe('PlanetaryCollision', () => {
     expect(pc.rebuildVersion).toBe(v1 + 1)
   })
 
+  it('queries the building-3d layer (the one rendered at play zoom 17)', () => {
+    const map = makeMap([squareBuilding])
+    const pc = new PlanetaryCollision(map as any)
+    pc.update(0, 0)
+    const opts = map.queryRenderedFeatures.mock.calls[0][1] as { layers: string[] }
+    expect(opts.layers).toContain('building-3d')
+  })
+
   it('markStale forces a re-scan even within 50m', () => {
     const map = makeMap([squareBuilding])
     const pc = new PlanetaryCollision(map as any)

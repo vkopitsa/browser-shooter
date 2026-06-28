@@ -4,7 +4,11 @@ import { CollisionWorld } from '../engine/CollisionWorld'
 import { lngLatDistance } from './geoUtils'
 
 const RESCAN_METERS = 50
-const BUILDING_LAYERS = ['building']
+// The map runs at zoom 17. In the OpenFreeMap "liberty" style the flat `building`
+// layer is maxzoom 14, so it is NOT rendered at z17 and queryRenderedFeatures
+// returns nothing for it. The 3D `building-3d` layer (minzoom 14) is what renders
+// at play zoom; query it. `building` stays as a fallback for lower zooms.
+const BUILDING_LAYERS = ['building-3d', 'building']
 
 export class PlanetaryCollision {
   private world = new CollisionWorld()
