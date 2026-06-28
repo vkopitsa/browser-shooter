@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import * as THREE from 'three'
 import { PlanetaryEngine } from './PlanetaryEngine'
 import { GeoControls } from './GeoControls'
 import { PlanetaryCollision } from './PlanetaryCollision'
@@ -11,6 +12,9 @@ import { RoundState } from '../session/RoundManager'
 import { HUD } from '../ui/HUD'
 import { BuyMenu } from '../ui/BuyMenu'
 import { Scoreboard } from '../ui/Scoreboard'
+import { Viewmodel } from '../weapons/Viewmodel'
+import { ParticleSystem } from '../effects/ParticleSystem'
+import { buildCharacter } from '../entities/CharacterModel'
 import { offsetLngLat } from './geoUtils'
 import type { EntityState } from '../session/protocol'
 
@@ -91,6 +95,23 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
         session.roundManager.state = RoundState.Buying
         session.roundManager.buyPhaseTimer = config.buyPhaseDuration ?? 15
       }
+
+      // Add bot character models to the Three.js scene
+      const botMeshes = new Map<string, THREE.Group>()
+      const TEAM_COLOR = { ct: 0x3a6ea5, t: 0xa5703a } as const
+      for (const [id, entity] of session.playerMap) {
+        if (id === session.localId) continue
+        const mesh = buildCharacter({ tint: TEAM_COLOR[entity.team], name: entity.name })
+        engine.scene.add(mesh)
+        botMeshes.set(id, mesh)
+      }
+
+      // Add viewmodel (first-person gun) to the camera
+      const viewmodel = new Viewmodel(engine.camera)
+      engine.scene.add(engine.camera) // ensure camera is in scene graph
+
+      // Add particle system
+      const particleSystem = new ParticleSystem(engine.scene)
 
       sessionRef.current = session
 
@@ -197,6 +218,20 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           money: session.economy?.money ?? 0,
         })
 
+        // 9. Sync bot meshes to their logical positions
+        for (const [id, mesh] of botMeshes) {
+          const entity = session.getPlayer(id)
+          if (entity) {
+            const pos = entity.player.position
+            mesh.position.set(pos.x, pos.y - 1.1, pos.z) // feet at ground
+            mesh.rotation.y = entity.player.rotation.y
+            mesh.visible = !entity.player.isDead
+          }
+        }
+
+        // 10. Update viewmodel
+        viewmodel.update(dt, false)
+
         rafRef.current = requestAnimationFrame(loop)
       }
       rafRef.current = requestAnimationFrame(loop)
@@ -235,11 +270,22 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
         setShowScoreboard(false)
       }
     }
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button === 0 && sessionRef.current && !session.player.isDead) {
+        const wm = sessionRef.current.weaponManager
+        if (wm.current.canShoot()) {
+          wm.current.shoot()
+          sessionRef.current.fireWeapon(sessionRef.current.localId, [])
+        }
+      }
+    }
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('mousedown', handleMouseDown)
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('mousedown', handleMouseDown)
     }
   }, [showPicker])
 
@@ -305,13 +351,15 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           owned={[]}
           onBuy={(itemId) => {
             const session = sessionRef.current
-            if (!session) return
+            if (!session || !session.economy) return
             import('../weapons/StoreCatalog').then(({ findItem, canAffordItem }) => {
               import('../player/applyPurchase').then(({ applyItem }) => {
-                const item = findItem(itemId)
-                if (item && session.economy && canAffordItem(itemId, session.economy.money, session.player, session.weaponManager)) {
-                  session.economy.spendMoney(item.price)
-                  applyItem(item, session.player, session.weaponManager)
+                if (canAffordItem(session.economy!.money, itemId)) {
+                  const item = findItem(itemId)
+                  if (item) {
+                    session.economy!.spendMoney(item.price)
+                    applyItem(item, session.player, session.weaponManager)
+                  }
                 }
               })
             })
@@ -324,6 +372,18 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
         <Scoreboard
           players={scoreboardPlayers}
         />
+      )}
+
+      {!showPicker && !showBuyMenu && (
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          pointerEvents: 'none', zIndex: 50,
+        }}>
+          <div style={{ width: 2, height: 14, background: '#0f0', position: 'absolute', left: -1, top: -20 }} />
+          <div style={{ width: 2, height: 14, background: '#0f0', position: 'absolute', left: -1, top: 10 }} />
+          <div style={{ width: 14, height: 2, background: '#0f0', position: 'absolute', top: -1, left: -20 }} />
+          <div style={{ width: 14, height: 2, background: '#0f0', position: 'absolute', top: -1, left: 10 }} />
+        </div>
       )}
 
       {!showPicker && boundaryStatus !== 'safe' && (
