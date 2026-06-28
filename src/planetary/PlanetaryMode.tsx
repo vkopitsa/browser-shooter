@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import * as THREE from 'three'
 import { PlanetaryEngine } from './PlanetaryEngine'
 import { GeoControls } from './GeoControls'
 import { PlanetaryCollision } from './PlanetaryCollision'
@@ -6,7 +7,17 @@ import { MapPicker } from './MapPicker'
 import { RoundBoundary } from './RoundBoundary'
 import { GameSession } from '../session/GameSession'
 import { defaultCompetitiveConfig } from '../session/MatchConfig'
+import { Bombsite } from '../session/Bombsite'
+import { RoundState } from '../session/RoundManager'
 import { HUD } from '../ui/HUD'
+import { BuyMenu } from '../ui/BuyMenu'
+import { Scoreboard } from '../ui/Scoreboard'
+import { TouchControls } from '../ui/TouchControls'
+import { Viewmodel } from '../weapons/Viewmodel'
+import { buildCharacter } from '../entities/CharacterModel'
+import { Controls } from '../player/Controls'
+import { mobileControlsActive, loadSettings } from '../settings/Settings'
+import type { EntityState } from '../session/protocol'
 
 interface PlanetaryModeProps {
   onExit: () => void
@@ -29,6 +40,8 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
   const sessionRef = useRef<GameSession | null>(null)
   const boundaryRef = useRef<RoundBoundary>(new RoundBoundary())
   const rafRef = useRef<number>(0)
+  const touchLookRef = useRef({ yaw: 0, pitch: 0 })
+  const desktopControlsRef = useRef<Controls | null>(null)
 
   const [showPicker, setShowPicker] = useState(true)
   const [startCenter, setStartCenter] = useState<[number, number] | null>(null)
@@ -36,6 +49,24 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
   const [hudState, setHudState] = useState<HudState>({
     health: 100, maxHealth: 100, ammo: 30, maxAmmo: 30, weaponName: 'pistol', money: 800,
   })
+  const [showBuyMenu, setShowBuyMenu] = useState(false)
+  const [showScoreboard, setShowScoreboard] = useState(false)
+  const [roundState, setRoundState] = useState<{ state: RoundState; round: number; ctScore: number; tScore: number; buyTimer: number; roundTimer: number } | null>(null)
+  const [scoreboardPlayers, setScoreboardPlayers] = useState<EntityState[]>([])
+  const [killFeed, setKillFeed] = useState<{ id: number; attacker: string; victim: string; ts?: number }[]>([])
+  const [isDead, setIsDead] = useState(false)
+  const [respawnIn, setRespawnIn] = useState<number | null>(null)
+  const killSeqRef = useRef(0)
+  const mouseShootRef = useRef(false)
+  const [mobileControls] = useState(() => mobileControlsActive(loadSettings()))
+
+  // Auto-clear kill feed entries after 5 seconds
+  useEffect(() => {
+    const id = setInterval(() => {
+      setKillFeed(prev => prev.filter(k => k.ts && Date.now() - k.ts < 5000))
+    }, 500)
+    return () => clearInterval(id)
+  }, [])
 
   // Engine is created lazily after the user picks a drop-in location.
   // This avoids two concurrent MapLibre/WebGL contexts during the picker phase.
@@ -63,24 +94,181 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       const config = defaultCompetitiveConfig()
       const session = new GameSession(config)
       session.collisionWorld = collisionRef.current.collisionWorld
+
+      // Place 2 bombsites near the drop location (in meters from origin)
+      session.bombsites = [
+        new Bombsite('A', { x: 20, y: 0, z: 20 }),
+        new Bombsite('B', { x: -20, y: 0, z: -20 }),
+      ]
+
       for (let i = 0; i < 3; i++) session.addBot('ct')
       for (let i = 0; i < 2; i++) session.addBot('t')
+
+      // ponytail: large enough to never clamp in open-world play; bots already placed
+      session.map.arenaSize = 5000
+
+      // Set up round manager for competitive play
+      if (session.roundManager) {
+        session.roundManager.state = RoundState.Buying
+        session.roundManager.buyPhaseTimer = config.buyPhaseDuration ?? 15
+      }
+
+      // Add bot character models to the Three.js scene
+      const botMeshes = new Map<string, THREE.Group>()
+      const TEAM_COLOR = { ct: 0x3a6ea5, t: 0xa5703a } as const
+      for (const id of session.playerIds()) {
+        if (id === session.localId) continue
+        const entity = session.getPlayer(id)!
+        const mesh = buildCharacter({ tint: TEAM_COLOR[entity.team], name: entity.name })
+        engine.scene.add(mesh)
+        botMeshes.set(id, mesh)
+      }
+
+      // Add viewmodel (first-person gun) to the camera
+      const viewmodel = new Viewmodel(engine.camera)
+      engine.scene.add(engine.camera) // ensure camera is in scene graph
+
+      // Create a Controls instance for touch input (TouchControls writes to it)
+      const gameControls = new Controls(containerRef.current!, () => 'planetary', { ...loadSettings().keymap })
+      desktopControlsRef.current = gameControls
+
       sessionRef.current = session
 
       let last = performance.now()
       function loop(now: number) {
         const dt = Math.min((now - last) / 1000, 0.05)
         last = now
-        controls.update(dt)
 
+        // 1. Get input from GeoControls (keyboard) and merge with touch
+        const input = controls.getInput()
+        const touch = desktopControlsRef.current
+        if (touch) {
+          const mv = touch.getMovement()
+          input.forward = input.forward || mv.forward
+          input.backward = input.backward || mv.backward
+          input.left = input.left || mv.left
+          input.right = input.right || mv.right
+          input.jump = input.jump || mv.jump
+          input.shoot = input.shoot || touch.shoot || mouseShootRef.current
+        } else {
+          input.shoot = input.shoot || mouseShootRef.current
+        }
+
+        // 2. Look: merge touch look delta into GeoControls bearing/pitch
+        const gcBearing = engine.map.getBearing()
+        const gcPitch = engine.map.getPitch()
+        if (touchLookRef.current.yaw !== 0 || touchLookRef.current.pitch !== 0) {
+          const newBearing = (gcBearing + touchLookRef.current.yaw * 60 + 360) % 360
+          const newPitch = Math.max(0, Math.min(85, gcPitch + touchLookRef.current.pitch * 60))
+          engine.map.setBearing(newBearing)
+          engine.map.setPitch(newPitch)
+          touchLookRef.current.yaw = 0
+          touchLookRef.current.pitch = 0
+        }
+        input.yaw = (engine.map.getBearing() * Math.PI) / 180
+        input.pitch = (engine.map.getPitch() * Math.PI) / 180
+
+        // 3. Apply input to the session so the logical player moves
+        session.applyInput(session.localId, input)
+
+        // 4. Step the session (movement, combat, bots)
+        const events = session.step(dt)
+
+        // 5. Process session events for round flow
+        let scoreboardDirty = false
+        for (const ev of events) {
+          switch (ev.type) {
+            case 'roundStart':
+              setRoundState({
+                state: RoundState.Active,
+                round: ev.round,
+                ctScore: ev.ctScore,
+                tScore: ev.tScore,
+                buyTimer: 0,
+                roundTimer: 115,
+              })
+              scoreboardDirty = true
+              break
+            case 'buyPhaseStart':
+              setShowBuyMenu(true)
+              setRoundState(prev => prev ? { ...prev, state: RoundState.Buying, buyTimer: ev.duration } : null)
+              break
+            case 'roundEnd':
+              setShowBuyMenu(false)
+              setIsDead(false)
+              setRespawnIn(null)
+              setRoundState(prev => prev ? { ...prev, state: RoundState.Over, ctScore: ev.ctScore, tScore: ev.tScore } : null)
+              scoreboardDirty = true
+              break
+            case 'matchOver':
+              setShowBuyMenu(false)
+              setRoundState(prev => prev ? { ...prev, state: RoundState.Over } : null)
+              break
+            case 'playerKilledPlayer': {
+              const a = session.getPlayer(ev.attackerId)?.name ?? 'Unknown'
+              const v = session.getPlayer(ev.victimId)?.name ?? 'Unknown'
+              const id = killSeqRef.current++
+              setKillFeed(prev => [...prev.slice(-4), { id, attacker: a, victim: v, ts: Date.now() }])
+              if (ev.victimId === session.localId) {
+                setIsDead(true)
+              }
+              scoreboardDirty = true
+              break
+            }
+            case 'playerDied':
+              if (ev.playerId === session.localId) {
+                setIsDead(true)
+                setRespawnIn(session.respawnQueue.isPending(session.localId) ? session.respawnQueue.remaining(session.localId) : null)
+              }
+              scoreboardDirty = true
+              break
+            case 'playerRespawned':
+              if (ev.playerId === session.localId) {
+                setIsDead(false)
+                setRespawnIn(null)
+              }
+              scoreboardDirty = true
+              break
+            case 'bombPlanted':
+              break
+            case 'bombExploded':
+            case 'bombDefused':
+              break
+          }
+        }
+
+        // Only update timers per-frame; event handlers own state/scores
+        if (session.roundManager) {
+          setRoundState(prev => prev ? {
+            ...prev,
+            buyTimer: session.roundManager!.buyPhaseTimer,
+            roundTimer: session.roundManager!.roundTimer,
+          } : null)
+        }
+
+        // Scoreboard only updates when a kill/death/respawn event occurs
+        if (scoreboardDirty) {
+          setScoreboardPlayers(session.getSnapshot().players.map(p => ({
+            id: p.id, kind: 'player', type: 'player',
+            position: p.position, rotationY: p.rotationY, rotationX: p.rotationX,
+            health: p.health, isDead: p.isDead, weaponType: p.weaponType,
+            name: p.name, team: p.team, isBot: p.isBot,
+            respawnIn: p.respawnIn, hasArmor: p.hasArmor, hasHelmet: p.hasHelmet,
+          })))
+        }
+
+        // 5. Sync map center to player's world position
+        const p = session.player.position
+        const [lng, lat] = engine.localToLngLat(p.x, p.z)
+        engine.map.setCenter([lng, lat])
+
+        // 6. Update collision world
         const center = engine.map.getCenter()
-
         if (collisionRef.current) {
           session.collisionWorld = collisionRef.current.update(center.lng, center.lat)
         }
 
-        session.step(dt)
-
+        // 7. Round boundary check
         const status = boundaryRef.current.check(center.lng, center.lat)
         setBoundaryStatus(status)
         if (status === 'out' && !session.player.isDead) {
@@ -90,6 +278,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           }
         }
 
+        // 8. Update HUD state
         setHudState({
           health: session.player.health,
           maxHealth: session.player.maxHealth,
@@ -98,6 +287,21 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           weaponName: session.weaponManager.current.def.name,
           money: session.economy?.money ?? 0,
         })
+
+        // 9. Sync bot meshes to their Mercator world positions
+        for (const [id, mesh] of botMeshes) {
+          const entity = session.getPlayer(id)
+          if (entity) {
+            const pos = entity.player.position
+            const worldPos = engine.localToMercator(pos.x, pos.z, pos.y)
+            mesh.position.copy(worldPos)
+            mesh.rotation.y = entity.player.rotation.y
+            mesh.visible = !entity.player.isDead
+          }
+        }
+
+        // 10. Update viewmodel
+        viewmodel.update(dt, false)
 
         rafRef.current = requestAnimationFrame(loop)
       }
@@ -108,10 +312,49 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       mounted = false
       cancelAnimationFrame(rafRef.current)
       controlsRef.current?.detach()
+      desktopControlsRef.current?.destroy()
       engine.dispose()
       engineRef.current = null
     }
   }, [startCenter])
+
+  // Keyboard handler for buy menu, scoreboard, bomb plant/defuse
+  useEffect(() => {
+    if (showPicker) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'KeyB') {
+        setShowBuyMenu(prev => !prev)
+      } else if (e.code === 'Tab') {
+        e.preventDefault()
+        setShowScoreboard(true)
+      } else if (e.code === 'Digit5') {
+        if (sessionRef.current) {
+          sessionRef.current.tryPlant(sessionRef.current.localId)
+        }
+      } else if (e.code === 'KeyE') {
+        if (sessionRef.current) {
+          sessionRef.current.tryDefuse(sessionRef.current.localId, false)
+        }
+      }
+    }
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Tab') {
+        setShowScoreboard(false)
+      }
+    }
+    const handleMouseDown = (e: MouseEvent) => { if (e.button === 0) mouseShootRef.current = true }
+    const handleMouseUp = (e: MouseEvent) => { if (e.button === 0) mouseShootRef.current = false }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('mousedown', handleMouseDown)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('mousedown', handleMouseDown)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [showPicker])
 
   const handleTeleport = useCallback((lng: number, lat: number) => {
     // Anchor the boundary immediately so the game loop never sees [0,0] as center
@@ -168,6 +411,95 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
         />
       )}
 
+      {!showPicker && showBuyMenu && (
+        <BuyMenu
+          team="ct"
+          money={hudState.money}
+          owned={[]}
+          onBuy={(itemId) => {
+            const session = sessionRef.current
+            if (!session || !session.economy) return
+            import('../weapons/StoreCatalog').then(({ findItem, canAffordItem }) => {
+              import('../player/applyPurchase').then(({ applyItem }) => {
+                if (canAffordItem(session.economy!.money, itemId)) {
+                  const item = findItem(itemId)
+                  if (item) {
+                    session.economy!.spendMoney(item.price)
+                    applyItem(item, session.player, session.weaponManager)
+                  }
+                }
+              })
+            })
+          }}
+          onClose={() => setShowBuyMenu(false)}
+        />
+      )}
+
+      {!showPicker && showScoreboard && (
+        <Scoreboard
+          players={scoreboardPlayers}
+        />
+      )}
+
+      {!showPicker && !showBuyMenu && (
+        <div style={{
+          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          pointerEvents: 'none', zIndex: 50,
+        }}>
+          <div style={{ width: 2, height: 14, background: '#0f0', position: 'absolute', left: -1, top: -20 }} />
+          <div style={{ width: 2, height: 14, background: '#0f0', position: 'absolute', left: -1, top: 10 }} />
+          <div style={{ width: 14, height: 2, background: '#0f0', position: 'absolute', top: -1, left: -20 }} />
+          <div style={{ width: 14, height: 2, background: '#0f0', position: 'absolute', top: -1, left: 10 }} />
+        </div>
+      )}
+
+      {!showPicker && roundState && roundState.state !== 'over' && (
+        <div style={{
+          position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)',
+          display: 'flex', gap: 16, zIndex: 50, pointerEvents: 'none',
+          fontFamily: 'monospace', fontSize: 14,
+        }}>
+          <span style={{ color: '#3a6ea5', fontWeight: 'bold' }}>CT {roundState.ctScore}</span>
+          <span style={{ color: '#888' }}>
+            {roundState.state === 'buying' ? `BUY ${Math.ceil(roundState.buyTimer)}s` : `${Math.ceil(roundState.roundTimer)}s`}
+          </span>
+          <span style={{ color: '#a5703a', fontWeight: 'bold' }}>{roundState.tScore} T</span>
+        </div>
+      )}
+
+      {!showPicker && killFeed.length > 0 && (
+        <div style={{
+          position: 'absolute', top: 80, right: 16, display: 'flex', flexDirection: 'column',
+          gap: 4, zIndex: 50, pointerEvents: 'none',
+        }}>
+          {killFeed.slice(-5).map(k => (
+            <div key={k.id} style={{
+              background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '4px 8px',
+              fontSize: 12, fontFamily: 'monospace', borderRadius: 4,
+            }}>
+              <span style={{ color: '#3a6ea5' }}>{k.attacker}</span>
+              <span style={{ color: '#888' }}> → </span>
+              <span style={{ color: '#a5703a' }}>{k.victim}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!showPicker && isDead && (
+        <div style={{
+          position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%, -50%)',
+          color: '#ff3300', fontSize: 24, fontFamily: 'monospace', fontWeight: 'bold',
+          textShadow: '0 0 12px rgba(0,0,0,0.9)', pointerEvents: 'none', zIndex: 55,
+        }}>
+          YOU DIED
+          {respawnIn !== null && (
+            <div style={{ fontSize: 16, color: '#ffaa00', marginTop: 8 }}>
+              Respawn in {Math.ceil(respawnIn)}s
+            </div>
+          )}
+        </div>
+      )}
+
       {!showPicker && boundaryStatus !== 'safe' && (
         <div style={{
           position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)',
@@ -193,6 +525,17 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       <button
         onClick={onExit}
         style={{
+          position: 'absolute', top: 52, left: 16, padding: '6px 12px',
+          background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid #555',
+          borderRadius: 4, cursor: 'pointer', fontSize: 12, fontFamily: 'monospace',
+        }}
+      >
+        [V] View CS Mode
+      </button>
+
+      <button
+        onClick={onExit}
+        style={{
           position: 'absolute', top: 16, right: 16, padding: '6px 12px',
           background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid #555',
           borderRadius: 4, cursor: 'pointer', fontSize: 12, fontFamily: 'monospace',
@@ -200,6 +543,20 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       >
         Exit
       </button>
+
+      {/* Mobile touch controls */}
+      {!showPicker && !showBuyMenu && desktopControlsRef.current && mobileControls && (
+        <TouchControls
+          controls={desktopControlsRef.current}
+          lookRef={touchLookRef}
+          lookSensitivity={1}
+          onReload={() => { if (sessionRef.current) sessionRef.current.weaponManager.current.reload() }}
+          onCycleWeapon={() => { if (sessionRef.current) sessionRef.current.weaponManager.cycleNext() }}
+          onToggleStore={() => setShowBuyMenu(prev => !prev)}
+          onToggleScoreboard={() => setShowScoreboard(prev => !prev)}
+          onSelectGrenade={() => {}}
+        />
+      )}
     </div>
   )
 }

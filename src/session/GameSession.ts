@@ -742,7 +742,8 @@ export class GameSession {
     return { alive, total }
   }
 
-  private fireWeapon(entity: PlayerEntity, events: SessionEvent[]): void {
+  /** Fire the given entity's current weapon (shooting, hit detection, events). */
+  fireWeapon(entity: PlayerEntity, events: SessionEvent[]): void {
     const weapon = entity.weapons.current
     this.cameraQuat.setFromEuler(entity.player.rotation)
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.cameraQuat)
