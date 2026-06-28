@@ -82,7 +82,10 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       controls.setLook(0, 0) // initial: looking north, level
       controlsRef.current = controls
 
-      collisionRef.current = new PlanetaryCollision(engine.map)
+      collisionRef.current = new PlanetaryCollision(
+        engine.map,
+        (lng, lat) => engine.lngLatToLocal(lng, lat),
+      )
 
       const config = defaultCompetitiveConfig()
       const session = new GameSession(config)
@@ -153,10 +156,9 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
         // 4. Step the session (movement, combat, bots)
         const events = session.step(dt)
 
-        // 4. Update the Three.js camera from player state
+        // 4. Update the Three.js camera from player state (eye pos + look).
         const p = session.player.position
-        const mapBearing = (engine.map.getBearing() * Math.PI) / 180
-        engine.setViewFromPlayer(p, session.player.rotation.y, session.player.rotation.x, mapBearing)
+        engine.setViewFromPlayer(p, session.player.rotation.y, session.player.rotation.x)
 
         // 5. Process session events for round flow
         let scoreboardDirty = false
@@ -241,17 +243,19 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           })))
         }
 
-        // 5. Keep map centered on player for tile loading (view direction is from Three.js camera)
+        // 5. Keep the (hidden) map centered on the player so vector tiles load.
         const [lng, lat] = engine.localToLngLat(p.x, p.z)
         engine.map.setCenter([lng, lat])
-        // Fix pitch near-horizontal so the projection is stable; bearing stays at 0
-        engine.map.setPitch(75)
-        engine.map.setBearing(0)
 
-        // 6. Update collision world
+        // 6. Rebuild collision near the player; mirror the boxes into the visible scene.
         const center = engine.map.getCenter()
         if (collisionRef.current) {
+          const before = collisionRef.current.collisionWorld.boxes.length
           session.collisionWorld = collisionRef.current.update(center.lng, center.lat)
+          // update() is a no-op within 50 m; only re-mesh when the box set actually changed.
+          if (collisionRef.current.collisionWorld.boxes.length !== before || before === 0) {
+            engine.setBuildings(collisionRef.current.collisionWorld.boxes)
+          }
         }
 
         // 7. Round boundary check
@@ -274,7 +278,8 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           money: session.economy?.money ?? 0,
         })
 
-        // 9. Update viewmodel
+        // 9. Draw the FPS scene (lazily creates the WebGL canvas on first frame).
+        engine.render()
         viewmodel.update(dt, false)
 
         rafRef.current = requestAnimationFrame(loop)
@@ -343,7 +348,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       setStartCenter([lng, lat])
     } else {
       // Re-teleport: fly to the new location; rebuild collision after tiles settle
-      engineRef.current.map.flyTo({ center: [lng, lat], zoom: 17, pitch: 60, duration: 1500 })
+      engineRef.current.map.flyTo({ center: [lng, lat], zoom: 17, pitch: 0, duration: 1500 })
       engineRef.current.map.once('idle', () => {
         if (collisionRef.current && engineRef.current) {
           const c = engineRef.current.map.getCenter()
