@@ -11,7 +11,10 @@ export class PlanetaryCollision {
   private lastLng = NaN
   private lastLat = NaN
 
-  constructor(private map: Pick<maplibregl.Map, 'queryRenderedFeatures'>) {}
+  constructor(
+    private map: Pick<maplibregl.Map, 'queryRenderedFeatures'>,
+    private toLocal?: (lng: number, lat: number) => [number, number],
+  ) {}
 
   get collisionWorld(): CollisionWorld { return this.world }
 
@@ -31,6 +34,13 @@ export class PlanetaryCollision {
     this.world.boxes.length = 0
     const metersPerDegLon = 111320 * Math.cos((refLat * Math.PI) / 180)
     const metersPerDegLat = 111320
+    // Fixed origin frame when a converter is supplied; otherwise scan-center-relative.
+    const toLocal =
+      this.toLocal ??
+      ((bLng: number, bLat: number): [number, number] => [
+        (bLng - refLng) * metersPerDegLon,
+        -(bLat - refLat) * metersPerDegLat,
+      ])
 
     const features = this.map.queryRenderedFeatures(undefined, { layers: BUILDING_LAYERS })
     for (const f of features) {
@@ -45,8 +55,7 @@ export class PlanetaryCollision {
       for (const ring of rings) {
         let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity
         for (const [bLng, bLat] of ring) {
-          const x = (bLng - refLng) * metersPerDegLon
-          const z = -(bLat - refLat) * metersPerDegLat
+          const [x, z] = toLocal(bLng, bLat)
           if (x < minX) minX = x
           if (x > maxX) maxX = x
           if (z < minZ) minZ = z
