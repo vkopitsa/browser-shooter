@@ -18,7 +18,6 @@ import { buildCharacter } from '../entities/CharacterModel'
 import { Controls } from '../player/Controls'
 import { mobileControlsActive } from '../settings/Settings'
 import { loadSettings } from '../settings/Settings'
-import { offsetLngLat } from './geoUtils'
 import type { EntityState } from '../session/protocol'
 
 interface PlanetaryModeProps {
@@ -70,12 +69,9 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
 
   // Engine is created lazily after the user picks a drop-in location.
   // This avoids two concurrent MapLibre/WebGL contexts during the picker phase.
-  const originRef = useRef<[number, number]>([0, 0])
   useEffect(() => {
     if (!startCenter || !containerRef.current) return
     let mounted = true
-    const [oLng, oLat] = startCenter
-    originRef.current = [oLng, oLat]
     const engine = new PlanetaryEngine(containerRef.current, startCenter)
     engineRef.current = engine
 
@@ -255,7 +251,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
 
         // 5. Sync map center to player's world position
         const p = session.player.position
-        const [lng, lat] = offsetLngLat(originRef.current[0], originRef.current[1], p.x, -p.z)
+        const [lng, lat] = engine.localToLngLat(p.x, p.z)
         engine.map.setCenter([lng, lat])
 
         // 6. Update collision world
@@ -284,12 +280,13 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           money: session.economy?.money ?? 0,
         })
 
-        // 9. Sync bot meshes to their logical positions
+        // 9. Sync bot meshes to their Mercator world positions
         for (const [id, mesh] of botMeshes) {
           const entity = session.getPlayer(id)
           if (entity) {
             const pos = entity.player.position
-            mesh.position.set(pos.x, pos.y - 1.1, pos.z) // feet at ground
+            const worldPos = engine.localToMercator(pos.x, pos.z, pos.y)
+            mesh.position.copy(worldPos)
             mesh.rotation.y = entity.player.rotation.y
             mesh.visible = !entity.player.isDead
           }
