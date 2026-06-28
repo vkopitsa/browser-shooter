@@ -29,22 +29,47 @@ Planetary mode = the exact same gameplay as multiplayer/competitive CS-style mod
 - Origin: player's drop location = GameSession origin (0, 0, 0)
 - Scale: real-world 1:1 (meters)
 - X → east (lng), Z → south (lat, negated for Three.js)
-- Conversion via `offsetLngLat()` from `geoUtils.ts`
+- Conversion: `offsetLngLat(lng, lat, eastMeters, northMeters)` from `geoUtils.ts`
+- Reverse: `metersPerDegLon = 111320 * cos(lat)`, `metersPerDegLat = 111320`
+
+### Camera Sync
+
+The Three.js camera in `PlanetaryEngine.scene` must be positioned at the GameSession player's position (in meters relative to origin), with rotation from map bearing/pitch:
+
+```
+camera.position.set(playerX, playerY, playerZ)  // in meters from drop point
+camera.rotation.set(pitch, yaw, 0, 'YXZ')
+```
+
+The MapLibre custom layer provides the projection matrix automatically. The camera position is the **player's logical position in GameSession space**, NOT the map center. Map center is just what the map is looking at — the player can move within the map.
 
 ### Game Loop
 
 ```
-1. GeoControls reads WASD → map camera moves
-2. getInput() → session.applyInput(localId, input)
+1. GeoControls reads WASD → map camera moves (this is the VIEW)
+2. getInput() → session.applyInput(localId, input) → player LOGICAL position updates
 3. session.step(dt) → player moves, bots AI, combat resolves
-4. Sync Three.js camera to player position + map bearing/pitch
-5. Render bots/effects in Three.js scene
-6. Update HUD state from session snapshot
+4. Set engine.map center to player's lng/lat (so map tiles follow the player)
+5. Add three.js camera at player.position with bearing/pitch rotation
+6. Render bots as 3D character models in engine.scene
+7. Update HUD state from session snapshot
 ```
+
+### Bot Rendering
+
+Bots exist in GameSession as `PlayerEntity` with `player.position` in meters. Render them using `buildCharacter` (from `entities/CharacterModel`) or simple colored boxes added to `engine.scene`. Position each bot mesh at `(bot.player.position.x, bot.player.position.y, bot.player.position.z)` relative to the session origin.
 
 ## Implementation Plan
 
 ### Phase 1: Input & Movement
+
+**Key change:** `GeoControls` currently moves the map center directly. In the new design, the player's logical position moves (via session input), and the map center follows. We have two options:
+
+**Option A (recommended):** Keep `GeoControls` moving the map (it works), but ALSO feed input to the session so the logical player moves. Then sync: map center = player's lng/lat.
+
+**Option B:** Refactor `GeoControls` to only read input, let the game loop set map center from player position.
+
+We go with **Option A** — minimal changes to `GeoControls`, just add `getInput()`.
 
 **`src/planetary/GeoControls.ts`:**
 - Add `getInput(): PlayerInput` method
@@ -53,6 +78,12 @@ Planetary mode = the exact same gameplay as multiplayer/competitive CS-style mod
 **`src/planetary/PlanetaryMode.tsx` game loop:**
 - After `controls.update(dt)`, call `session.applyInput(session.localId, input)`
 - Set `input.yaw` from map bearing, `input.pitch` from map pitch
+- After `session.step(dt)`, convert player position to lng/lat and set map center:
+  ```ts
+  const p = session.player.position
+  const [lng, lat] = offsetLngLat(startCenter[0], startCenter[1], p.x, -p.z)
+  engine.map.setCenter([lng, lat])
+  ```
 
 ### Phase 2: Full Game Session Wiring
 
