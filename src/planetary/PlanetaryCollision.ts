@@ -21,6 +21,16 @@ export class PlanetaryCollision {
 
   get collisionWorld(): CollisionWorld { return this.world }
 
+  /**
+   * Force the next {@link update} to re-scan even within {@link RESCAN_METERS}.
+   * Used when the map fires 'idle' (tiles finished rendering) so buildings that
+   * weren't yet rendered at the initial scan get picked up.
+   */
+  markStale(): void {
+    this.lastLng = NaN
+    this.lastLat = NaN
+  }
+
   update(lng: number, lat: number): CollisionWorld {
     if (
       !isNaN(this.lastLng) &&

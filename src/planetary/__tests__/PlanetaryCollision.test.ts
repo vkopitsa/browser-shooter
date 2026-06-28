@@ -55,6 +55,18 @@ describe('PlanetaryCollision', () => {
     expect(pc.rebuildVersion).toBe(v1 + 1)
   })
 
+  it('markStale forces a re-scan even within 50m', () => {
+    const map = makeMap([squareBuilding])
+    const pc = new PlanetaryCollision(map as any)
+    pc.update(0, 0)
+    expect(map.queryRenderedFeatures).toHaveBeenCalledTimes(1)
+    pc.update(0.0001, 0.0001) // ~15m, normally skipped
+    expect(map.queryRenderedFeatures).toHaveBeenCalledTimes(1)
+    pc.markStale()
+    pc.update(0.0001, 0.0001) // same spot, but stale → re-scans
+    expect(map.queryRenderedFeatures).toHaveBeenCalledTimes(2)
+  })
+
   it('places boxes in the injected origin frame regardless of scan center', () => {
     const map = makeMap([squareBuilding])
     // Origin-relative converter: meters east/south of lng/lat (0,0).

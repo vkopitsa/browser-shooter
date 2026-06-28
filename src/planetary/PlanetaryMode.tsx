@@ -88,6 +88,11 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
         (lng, lat) => engine.lngLatToLocal(lng, lat),
       )
 
+      // Building tiles aren't rendered yet at map 'load', so the first scan finds
+      // nothing. Re-scan whenever the map settles (tiles done) — the loop's version
+      // gate then meshes the buildings. Also fires as the player enters new areas.
+      engine.map.on('idle', () => collisionRef.current?.markStale())
+
       const config = defaultCompetitiveConfig()
       const session = new GameSession(config)
       session.collisionWorld = collisionRef.current.collisionWorld
