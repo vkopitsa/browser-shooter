@@ -1,102 +1,116 @@
-# Planetary Mode: Fix Walking & Add CS Mode Viewer
+# Planetary Mode: Full CS-Style Gameplay on Real Map
 
 Date: 2026-06-28
-Status: Draft
+Status: Approved
 
-## Problem
+## Vision
 
-Two issues reported by the user:
+Planetary mode = the exact same gameplay as multiplayer/competitive CS-style mode, but rendered on top of a real-world map (MapLibre).
 
-1. **Cannot walk in planetary mode** — After selecting a drop location on the map, WASD keys don't move the player. The `GeoControls` class correctly reads key input and moves the MapLibre map camera, but never forwards that input to the `GameSession`. The session's player entity stays at `[0, 0, 0]` while the map moves, so bots don't react and collision is wrong.
+- Same `GameSession` logic: weapons, economy, bots, bombsites, rounds, collision
+- Same rendering: Three.js scene, viewmodel, remote players, particles, HUD
+- **Difference**: the ground is a real-world map (MapLibre tiles) instead of a flat Three.js arena
 
-2. **Cannot view CS-style gameplay from planetary mode** — There is no way to see how the regular CS-style competitive mode looks/behaves without exiting to the main menu and restarting the game.
-
-## Root Cause Analysis
-
-### Issue 1: Walking
-
-The game loop in `PlanetaryMode.tsx` (line 71-104):
+## Architecture
 
 ```
-controls.update(dt)       // moves MapLibre map center based on WASD
-session.step(dt)          // advances GameSession — but NO input was applied
+┌─────────────────────────────────────────────────┐
+│ HTML Overlay: HUD, Crosshair, Buy Menu, Scoreboard │
+├─────────────────────────────────────────────────┤
+│ Three.js Scene: players, bots, effects, viewmodel  │
+│   ↕ custom layer (projection matrix from MapLibre) │
+├─────────────────────────────────────────────────┤
+│ MapLibre Canvas: real-world map tiles (ground)     │
+└─────────────────────────────────────────────────┘
 ```
 
-`GameSession.step()` calls `player.update(dt, input, ...)` for each player. For the local player (`LOCAL_ID`), it reads input via `this.getInput(entity.id)`. But `session.applyInput()` is never called in the planetary loop — so the input is the default `emptyInput()` (all movement flags false).
+### Coordinate System
 
-Meanwhile, `GeoControls` already tracks which keys are pressed (`this.keys` Set). It just never exposes them to the session.
+- Origin: player's drop location = GameSession origin (0, 0, 0)
+- Scale: real-world 1:1 (meters)
+- X → east (lng), Z → south (lat, negated for Three.js)
+- Conversion via `offsetLngLat()` from `geoUtils.ts`
 
-### Issue 2: Mode Viewing
+### Game Loop
 
-Planetary mode is a separate React component (`PlanetaryMode`) rendered when `gameState === 'planetary'`. CS-style gameplay lives in `App.tsx`'s `'playing'` state with the `GameEngine` (Three.js) renderer. There is currently no bridge between them.
+```
+1. GeoControls reads WASD → map camera moves
+2. getInput() → session.applyInput(localId, input)
+3. session.step(dt) → player moves, bots AI, combat resolves
+4. Sync Three.js camera to player position + map bearing/pitch
+5. Render bots/effects in Three.js scene
+6. Update HUD state from session snapshot
+```
 
-## Design
+## Implementation Plan
 
-### Section 1: Fix Walking (Input Plumbing)
+### Phase 1: Input & Movement
 
-**Approach:** Add a `getInput()` method to `GeoControls` that returns a `PlayerInput` matching the key state. Call `session.applyInput()` in the game loop before `session.step()`.
+**`src/planetary/GeoControls.ts`:**
+- Add `getInput(): PlayerInput` method
+- Import `PlayerInput`, `emptyInput` from `../session/protocol`
 
-**Changes to `GeoControls.ts`:**
-- Add import for `PlayerInput` and `emptyInput` from `../session/protocol`
-- Add public method `getInput(): PlayerInput` that returns:
-  ```ts
-  return {
-    ...emptyInput(),
-    forward: this.keys.has('KeyW') || this.keys.has('ArrowUp'),
-    backward: this.keys.has('KeyS') || this.keys.has('ArrowDown'),
-    left: this.keys.has('KeyA') || this.keys.has('ArrowLeft'),
-    right: this.keys.has('KeyD') || this.keys.has('ArrowRight'),
-  }
-  ```
+**`src/planetary/PlanetaryMode.tsx` game loop:**
+- After `controls.update(dt)`, call `session.applyInput(session.localId, input)`
+- Set `input.yaw` from map bearing, `input.pitch` from map pitch
 
-**Changes to `PlanetaryMode.tsx` game loop:**
-- After `controls.update(dt)`, before `session.step(dt)`:
-  ```ts
-  const input = controls.getInput()
-  input.yaw = engine.map.getBearing()
-  input.pitch = engine.map.getPitch()
-  session.applyInput(session.localId, input)
-  ```
+### Phase 2: Full Game Session Wiring
 
-This makes the session player entity move in sync with the map camera. Bots will react to the player's logical position, and collision works correctly.
+**`src/planetary/PlanetaryMode.tsx`:**
+- Initialize session with competitive config (already done)
+- Enable round manager: set state to `Buying`, start buy phase timer
+- Add economy display (money in HUD)
+- Wire buy menu (press B → `BuyMenu` component)
+- Wire scoreboard (Tab → show team scores)
+- Wire kill feed from session events
 
-### Section 2: CS Mode Viewer Button
+### Phase 3: Combat & Rendering
 
-**Approach:** Add a `[V] View CS Mode` button to the planetary mode HUD. Clicking it exits planetary and transitions to the existing `'playing'` state (CS-style competitive mode).
+**`src/planetary/PlanetaryEngine.ts`:**
+- Add bot character models to scene (reuse `RemotePlayer` or `buildCharacter`)
+- Add viewmodel (first-person gun) parented to camera
+- Add particle system for muzzle flash, blood, explosions
+- Sync scene camera to match MapLibre view each frame
 
-**Changes to `PlanetaryMode.tsx`:**
-- Add a new button in the top-right area (next to existing Map and Exit buttons):
-  ```tsx
-  <button onClick={onExit} style={{ ...existingStyle, top: 56 }}>
-    [V] View CS Mode
-  </button>
-  ```
-- `onExit` calls `updateGameState('menu')` in `App.tsx`. From the menu, the user clicks "Play" → CS mode starts.
+**`src/planetary/PlanetaryMode.tsx`:**
+- Handle shooting: left click → `session.weaponManager.current.shoot()` → `session.fireWeapon()` → events
+- Render bot positions from session snapshot
+- Update weapon HUD (ammo, weapon name) from `session.weaponManager.current`
 
-**No changes to `App.tsx`** — it already handles `'playing'` state with full CS-style gameplay (arena, weapons, economy, bots, bombsites).
+### Phase 4: Objectives & Round Flow
 
-**Alternative considered:** A seamless toggle (V swaps between modes without menu). Rejected because:
-- Requires keeping both engines (MapLibre + Three.js) alive simultaneously — risk of WebGL context conflicts
-- Significant complexity for a "nice to have" feature
-- The menu transition is already fast (2 clicks)
+- Bombsites: place 2-3 bombsite zones near spawn points (reuse `Bombsite` class)
+- Bomb plant/defuse: same keybinds (5 to plant, E to defuse)
+- Round end: show winner, award economy, next round after delay
+- Match end: show scores, option to restart or exit
 
-### Section 3: Scope & Constraints
+### Phase 5: Mode Switching
 
-- **No new dependencies** — all changes use existing code paths
-- **No changes to `GameSession`** — the session already supports player movement via `applyInput()`
-- **No changes to `App.tsx`** — planetary mode is self-contained
-- **Backwards compatible** — existing planetary behavior (map picker, teleport, bots) is unchanged
+- Add `[V] View CS Mode` button to planetary HUD
+- On click: dispose planetary engine, transition to `'playing'` state
+- App.tsx handles the rest (existing CS mode flow)
+
+## Key Design Decisions
+
+1. **Self-contained**: PlanetaryMode manages its own session/rendering, doesn't modify App.tsx's `'playing'` flow
+2. **Reuse existing systems**: `GameSession`, `WeaponManager`, `RoundManager`, `Economy`, `Bombsite` — all already implemented
+3. **No network**: Planetary mode is single-player with bots only (no P2P multiplayer on map)
+4. **Arena size**: Use a reasonable real-world area (e.g., 2000m × 2000m around drop point) mapped to the map
 
 ## Files Modified
 
 | File | Change |
 |------|--------|
 | `src/planetary/GeoControls.ts` | Add `getInput()` method |
-| `src/planetary/PlanetaryMode.tsx` | Call `session.applyInput()` in game loop; add `[V] View CS Mode` button |
+| `src/planetary/PlanetaryMode.tsx` | Full game loop rewrite: input, combat, economy, rounds, HUD |
+| `src/planetary/PlanetaryEngine.ts` | Add bot rendering, viewmodel, particle system support |
+| `src/planetary/RoundBoundary.ts` | (if needed) adapt for real-world distances |
 
-## Testing Plan
+## Testing
 
-1. **Walking test:** Enter planetary mode → pick drop location → press W/A/S/D → verify the player entity moves (bots react, collision with buildings works)
-2. **Mode switch test:** Click `[V] View CS Mode` → verify transition to menu → click Play → verify CS mode loads correctly
-3. **Regression test:** Verify existing planetary features still work (map picker, teleport, round boundary)
-4. **Build check:** `npm run build` passes, `npm run lint` passes
+1. Walk with WASD → map moves, player entity moves, bots react
+2. Shoot → ammo decreases, muzzle flash, bots take damage, kill feed shows
+3. Buy menu (B) → can purchase weapons/armor, money decreases
+4. Round flow: buy phase → active → bomb plant → round end → next round
+5. Mode switch: [V] → menu → Play → CS mode works normally
+6. `npm run build` + `npm run lint` pass
