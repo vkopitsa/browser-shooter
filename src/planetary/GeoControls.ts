@@ -1,9 +1,7 @@
 import type maplibregl from 'maplibre-gl'
-import { offsetLngLat } from './geoUtils'
 import { emptyInput, type PlayerInput } from '../session/protocol'
 
 const MOUSE_SENSITIVITY = 0.3  // degrees per pixel
-const MOVE_SPEED = 8           // meters per second
 const PITCH_MIN = 0
 const PITCH_MAX = 85
 
@@ -63,17 +61,5 @@ export class GeoControls {
     this.map.setPitch(this.pitch)
   }
 
-  /** Move the map camera by the given bearing-relative offset (meters). */
-  moveBy(dt: number, bearing: number, forward: number, strafe: number) {
-    if (forward === 0 && strafe === 0) return
 
-    const speed = MOVE_SPEED * dt
-    const bearingRad = (bearing * Math.PI) / 180
-    const east = (strafe * Math.cos(bearingRad) - forward * Math.sin(bearingRad)) * speed
-    const north = (-forward * Math.cos(bearingRad) - strafe * Math.sin(bearingRad)) * speed
-
-    const center = this.map.getCenter()
-    const [lng, lat] = offsetLngLat(center.lng, center.lat, east, north)
-    this.map.setCenter([lng, lat])
-  }
 }

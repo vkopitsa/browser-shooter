@@ -16,8 +16,7 @@ import { TouchControls } from '../ui/TouchControls'
 import { Viewmodel } from '../weapons/Viewmodel'
 import { buildCharacter } from '../entities/CharacterModel'
 import { Controls } from '../player/Controls'
-import { mobileControlsActive } from '../settings/Settings'
-import { loadSettings } from '../settings/Settings'
+import { mobileControlsActive, loadSettings } from '../settings/Settings'
 import type { EntityState } from '../session/protocol'
 
 interface PlanetaryModeProps {
@@ -58,6 +57,8 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
   const [isDead, setIsDead] = useState(false)
   const [respawnIn, setRespawnIn] = useState<number | null>(null)
   const killSeqRef = useRef(0)
+  const mouseShootRef = useRef(false)
+  const [mobileControls] = useState(() => mobileControlsActive(loadSettings()))
 
   // Auto-clear kill feed entries after 5 seconds
   useEffect(() => {
@@ -103,6 +104,9 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       for (let i = 0; i < 3; i++) session.addBot('ct')
       for (let i = 0; i < 2; i++) session.addBot('t')
 
+      // ponytail: large enough to never clamp in open-world play; bots already placed
+      session.map.arenaSize = 5000
+
       // Set up round manager for competitive play
       if (session.roundManager) {
         session.roundManager.state = RoundState.Buying
@@ -145,13 +149,12 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           input.left = input.left || mv.left
           input.right = input.right || mv.right
           input.jump = input.jump || mv.jump
-          if (touch.shoot) {
-            input.shoot = true
-          }
+          input.shoot = input.shoot || touch.shoot || mouseShootRef.current
+        } else {
+          input.shoot = input.shoot || mouseShootRef.current
         }
 
         // 2. Look: merge touch look delta into GeoControls bearing/pitch
-        const center = engine.map.getCenter()
         const gcBearing = engine.map.getBearing()
         const gcPitch = engine.map.getPitch()
         if (touchLookRef.current.yaw !== 0 || touchLookRef.current.pitch !== 0) {
@@ -162,8 +165,8 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           touchLookRef.current.yaw = 0
           touchLookRef.current.pitch = 0
         }
-        input.yaw = engine.map.getBearing()
-        input.pitch = engine.map.getPitch()
+        input.yaw = (engine.map.getBearing() * Math.PI) / 180
+        input.pitch = (engine.map.getPitch() * Math.PI) / 180
 
         // 3. Apply input to the session so the logical player moves
         session.applyInput(session.localId, input)
@@ -172,6 +175,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
         const events = session.step(dt)
 
         // 5. Process session events for round flow
+        let scoreboardDirty = false
         for (const ev of events) {
           switch (ev.type) {
             case 'roundStart':
@@ -183,6 +187,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
                 buyTimer: 0,
                 roundTimer: 115,
               })
+              scoreboardDirty = true
               break
             case 'buyPhaseStart':
               setShowBuyMenu(true)
@@ -193,6 +198,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
               setIsDead(false)
               setRespawnIn(null)
               setRoundState(prev => prev ? { ...prev, state: RoundState.Over, ctScore: ev.ctScore, tScore: ev.tScore } : null)
+              scoreboardDirty = true
               break
             case 'matchOver':
               setShowBuyMenu(false)
@@ -206,6 +212,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
               if (ev.victimId === session.localId) {
                 setIsDead(true)
               }
+              scoreboardDirty = true
               break
             }
             case 'playerDied':
@@ -213,12 +220,14 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
                 setIsDead(true)
                 setRespawnIn(session.respawnQueue.isPending(session.localId) ? session.respawnQueue.remaining(session.localId) : null)
               }
+              scoreboardDirty = true
               break
             case 'playerRespawned':
               if (ev.playerId === session.localId) {
                 setIsDead(false)
                 setRespawnIn(null)
               }
+              scoreboardDirty = true
               break
             case 'bombPlanted':
               break
@@ -228,26 +237,25 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           }
         }
 
-        // Update round state from session
+        // Only update timers per-frame; event handlers own state/scores
         if (session.roundManager) {
-          setRoundState({
-            state: session.roundManager.state,
-            round: session.roundManager.round,
-            ctScore: session.roundManager.ctScore,
-            tScore: session.roundManager.tScore,
-            buyTimer: session.roundManager.buyPhaseTimer,
-            roundTimer: session.roundManager.roundTimer,
-          })
+          setRoundState(prev => prev ? {
+            ...prev,
+            buyTimer: session.roundManager!.buyPhaseTimer,
+            roundTimer: session.roundManager!.roundTimer,
+          } : null)
         }
 
-        // Update scoreboard data
-        setScoreboardPlayers(session.getSnapshot().players.map(p => ({
-          id: p.id, kind: 'player', type: 'player',
-          position: p.position, rotationY: p.rotationY, rotationX: p.rotationX,
-          health: p.health, isDead: p.isDead, weaponType: p.weaponType,
-          name: p.name, team: p.team, isBot: p.isBot,
-          respawnIn: p.respawnIn, hasArmor: p.hasArmor, hasHelmet: p.hasHelmet,
-        })))
+        // Scoreboard only updates when a kill/death/respawn event occurs
+        if (scoreboardDirty) {
+          setScoreboardPlayers(session.getSnapshot().players.map(p => ({
+            id: p.id, kind: 'player', type: 'player',
+            position: p.position, rotationY: p.rotationY, rotationX: p.rotationX,
+            health: p.health, isDead: p.isDead, weaponType: p.weaponType,
+            name: p.name, team: p.team, isBot: p.isBot,
+            respawnIn: p.respawnIn, hasArmor: p.hasArmor, hasHelmet: p.hasHelmet,
+          })))
+        }
 
         // 5. Sync map center to player's world position
         const p = session.player.position
@@ -334,22 +342,17 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
         setShowScoreboard(false)
       }
     }
-    const handleMouseDown = (e: MouseEvent) => {
-      if (e.button === 0 && sessionRef.current && !session.player.isDead) {
-        const wm = sessionRef.current.weaponManager
-        if (wm.current.canShoot()) {
-          wm.current.shoot()
-          sessionRef.current.fireWeapon(sessionRef.current.localId, [])
-        }
-      }
-    }
+    const handleMouseDown = (e: MouseEvent) => { if (e.button === 0) mouseShootRef.current = true }
+    const handleMouseUp = (e: MouseEvent) => { if (e.button === 0) mouseShootRef.current = false }
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
     window.addEventListener('mousedown', handleMouseDown)
+    window.addEventListener('mouseup', handleMouseUp)
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('mousedown', handleMouseDown)
+      window.removeEventListener('mouseup', handleMouseUp)
     }
   }, [showPicker])
 
@@ -542,7 +545,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       </button>
 
       {/* Mobile touch controls */}
-      {!showPicker && !showBuyMenu && desktopControlsRef.current && mobileControlsActive(loadSettings()) && (
+      {!showPicker && !showBuyMenu && desktopControlsRef.current && mobileControls && (
         <TouchControls
           controls={desktopControlsRef.current}
           lookRef={touchLookRef}

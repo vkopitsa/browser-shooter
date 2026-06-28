@@ -27,12 +27,9 @@ describe('GeoControls', () => {
     controls.attach()
   })
 
-  it('moves north on KeyW press (bearing=0)', () => {
+  it('reports forward on KeyW press', () => {
     container.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW', bubbles: true }))
-    controls.update(1)
-    expect(map.setCenter).toHaveBeenCalled()
-    const [, lat] = map.setCenter.mock.calls[0][0]
-    expect(lat).toBeGreaterThan(0)
+    expect(controls.getInput().forward).toBe(true)
   })
 
   it('clamps pitch to 85 max', () => {
@@ -48,7 +45,6 @@ describe('GeoControls', () => {
   it('detach stops responding to keydown', () => {
     controls.detach()
     container.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW', bubbles: true }))
-    controls.update(1)
-    expect(map.setCenter).not.toHaveBeenCalled()
+    expect(controls.getInput().forward).toBe(false)
   })
 })
