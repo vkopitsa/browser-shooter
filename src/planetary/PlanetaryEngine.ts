@@ -171,9 +171,6 @@ export class PlanetaryEngine {
   setViewFromPlayer(playerPos: THREE.Vector3, yaw: number, pitch: number) {
     this.camera.position.copy(playerPos)
     this.camera.rotation.set(pitch, yaw, 0, 'YXZ')
-    // Keep shadow frustum centered on player
-    this.sun.target.position.copy(playerPos)
-    this.sun.target.updateMatrixWorld()
   }
 
   setBuildings(boxes: BoxCollider[]) {
@@ -193,15 +190,14 @@ export class PlanetaryEngine {
       const sy = b.max.y - b.min.y
       const sz = b.max.z - b.min.z
       const cx = (b.min.x + b.max.x) / 2
-      const cy = (b.min.y + b.max.y) / 2
       const cz = (b.min.z + b.max.z) / 2
-      // Create a square footprint from box XZ dimensions
+      // Create a square footprint centered at origin (mesh positioned at cx, min.y, cz)
       const half = Math.max(sx, sz) / 2
       const footprint: [number, number][] = [
-        [cx - half, cz - half],
-        [cx + half, cz - half],
-        [cx + half, cz + half],
-        [cx - half, cz + half],
+        [-half, -half],
+        [+half, -half],
+        [+half, +half],
+        [-half, +half],
       ]
       const spec: BuildingSpec = {
         footprint,
@@ -230,7 +226,7 @@ export class PlanetaryEngine {
         wallGeo.setAttribute('uv',
           new THREE.Float32BufferAttribute(uvAttr.array.slice(0, wallVertCount * 2), 2))
         const wallMesh = new THREE.Mesh(wallGeo, wallMat)
-        wallMesh.position.set(cx, cy, cz)
+        wallMesh.position.set(cx, b.min.y, cz)
         wallMesh.castShadow = true
         wallMesh.receiveShadow = true
         this.buildings.add(wallMesh)
@@ -246,7 +242,7 @@ export class PlanetaryEngine {
         roofGeo.setAttribute('uv',
           new THREE.Float32BufferAttribute(uvAttr.array.slice(wallVertCount * 2), 2))
         const roofMesh = new THREE.Mesh(roofGeo, roofMat)
-        roofMesh.position.set(cx, cy, cz)
+        roofMesh.position.set(cx, b.min.y, cz)
         roofMesh.castShadow = true
         roofMesh.receiveShadow = true
         this.buildings.add(roofMesh)
