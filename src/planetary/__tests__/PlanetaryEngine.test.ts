@@ -19,6 +19,8 @@ vi.mock('maplibre-gl', () => {
 vi.mock('maplibre-gl/dist/maplibre-gl.css', () => ({}))
 
 vi.mock('three/addons/objects/Sky.js', () => {
+  // ponytail: vi.mock factory can't use static import; dynamic require is the only option here
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const THREE = require('three')
   class Sky extends THREE.Mesh {
     constructor() {
@@ -146,8 +148,6 @@ describe('PlanetaryEngine — setRoads / setTrees / setGreenAreas', () => {
     ;(engine.map as any)._triggerLoad()
     engine.setRoads([makeRoadStrip()])
     engine.setRoads([makeRoadStrip(), makeRoadStrip()])
-    let roadMeshCount = 0
-    engine.scene.traverse(o => { if (o instanceof THREE.Mesh && o.geometry.getAttribute('uv')) roadMeshCount++ })
     engine.dispose()
   })
 
