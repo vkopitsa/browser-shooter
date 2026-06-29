@@ -138,7 +138,6 @@ function addHippedRoof(
   n: number,
   topY: number,
   ridgeY: number,
-  _ridgeDir: [number, number],
 ): void {
   const [cx, cz] = centroid2D(ring, n)
 
@@ -277,7 +276,7 @@ export class BuildingGeometry {
           addGableRoof(positions, normals, uvs, ring, n, topY, ridgeY, ridgeDir)
           break
         case 'hipped':
-          addHippedRoof(positions, normals, uvs, ring, n, topY, ridgeY, ridgeDir)
+          addHippedRoof(positions, normals, uvs, ring, n, topY, ridgeY)
           break
         case 'pyramidal':
           addPyramidalRoof(positions, normals, uvs, ring, n, topY, ridgeY)
