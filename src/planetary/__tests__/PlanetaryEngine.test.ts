@@ -213,6 +213,21 @@ describe('PlanetaryEngine — setRoads / setTrees / setGreenAreas', () => {
     engine.dispose()
   })
 
+  it('culls trees beyond the fog-far distance', () => {
+    const container = document.createElement('div')
+    const engine = new PlanetaryEngine(container)
+    ;(engine.map as any)._triggerLoad()
+    engine.setViewFromPlayer(new THREE.Vector3(0, 1.7, 0), 0, 0)
+
+    engine.setTrees([new THREE.Vector3(10, 0, 10), new THREE.Vector3(800, 0, 800)])
+
+    let mesh: THREE.InstancedMesh | undefined
+    engine.scene.traverse(o => { if (o instanceof THREE.InstancedMesh) mesh = o })
+    expect(mesh).toBeDefined()
+    expect(mesh!.count).toBe(1)
+    engine.dispose()
+  })
+
   it('setGreenAreas adds a mesh to scene', () => {
     const container = document.createElement('div')
     const engine = new PlanetaryEngine(container)

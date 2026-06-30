@@ -295,13 +295,15 @@ export class PlanetaryEngine {
       this.scene.remove(this.trees)
       this.trees = null
     }
-    if (positions.length === 0) return
+    const far = this.cullFar()
+    const visible = positions.filter(p => !this.isBeyond(p.x, p.z, far))
+    if (visible.length === 0) return
     const geo = new THREE.PlaneGeometry(6, 10)
-    const mesh = new THREE.InstancedMesh(geo, this.treeMat, positions.length)
+    const mesh = new THREE.InstancedMesh(geo, this.treeMat, visible.length)
     mesh.castShadow = true
     const dummy = new THREE.Object3D()
-    for (let i = 0; i < positions.length; i++) {
-      dummy.position.copy(positions[i])
+    for (let i = 0; i < visible.length; i++) {
+      dummy.position.copy(visible[i])
       dummy.position.y = 5  // center of 10 m tall plane
       dummy.updateMatrix()
       mesh.setMatrixAt(i, dummy.matrix)
