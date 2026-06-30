@@ -163,8 +163,7 @@ export class PlanetaryEngine {
     this.sun.intensity = state.intensity
     this.sky.material.uniforms['sunPosition'].value.copy(state.direction)
 
-    const elev = Math.asin(THREE.MathUtils.clamp(state.direction.y, -1, 1))
-    const atmo = this.atmosphere.update(elev)
+    const atmo = this.atmosphere.update(state.elevation)
 
     if (this.scene.fog instanceof THREE.Fog) {
       this.scene.fog.color.copy(atmo.fogColor)

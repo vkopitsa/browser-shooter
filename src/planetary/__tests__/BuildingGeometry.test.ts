@@ -18,6 +18,21 @@ describe('BuildingGeometry.generate', () => {
     expect(geo.groups[1].materialIndex).toBe(1)
   })
 
+  it('wall normals point outward from a CCW square footprint', () => {
+    const geo = BuildingGeometry.generate({ footprint: square, height: 5 })
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute
+    const nrm = geo.getAttribute('normal') as THREE.BufferAttribute
+    const center = new THREE.Vector2(5, 5) // square centroid in XZ
+    // Walls are group 0 — every wall vertex's normal must point away from the centroid.
+    for (let i = 0; i < geo.groups[0].count; i++) {
+      const vi = geo.groups[0].start + i
+      const toVertex = new THREE.Vector2(pos.getX(vi), pos.getZ(vi)).sub(center)
+      if (toVertex.lengthSq() < 1e-6) continue
+      const normalXZ = new THREE.Vector2(nrm.getX(vi), nrm.getZ(vi))
+      expect(toVertex.dot(normalXZ)).toBeGreaterThan(0)
+    }
+  })
+
   it('throws when footprint has fewer than 3 distinct vertices', () => {
     const spec: BuildingSpec = { footprint: [[0, 0], [1, 0]], height: 5 }
     expect(() => BuildingGeometry.generate(spec)).toThrow()

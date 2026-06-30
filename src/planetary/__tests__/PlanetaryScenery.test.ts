@@ -9,6 +9,7 @@ function makeMap(features: object[]) {
 }
 
 const roadFeature = {
+  sourceLayer: 'transportation',
   geometry: { type: 'LineString', coordinates: [[0, 0], [0.001, 0]] },
   properties: { class: 'residential' },
 }
@@ -82,20 +83,44 @@ describe('PlanetaryScenery — roads', () => {
   })
 
   it('ignores non-road geometry types', () => {
-    const pointFeature = { geometry: { type: 'Point', coordinates: [0, 0] }, properties: { class: 'residential' } }
+    const pointFeature = { sourceLayer: 'transportation', geometry: { type: 'Point', coordinates: [0, 0] }, properties: { class: 'residential' } }
     const map = makeMap([pointFeature])
     const sc = new PlanetaryScenery(map as any, identity)
     const { roads } = sc.update(0, 0)
     expect(roads).toHaveLength(0)
   })
+
+  it('ignores features from unrelated source layers (e.g. building, poi)', () => {
+    // Regression: extraction must filter by feature.sourceLayer, not by a
+    // style-specific render-layer id passed to queryRenderedFeatures —
+    // different MapLibre styles name their render layers differently.
+    const unrelated = { sourceLayer: 'building', geometry: { type: 'LineString', coordinates: [[0, 0], [0.001, 0]] }, properties: {} }
+    const map = makeMap([unrelated])
+    const sc = new PlanetaryScenery(map as any, identity)
+    const { roads } = sc.update(0, 0)
+    expect(roads).toHaveLength(0)
+  })
+
+  it('dedupes a feature rendered by multiple style layers sharing one source layer (casing + fill)', () => {
+    // A single road feature is typically drawn by both a "casing" and a
+    // "fill" style layer; queryRenderedFeatures returns it once per match.
+    const casing = { id: 'road-1', sourceLayer: 'transportation', geometry: { type: 'LineString', coordinates: [[0, 0], [0.001, 0]] }, properties: { class: 'residential' } }
+    const fill = { id: 'road-1', sourceLayer: 'transportation', geometry: { type: 'LineString', coordinates: [[0, 0], [0.001, 0]] }, properties: { class: 'residential' } }
+    const map = makeMap([casing, fill])
+    const sc = new PlanetaryScenery(map as any, identity)
+    const { roads } = sc.update(0, 0)
+    expect(roads).toHaveLength(1)
+  })
 })
 
 const treeFeature = {
+  sourceLayer: 'poi',
   geometry: { type: 'Point', coordinates: [0.001, 0.001] },
   properties: { natural: 'tree' },
 }
 
 const grassFeature = {
+  sourceLayer: 'landuse',
   geometry: {
     type: 'Polygon',
     coordinates: [[[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001], [0, 0]]],
@@ -119,7 +144,7 @@ describe('PlanetaryScenery — trees', () => {
   })
 
   it('ignores Point features that are not trees', () => {
-    const nonTree = { geometry: { type: 'Point', coordinates: [0, 0] }, properties: { natural: 'rock' } }
+    const nonTree = { sourceLayer: 'poi', geometry: { type: 'Point', coordinates: [0, 0] }, properties: { natural: 'rock' } }
     const map = makeMap([nonTree])
     const sc = new PlanetaryScenery(map as any, identity)
     const { treePositions } = sc.update(0, 0)
@@ -139,6 +164,7 @@ describe('PlanetaryScenery — green areas', () => {
 
   it('ignores polygons with non-green class', () => {
     const industryFeature = {
+      sourceLayer: 'landuse',
       geometry: { type: 'Polygon', coordinates: [[[0, 0], [0.001, 0], [0.001, 0.001], [0, 0]]] },
       properties: { class: 'industrial' },
     }
@@ -150,6 +176,7 @@ describe('PlanetaryScenery — green areas', () => {
 })
 
 const buildingPolygon = {
+  sourceLayer: 'building',
   geometry: {
     type: 'Polygon',
     coordinates: [[[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]]],
@@ -157,14 +184,7 @@ const buildingPolygon = {
   properties: { render_height: 12 },
 }
 
-function makeLayeredMap(buildingFeatures: object[]) {
-  return {
-    queryRenderedFeatures: vi.fn().mockImplementation((_point: unknown, opts: { layers?: string[] }) => {
-      if (opts?.layers?.includes('building')) return buildingFeatures
-      return []
-    }),
-  }
-}
+const makeLayeredMap = makeMap
 
 describe('PlanetaryScenery — buildings', () => {
   it('extracts one BuildingSpec from a Polygon building feature with render_height', () => {
@@ -188,6 +208,7 @@ describe('PlanetaryScenery — buildings', () => {
 
   it('falls back to height 6 when no height tags present', () => {
     const noHeight = {
+      sourceLayer: 'building',
       geometry: {
         type: 'Polygon',
         coordinates: [[[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]]],
@@ -203,6 +224,7 @@ describe('PlanetaryScenery — buildings', () => {
 
   it('uses building:levels * 3 when render_height and height are absent', () => {
     const levelsFeature = {
+      sourceLayer: 'building',
       geometry: {
         type: 'Polygon',
         coordinates: [[[0, 0], [0.001, 0], [0.001, 0.001], [0, 0.001]]],
@@ -217,6 +239,7 @@ describe('PlanetaryScenery — buildings', () => {
 
   it('skips rings with fewer than 3 points', () => {
     const tinyRing = {
+      sourceLayer: 'building',
       geometry: {
         type: 'Polygon',
         coordinates: [[[0, 0], [0.001, 0]]],

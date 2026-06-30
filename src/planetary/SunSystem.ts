@@ -1,7 +1,8 @@
 import * as THREE from 'three'
 
 export interface SunState {
-  direction: THREE.Vector3  // normalized, points from scene toward sun
+  direction: THREE.Vector3  // normalized, points from scene toward sun; y clamped to >= 0
+  elevation: number         // signed elevation in radians, negative below horizon (unclamped)
   color: THREE.Color
   intensity: number         // 0 at night, up to 1.2 at noon
   skyTop: THREE.Color
@@ -30,6 +31,7 @@ export class SunSystem {
     if (direction.lengthSq() < 0.0001) direction.set(0, 1, 0)
     direction.normalize()
 
+    const elevation = Math.asin(THREE.MathUtils.clamp(sinElev, -1, 1))
     const intensity = Math.max(0, sinElev) * 1.2
 
     const color = new THREE.Color()
@@ -57,6 +59,6 @@ export class SunSystem {
       skyHorizon.setHex(0x9ec7e8)
     }
 
-    return { direction, color, intensity, skyTop, skyHorizon }
+    return { direction, elevation, color, intensity, skyTop, skyHorizon }
   }
 }
