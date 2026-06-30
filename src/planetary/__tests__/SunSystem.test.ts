@@ -34,10 +34,17 @@ describe('SunSystem', () => {
   it('returns SunState with all required fields', () => {
     const state = sys.compute(10)
     expect(state.direction).toBeInstanceOf(THREE.Vector3)
+    expect(typeof state.elevation).toBe('number')
     expect(state.color).toBeInstanceOf(THREE.Color)
     expect(typeof state.intensity).toBe('number')
     expect(state.skyTop).toBeInstanceOf(THREE.Color)
     expect(state.skyHorizon).toBeInstanceOf(THREE.Color)
+  })
+
+  it('elevation is negative at night even though direction.y is clamped to 0', () => {
+    const { direction, elevation } = sys.compute(22)
+    expect(direction.y).toBe(0)
+    expect(elevation).toBeLessThan(-0.1) // below AtmosphereConfig's night keyframe threshold
   })
 
   it('sun direction is roughly east at sunrise (hour=6)', () => {

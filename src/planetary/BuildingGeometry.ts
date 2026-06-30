@@ -244,9 +244,9 @@ export class BuildingGeometry {
       const len = Math.sqrt(dx * dx + dz * dz)
       if (len < 1e-9) continue   // skip degenerate edges
 
-      // Outward wall normal (as specified: −dz, 0, dx)
-      const nx = -dz / len
-      const nz = dx / len
+      // Outward wall normal for CCW-wound footprints (dz, 0, -dx)
+      const nx = dz / len
+      const nz = -dx / len
 
       const u0 = cumLen / 4
       const u1 = (cumLen + len) / 4
