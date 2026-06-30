@@ -87,6 +87,27 @@ describe('PlanetaryEngine', () => {
     engine.dispose()
   })
 
+  it('culls buildings beyond the fog-far distance', () => {
+    const container = document.createElement('div')
+    const engine = new PlanetaryEngine(container)
+    engine.setViewFromPlayer(new THREE.Vector3(0, 1.7, 0), 0, 0)
+
+    let beforeCount = 0
+    engine.scene.traverse(o => { if (o instanceof THREE.Mesh) beforeCount++ })
+
+    const specs: BuildingSpec[] = [
+      { footprint: [[0,0],[8,0],[8,8],[0,8]], height: 12, roofShape: 'flat' },
+      { footprint: [[700,700],[708,700],[708,708],[700,708]], height: 12, roofShape: 'flat' },
+    ]
+    engine.setBuildings(specs)
+
+    let afterCount = 0
+    engine.scene.traverse(o => { if (o instanceof THREE.Mesh) afterCount++ })
+
+    expect(afterCount - beforeCount).toBe(1)
+    engine.dispose()
+  })
+
   it('places the camera at the player eye position and faces yaw/pitch', () => {
     const container = document.createElement('div')
     const engine = new PlanetaryEngine(container)
@@ -133,6 +154,18 @@ function makeRoadStrip(): RoadStrip {
   }
 }
 
+function makeFarRoadStrip(): RoadStrip {
+  return {
+    corners: [
+      new THREE.Vector3(700, 0.05, 700),
+      new THREE.Vector3(700, 0.05, 704),
+      new THREE.Vector3(710, 0.05, 704),
+      new THREE.Vector3(710, 0.05, 700),
+    ],
+    uvLength: 10,
+  }
+}
+
 describe('PlanetaryEngine — setRoads / setTrees / setGreenAreas', () => {
   it('setRoads adds meshes to scene', () => {
     const container = document.createElement('div')
@@ -154,6 +187,21 @@ describe('PlanetaryEngine — setRoads / setTrees / setGreenAreas', () => {
     engine.dispose()
   })
 
+  it('culls roads beyond the fog-far distance', () => {
+    const container = document.createElement('div')
+    const engine = new PlanetaryEngine(container)
+    ;(engine.map as any)._triggerLoad()
+    engine.setViewFromPlayer(new THREE.Vector3(0, 1.7, 0), 0, 0)
+
+    let before = 0; engine.scene.traverse(o => { if (o instanceof THREE.Mesh) before++ })
+    engine.setRoads([makeRoadStrip(), makeFarRoadStrip()])
+    let after = 0; engine.scene.traverse(o => { if (o instanceof THREE.Mesh) after++ })
+
+    // near strip adds a road mesh + a lane-marking mesh; far strip adds none
+    expect(after - before).toBe(2)
+    engine.dispose()
+  })
+
   it('setTrees adds an InstancedMesh to scene', () => {
     const container = document.createElement('div')
     const engine = new PlanetaryEngine(container)
@@ -162,6 +210,21 @@ describe('PlanetaryEngine — setRoads / setTrees / setGreenAreas', () => {
     let found = false
     engine.scene.traverse(o => { if (o instanceof THREE.InstancedMesh) found = true })
     expect(found).toBe(true)
+    engine.dispose()
+  })
+
+  it('culls trees beyond the fog-far distance', () => {
+    const container = document.createElement('div')
+    const engine = new PlanetaryEngine(container)
+    ;(engine.map as any)._triggerLoad()
+    engine.setViewFromPlayer(new THREE.Vector3(0, 1.7, 0), 0, 0)
+
+    engine.setTrees([new THREE.Vector3(10, 0, 10), new THREE.Vector3(800, 0, 800)])
+
+    let mesh: THREE.InstancedMesh | undefined
+    engine.scene.traverse(o => { if (o instanceof THREE.InstancedMesh) mesh = o })
+    expect(mesh).toBeDefined()
+    expect(mesh!.count).toBe(1)
     engine.dispose()
   })
 

@@ -185,9 +185,29 @@ export class PlanetaryEngine {
     this.sun.target.updateMatrixWorld()
   }
 
+  private cullFar(): number {
+    return this.scene.fog instanceof THREE.Fog ? this.scene.fog.far : Infinity
+  }
+
+  private isBeyond(x: number, z: number, far: number): boolean {
+    const dx = x - this.camera.position.x
+    const dz = z - this.camera.position.z
+    return dx * dx + dz * dz > far * far
+  }
+
+  private footprintCentroid(footprint: [number, number][]): [number, number] {
+    let sx = 0
+    let sz = 0
+    for (const [x, z] of footprint) { sx += x; sz += z }
+    return [sx / footprint.length, sz / footprint.length]
+  }
+
   setBuildings(specs: BuildingSpec[]) {
     this.disposeGroup(this.buildings)
+    const far = this.cullFar()
     for (const spec of specs) {
+      const [cx, cz] = this.footprintCentroid(spec.footprint)
+      if (this.isBeyond(cx, cz, far)) continue
       let geo: THREE.BufferGeometry
       try {
         geo = BuildingGeometry.generate(spec)
@@ -204,8 +224,12 @@ export class PlanetaryEngine {
 
   setRoads(roads: RoadStrip[]): void {
     this.disposeGroup(this.roads)
+    const far = this.cullFar()
     for (const strip of roads) {
       const [a, b, c, d] = strip.corners
+      const mx = (a.x + b.x + c.x + d.x) / 4
+      const mz = (a.z + b.z + c.z + d.z) / 4
+      if (this.isBeyond(mx, mz, far)) continue
       const geo = new THREE.BufferGeometry()
       // Two triangles: ABD and BCD
       const positions = new Float32Array([
@@ -271,13 +295,15 @@ export class PlanetaryEngine {
       this.scene.remove(this.trees)
       this.trees = null
     }
-    if (positions.length === 0) return
+    const far = this.cullFar()
+    const visible = positions.filter(p => !this.isBeyond(p.x, p.z, far))
+    if (visible.length === 0) return
     const geo = new THREE.PlaneGeometry(6, 10)
-    const mesh = new THREE.InstancedMesh(geo, this.treeMat, positions.length)
+    const mesh = new THREE.InstancedMesh(geo, this.treeMat, visible.length)
     mesh.castShadow = true
     const dummy = new THREE.Object3D()
-    for (let i = 0; i < positions.length; i++) {
-      dummy.position.copy(positions[i])
+    for (let i = 0; i < visible.length; i++) {
+      dummy.position.copy(visible[i])
       dummy.position.y = 5  // center of 10 m tall plane
       dummy.updateMatrix()
       mesh.setMatrixAt(i, dummy.matrix)
