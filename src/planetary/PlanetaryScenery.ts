@@ -1,13 +1,19 @@
 import * as THREE from 'three'
 import type maplibregl from 'maplibre-gl'
+import type { MapGeoJSONFeature } from 'maplibre-gl'
 import { lngLatDistance } from './geoUtils'
 import type { BuildingSpec } from './BuildingGeometry'
 
 const RESCAN_METERS = 50
-const ROAD_LAYERS = ['transportation']
-const TREE_LAYERS = ['poi']
-const GREEN_LAYERS = ['landuse', 'landcover', 'park']
-const BUILDING_LAYERS = ['building']
+// OpenMapTiles vector-tile *source* layer names. Different MapLibre styles
+// (liberty, positron, bright, ...) split these into many differently-named
+// *render* layers (e.g. road_motorway, road_minor, poi_r7), so we can't
+// filter queryRenderedFeatures by style layer id — we query everything
+// rendered and filter by the feature's underlying source layer instead.
+const ROAD_SOURCE_LAYER = 'transportation'
+const TREE_SOURCE_LAYER = 'poi'
+const GREEN_SOURCE_LAYERS = new Set(['landuse', 'landcover', 'park'])
+const BUILDING_SOURCE_LAYER = 'building'
 
 const ROAD_HALF_WIDTHS: Record<string, number> = {
   motorway: 8, trunk: 8,
@@ -49,6 +55,27 @@ export class PlanetaryScenery {
     this.lastLat = NaN
   }
 
+  // A source feature can be drawn by several style render-layers (e.g. a
+  // road's casing + fill), so an unfiltered query returns it once per
+  // matching render layer. Dedupe by feature id, falling back to its first
+  // coordinate when the tile doesn't carry one.
+  private queryBySourceLayer(sourceLayers: Set<string> | string): MapGeoJSONFeature[] {
+    const matches = typeof sourceLayers === 'string'
+      ? (sl: string | undefined) => sl === sourceLayers
+      : (sl: string | undefined) => !!sl && sourceLayers.has(sl)
+    const seen = new Set<string | number>()
+    const out: MapGeoJSONFeature[] = []
+    for (const f of this.map.queryRenderedFeatures(undefined)) {
+      if (!matches(f.sourceLayer)) continue
+      const coords = (f.geometry as { coordinates?: unknown[] }).coordinates
+      const key = f.id ?? `${f.sourceLayer}:${JSON.stringify(coords?.[0] ?? coords)}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(f)
+    }
+    return out
+  }
+
   update(lng: number, lat: number): SceneryData {
     if (
       !isNaN(this.lastLng) &&
@@ -69,7 +96,7 @@ export class PlanetaryScenery {
 
   private extractRoads(): RoadStrip[] {
     const strips: RoadStrip[] = []
-    const features = this.map.queryRenderedFeatures(undefined, { layers: ROAD_LAYERS })
+    const features = this.queryBySourceLayer(ROAD_SOURCE_LAYER)
     for (const f of features) {
       const cls = (f.properties?.subclass ?? f.properties?.class ?? 'residential') as string
       const halfWidth = ROAD_HALF_WIDTHS[cls] ?? DEFAULT_HALF_WIDTH
@@ -107,7 +134,7 @@ export class PlanetaryScenery {
 
   private extractTrees(): THREE.Vector3[] {
     const positions: THREE.Vector3[] = []
-    const features = this.map.queryRenderedFeatures(undefined, { layers: TREE_LAYERS })
+    const features = this.queryBySourceLayer(TREE_SOURCE_LAYER)
     for (const f of features) {
       if (f.geometry.type !== 'Point') continue
       const nat = f.properties?.natural ?? f.properties?.subclass ?? f.properties?.type
@@ -122,7 +149,7 @@ export class PlanetaryScenery {
   private extractGreenAreas(): Float32Array {
     const GREEN_CLASSES = new Set(['grass', 'park', 'wood', 'forest', 'farmland', 'scrub', 'meadow', 'vegetation'])
     const verts: number[] = []
-    const features = this.map.queryRenderedFeatures(undefined, { layers: GREEN_LAYERS })
+    const features = this.queryBySourceLayer(GREEN_SOURCE_LAYERS)
     for (const f of features) {
       const cls = f.properties?.class ?? f.properties?.landuse ?? f.properties?.landcover
       if (!GREEN_CLASSES.has(cls)) continue
@@ -148,7 +175,7 @@ export class PlanetaryScenery {
 
   private extractBuildings(): BuildingSpec[] {
     const specs: BuildingSpec[] = []
-    const features = this.map.queryRenderedFeatures(undefined, { layers: BUILDING_LAYERS })
+    const features = this.queryBySourceLayer(BUILDING_SOURCE_LAYER)
     for (const f of features) {
       const rings: [number, number][][] =
         f.geometry.type === 'Polygon'
