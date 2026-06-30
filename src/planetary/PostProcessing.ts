@@ -67,8 +67,10 @@ export class PostProcessing {
   setQuality(preset: PostQuality): void {
     if (preset === this.currentPreset || !this.composer) return
     if (this.effectPass) {
+      // Do NOT call effectPass.dispose() — it disposes the shared bloom/smaa/tone
+      // effects, which _buildEffectPass reuses. Just detach the old pass; its small
+      // internal material is GC'd (preset changes are rare).
       this.composer.removePass(this.effectPass)
-      this.effectPass.dispose()
     }
     this.currentPreset = preset
     this.effectPass = this._buildEffectPass(preset)

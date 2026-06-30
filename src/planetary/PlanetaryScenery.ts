@@ -163,7 +163,10 @@ export class PlanetaryScenery {
         : props['building:levels'] != null ? Number(props['building:levels']) * 3
         : NaN
       const height = (isFinite(rawHeight) && rawHeight > 0) ? rawHeight : 6
-      const minHeight = Number(props.render_min_height ?? 0) || 0
+      const rawMin = Number(props.render_min_height ?? 0) || 0
+      // Guard malformed data: a min_height at/above the top would give negative
+      // wall height (inverted walls). Treat as ground-level.
+      const minHeight = rawMin < height ? rawMin : 0
       const roofShape = String(props['roof:shape'] ?? 'flat')
       for (const ring of rings) {
         if (ring.length < 3) continue
