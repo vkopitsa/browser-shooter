@@ -41,9 +41,9 @@ vi.mock('three/addons/objects/Sky.js', () => {
 
 import { PlanetaryEngine } from '../PlanetaryEngine'
 import * as THREE from 'three'
-import { CollisionWorld } from '../../engine/CollisionWorld'
 import { SunSystem } from '../SunSystem'
 import type { RoadStrip } from '../PlanetaryScenery'
+import type { BuildingSpec } from '../BuildingGeometry'
 
 describe('PlanetaryEngine', () => {
   it('creates scene and camera', () => {
@@ -64,23 +64,26 @@ describe('PlanetaryEngine', () => {
     engine.dispose()
   })
 
-  it('builds building meshes from collision boxes', () => {
+  it('builds building meshes from footprint specs', () => {
     const container = document.createElement('div')
     const engine = new PlanetaryEngine(container)
-    const world = new CollisionWorld()
-    world.addBox(new THREE.Vector3(5, 10, 5), new THREE.Vector3(4, 20, 4))
+
+    const specs: BuildingSpec[] = [
+      { footprint: [[0,0],[8,0],[8,8],[0,8]], height: 12, roofShape: 'flat' },
+      { footprint: [[20,0],[28,0],[28,8],[20,8]], height: 12, roofShape: 'flat' },
+    ]
 
     // Count meshes before setBuildings
     let beforeCount = 0
     engine.scene.traverse(o => { if (o instanceof THREE.Mesh) beforeCount++ })
 
-    engine.setBuildings(world.boxes)
+    engine.setBuildings(specs)
 
-    // Count meshes after setBuildings
+    // Count meshes after setBuildings — each spec produces one multi-material mesh
     let afterCount = 0
     engine.scene.traverse(o => { if (o instanceof THREE.Mesh) afterCount++ })
 
-    expect(afterCount - beforeCount).toBe(world.boxes.length)
+    expect(afterCount - beforeCount).toBe(specs.length)
     engine.dispose()
   })
 
