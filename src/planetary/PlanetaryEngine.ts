@@ -40,6 +40,7 @@ export class PlanetaryEngine {
   private roads = new THREE.Group()
   private trees: THREE.InstancedMesh | null = null
   private greenAreas: THREE.Mesh | null = null
+  private waterAreas: THREE.Mesh | null = null
   private hemi: THREE.HemisphereLight
   private wallMat: THREE.MeshStandardMaterial
   private roofMat: THREE.MeshStandardMaterial
@@ -47,6 +48,7 @@ export class PlanetaryEngine {
   private pathMat: THREE.MeshStandardMaterial
   private treeMat: THREE.MeshBasicMaterial
   private greenMat: THREE.MeshStandardMaterial
+  private waterMat: THREE.MeshStandardMaterial
   private laneMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
   private atmosphere = new AtmosphereConfig()
   private postProcess: PostProcessing | null = null
@@ -122,6 +124,7 @@ export class PlanetaryEngine {
     this.treeMat = new THREE.MeshBasicMaterial({ map: treeTex ?? undefined, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide })
 
     this.greenMat = new THREE.MeshStandardMaterial({ color: 0x4a6b38, roughness: 1, metalness: 0 })
+    this.waterMat = new THREE.MeshStandardMaterial({ color: 0x2f6690, roughness: 0.15, metalness: 0.1 })
 
     // Ground (fallback for areas without OSM green data)
     const ground = new THREE.Mesh(
@@ -348,6 +351,27 @@ export class PlanetaryEngine {
     this.scene.add(this.greenAreas)
   }
 
+  setWaterAreas(triangles: Float32Array): void {
+    if (this.waterAreas) {
+      this.waterAreas.geometry.dispose()
+      this.scene.remove(this.waterAreas)
+      this.waterAreas = null
+    }
+    if (triangles.length === 0) return
+    const vertCount = triangles.length / 2
+    const pos = new Float32Array(vertCount * 3)
+    for (let i = 0; i < vertCount; i++) {
+      pos[i * 3] = triangles[i * 2]
+      pos[i * 3 + 1] = 0.015
+      pos[i * 3 + 2] = triangles[i * 2 + 1]
+    }
+    const geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
+    geo.computeVertexNormals()
+    this.waterAreas = new THREE.Mesh(geo, this.waterMat)
+    this.scene.add(this.waterAreas)
+  }
+
   render() {
     if (!this.renderer) {
       const r = new THREE.WebGLRenderer({ antialias: true })
@@ -431,6 +455,7 @@ export class PlanetaryEngine {
     this.disposeGroup(this.roads)
     if (this.trees) { this.trees.geometry.dispose(); this.scene.remove(this.trees) }
     if (this.greenAreas) { this.greenAreas.geometry.dispose(); this.scene.remove(this.greenAreas) }
+    if (this.waterAreas) { this.waterAreas.geometry.dispose(); this.scene.remove(this.waterAreas) }
     this.postProcess?.dispose()
     this.wallMat.dispose()
     this.roofMat.dispose()

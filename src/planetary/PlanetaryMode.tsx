@@ -345,16 +345,17 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           session.collisionWorld = collisionRef.current.update(center.lng, center.lat)
         }
 
-        // 6b. Rebuild scenery (roads, trees, green areas) when stale
+        // 6b. Rebuild scenery (roads, trees, green/water areas) when stale
         if (sceneryRef.current) {
           sceneryRef.current.update(center.lng, center.lat)
           const sv = sceneryRef.current.rebuildVersion
           if (sv !== lastSceneryVersionRef.current) {
             lastSceneryVersionRef.current = sv
-            const { roads, treePositions, greenTriangles, buildings } = sceneryRef.current.data
+            const { roads, treePositions, greenTriangles, waterTriangles, buildings } = sceneryRef.current.data
             engine.setRoads(roads)
             engine.setTrees(treePositions)
             engine.setGreenAreas(greenTriangles)
+            engine.setWaterAreas(waterTriangles)
             engine.setBuildings(buildings)
           }
         }

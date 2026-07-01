@@ -264,4 +264,16 @@ describe('PlanetaryEngine — setRoads / setTrees / setGreenAreas', () => {
     expect(after).toBeGreaterThan(before)
     engine.dispose()
   })
+
+  it('setWaterAreas adds a mesh to scene', () => {
+    const container = document.createElement('div')
+    const engine = new PlanetaryEngine(container)
+    ;(engine.map as any)._triggerLoad()
+    const tris = new Float32Array([0,0, 10,0, 10,10, 0,0, 10,10, 0,10])
+    let before = 0; engine.scene.traverse(o => { if (o instanceof THREE.Mesh) before++ })
+    engine.setWaterAreas(tris)
+    let after = 0; engine.scene.traverse(o => { if (o instanceof THREE.Mesh) after++ })
+    expect(after).toBeGreaterThan(before)
+    engine.dispose()
+  })
 })
