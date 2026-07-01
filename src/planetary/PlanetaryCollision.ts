@@ -80,6 +80,7 @@ export class PlanetaryCollision {
       for (const ring of rings) {
         let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity
         let sumX = 0, sumZ = 0
+        const pts: [number, number][] = []
         for (const [bLng, bLat] of ring) {
           const [x, z] = toLocal(bLng, bLat)
           if (x < minX) minX = x
@@ -88,7 +89,10 @@ export class PlanetaryCollision {
           if (z > maxZ) maxZ = z
           sumX += x
           sumZ += z
+          pts.push([x, z])
         }
+        // Drop the GeoJSON duplicate closing point so edge iteration can wrap cleanly.
+        if (pts.length > 1 && pts[0][0] === pts[pts.length - 1][0] && pts[0][1] === pts[pts.length - 1][1]) pts.pop()
         const sx = maxX - minX
         const sz = maxZ - minZ
         // Cull from the footprint centroid (mean of ring points), matching
@@ -100,11 +104,45 @@ export class PlanetaryCollision {
         // Skip buildings beyond render distance — they're invisible, so
         // colliding with them reads as "stuck against nothing".
         if (dx * dx + dz * dz > PLANETARY_CONFIG.fogFar * PLANETARY_CONFIG.fogFar) continue
-        if (sx > 0.5 && sz > 0.5) {
+        if (!(sx > 0.5 && sz > 0.5) || pts.length < 3) continue
+
+        // A single AABB is only valid when it hugs the footprint. Diagonal or
+        // L/U-shaped buildings have AABBs far larger than the building itself,
+        // and that phantom volume blocks the streets around them (the "stuck
+        // in the middle of the road against nothing" bug).
+        let area2 = 0
+        for (let i = 0; i < pts.length; i++) {
+          const [x1, z1] = pts[i]
+          const [x2, z2] = pts[(i + 1) % pts.length]
+          area2 += x1 * z2 - x2 * z1
+        }
+        const polyArea = Math.abs(area2) / 2
+        if (polyArea >= 0.7 * sx * sz) {
           this.world.addBox(
             new THREE.Vector3((minX + maxX) / 2, height / 2, (minZ + maxZ) / 2),
             new THREE.Vector3(sx, height, sz),
           )
+        } else {
+          // ponytail: staircase the walls — thin boxes along each edge segment.
+          // Interior stays hollow, but the walls seal it, so entry is still blocked.
+          const SEG = 6, THICK = 0.9
+          for (let i = 0; i < pts.length; i++) {
+            const [x1, z1] = pts[i]
+            const [x2, z2] = pts[(i + 1) % pts.length]
+            const len = Math.hypot(x2 - x1, z2 - z1)
+            if (len < 0.1) continue
+            const n = Math.min(Math.max(1, Math.ceil(len / SEG)), 64)
+            for (let s = 0; s < n; s++) {
+              const ax = x1 + ((x2 - x1) * s) / n
+              const az = z1 + ((z2 - z1) * s) / n
+              const bx = x1 + ((x2 - x1) * (s + 1)) / n
+              const bz = z1 + ((z2 - z1) * (s + 1)) / n
+              this.world.addBox(
+                new THREE.Vector3((ax + bx) / 2, height / 2, (az + bz) / 2),
+                new THREE.Vector3(Math.max(Math.abs(bx - ax), THICK), height, Math.max(Math.abs(bz - az), THICK)),
+              )
+            }
+          }
         }
       }
     }

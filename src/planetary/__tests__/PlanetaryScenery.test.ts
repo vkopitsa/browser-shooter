@@ -59,7 +59,8 @@ describe('PlanetaryScenery — roads', () => {
     const sc = new PlanetaryScenery(map as any, identity)
     sc.update(0, 0)
     sc.update(0.0001, 0.0001)  // ~15 m
-    expect(map.queryRenderedFeatures).toHaveBeenCalledTimes(5)
+    // one query per extractor (roads, waterways, trees, green, water, buildings)
+    expect(map.queryRenderedFeatures).toHaveBeenCalledTimes(6)
   })
 
   it('bumps rebuildVersion only on actual rebuild', () => {
@@ -79,7 +80,7 @@ describe('PlanetaryScenery — roads', () => {
     sc.update(0, 0)
     sc.markStale()
     sc.update(0.0001, 0.0001)
-    expect(map.queryRenderedFeatures).toHaveBeenCalledTimes(10)
+    expect(map.queryRenderedFeatures).toHaveBeenCalledTimes(12)
   })
 
   it('ignores non-road geometry types', () => {
@@ -157,6 +158,82 @@ const waterFeature = {
   },
   properties: { class: 'lake' },
 }
+
+describe('PlanetaryScenery — rail, waterways, tunnels', () => {
+  it('classifies rail class as kind "rail" with narrow width', () => {
+    const rail = {
+      sourceLayer: 'transportation',
+      geometry: { type: 'LineString', coordinates: [[0, 0], [0.001, 0]] },
+      properties: { class: 'rail' },
+    }
+    const sc = new PlanetaryScenery(makeMap([rail]) as any, identity)
+    const { roads } = sc.update(0, 0)
+    expect(roads[0].kind).toBe('rail')
+    expect(roads[0].corners[0].distanceTo(roads[0].corners[1])).toBeCloseTo(3, 0)
+  })
+
+  it('extracts waterway lines as kind "waterway" strips', () => {
+    const river = {
+      sourceLayer: 'waterway',
+      geometry: { type: 'LineString', coordinates: [[0, 0], [0.001, 0]] },
+      properties: { class: 'river' },
+    }
+    const sc = new PlanetaryScenery(makeMap([river]) as any, identity)
+    const { roads } = sc.update(0, 0)
+    expect(roads).toHaveLength(1)
+    expect(roads[0].kind).toBe('waterway')
+    expect(roads[0].corners[0].distanceTo(roads[0].corners[1])).toBeCloseTo(12, 0)
+  })
+
+  it('skips tunnel features (underground rails/roads must not paint the surface)', () => {
+    const subway = {
+      sourceLayer: 'transportation',
+      geometry: { type: 'LineString', coordinates: [[0, 0], [0.001, 0]] },
+      properties: { class: 'rail', brunnel: 'tunnel' },
+    }
+    const sc = new PlanetaryScenery(makeMap([subway]) as any, identity)
+    expect(sc.update(0, 0).roads).toHaveLength(0)
+  })
+})
+
+describe('PlanetaryScenery — forest tree scatter', () => {
+  const forest = {
+    sourceLayer: 'landcover',
+    geometry: {
+      type: 'Polygon',
+      // ~110m × 110m square forest
+      coordinates: [[[0, 0], [0.001, 0], [0.001, -0.001], [0, -0.001], [0, 0]]],
+    },
+    properties: { class: 'wood' },
+  }
+
+  it('scatters trees inside wood polygons', () => {
+    const sc = new PlanetaryScenery(makeMap([forest]) as any, identity)
+    const { treePositions, greenTriangles } = sc.update(0, 0)
+    expect(greenTriangles.length).toBeGreaterThan(0) // still meshes the green area
+    expect(treePositions.length).toBeGreaterThan(5)
+    for (const p of treePositions) {
+      expect(p.x).toBeGreaterThanOrEqual(0)
+      expect(p.x).toBeLessThanOrEqual(111.32)
+      expect(p.z).toBeGreaterThanOrEqual(0)
+      expect(p.z).toBeLessThanOrEqual(111.32)
+    }
+  })
+
+  it('scatter is deterministic across rebuilds', () => {
+    const sc = new PlanetaryScenery(makeMap([forest]) as any, identity)
+    const first = sc.update(0, 0).treePositions.map(p => `${p.x},${p.z}`)
+    sc.markStale()
+    const second = sc.update(0, 0).treePositions.map(p => `${p.x},${p.z}`)
+    expect(second).toEqual(first)
+  })
+
+  it('does not scatter trees in plain grass polygons', () => {
+    const grass = { ...forest, properties: { class: 'grass' } }
+    const sc = new PlanetaryScenery(makeMap([grass]) as any, identity)
+    expect(sc.update(0, 0).treePositions).toHaveLength(0)
+  })
+})
 
 describe('PlanetaryScenery — trees', () => {
   it('extracts tree positions from Point features with natural=tree', () => {

@@ -47,6 +47,7 @@ export class PlanetaryEngine {
   private roofMat: THREE.MeshStandardMaterial
   private roadMat: THREE.MeshStandardMaterial
   private pathMat: THREE.MeshStandardMaterial
+  private railMat: THREE.MeshStandardMaterial
   private treeMat: THREE.MeshBasicMaterial
   private greenMat: THREE.MeshStandardMaterial
   private waterMat: THREE.MeshStandardMaterial
@@ -129,6 +130,7 @@ export class PlanetaryEngine {
     this.roadMat = new THREE.MeshStandardMaterial({ map: roadTex ?? undefined, roughness: 1, metalness: 0 })
 
     this.pathMat = new THREE.MeshStandardMaterial({ color: 0xb0aca4, roughness: 1, metalness: 0 })
+    this.railMat = new THREE.MeshStandardMaterial({ color: 0x55504a, roughness: 1, metalness: 0.15 })
 
     const treeTex = this.loadTex(treeSpriteUrl)
     this.treeMat = new THREE.MeshBasicMaterial({ map: treeTex ?? undefined, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide })
@@ -294,14 +296,19 @@ export class PlanetaryEngine {
       geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
       geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
       geo.computeVertexNormals()
-      const mesh = new THREE.Mesh(geo, strip.kind === 'path' ? this.pathMat : this.roadMat)
+      const kind = strip.kind ?? 'road'
+      const mat = kind === 'path' ? this.pathMat
+        : kind === 'rail' ? this.railMat
+        : kind === 'waterway' ? this.waterMat
+        : this.roadMat
+      const mesh = new THREE.Mesh(geo, mat)
       mesh.receiveShadow = true
       this.roads.add(mesh)
 
       // Center-line marking: a 0.12 m-wide white quad strip raised +0.02 Y above the road.
       // Corners [a, b, c, d]: a and b share v=0 (one short edge), d and c share v=uvLen (other short edge).
       // Centerline endpoints are midpoints of the two short (cross-strip) edges.
-      if (strip.kind !== 'path') {
+      if (kind === 'road') {
         const yOffset = 0.02
         const mid1x = (a.x + b.x) / 2
         const mid1y = (a.y + b.y) / 2 + yOffset
@@ -502,6 +509,7 @@ export class PlanetaryEngine {
     this.roofMat.dispose()
     this.roadMat.dispose()
     this.pathMat.dispose()
+    this.railMat.dispose()
     this.treeMat.dispose()
     this.greenMat.dispose()
     this.waterMat.dispose()

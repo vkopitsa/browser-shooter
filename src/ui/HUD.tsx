@@ -6,10 +6,11 @@ interface HUDProps {
   ammo: number
   maxAmmo: number
   weaponName: string
-  score: number
-  wave: number
-  waveActive: boolean
-  enemiesRemaining: number
+  /** Omit score/wave in modes without waves (e.g. planetary) to hide those clusters. */
+  score?: number
+  wave?: number
+  waveActive?: boolean
+  enemiesRemaining?: number
   round?: number
   roundTimer?: number
   buyPhase?: boolean
@@ -184,7 +185,7 @@ export const HUD: React.FC<HUDProps> = ({
 
       {/* Score — moved to top-centre on touch, where the right edge is taken by
           the action column / fire button. */}
-      <div style={mobile ? {
+      {score !== undefined && <div style={mobile ? {
         position: 'absolute',
         top: 'calc(74px + var(--safe-top))',
         left: '50%', transform: 'translateX(-50%)', textAlign: 'center',
@@ -196,10 +197,10 @@ export const HUD: React.FC<HUDProps> = ({
       }}>
         <div style={{ fontSize: 12, opacity: 0.7 }}>SCORE</div>
         <div style={{ fontSize: 24, fontWeight: 'bold' }}>{score.toLocaleString()}</div>
-      </div>
+      </div>}
 
       {/* Wave info */}
-      <div style={{
+      {wave !== undefined && <div style={{
         position: 'absolute',
         top: mobile && round !== undefined ? 'calc(54px + var(--safe-top))' : 'calc(20px + var(--safe-top))',
         left: '50%',
@@ -213,10 +214,10 @@ export const HUD: React.FC<HUDProps> = ({
             {enemiesRemaining} enemies remaining
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Wave announcement */}
-      {!waveActive && wave > 0 && (
+      {!waveActive && wave !== undefined && wave > 0 && (
         <div style={{
           position: 'absolute',
           top: '30%',

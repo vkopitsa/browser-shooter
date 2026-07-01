@@ -14,6 +14,7 @@ const ROAD_SOURCE_LAYER = 'transportation'
 const TREE_SOURCE_LAYER = 'poi'
 const GREEN_SOURCE_LAYERS = new Set(['landuse', 'landcover', 'park'])
 const WATER_SOURCE_LAYER = 'water'
+const WATERWAY_SOURCE_LAYER = 'waterway'
 const BUILDING_SOURCE_LAYER = 'building'
 
 const ROAD_HALF_WIDTHS: Record<string, number> = {
@@ -25,6 +26,17 @@ const ROAD_HALF_WIDTHS: Record<string, number> = {
 const DEFAULT_HALF_WIDTH = 3
 
 const PATH_CLASSES = new Set(['pedestrian', 'path', 'footway', 'cycleway', 'steps', 'bridleway'])
+const RAIL_CLASSES = new Set(['rail', 'transit', 'tram', 'subway', 'light_rail', 'narrow_gauge', 'funicular', 'monorail'])
+
+const WATERWAY_HALF_WIDTHS: Record<string, number> = {
+  river: 6, canal: 4, stream: 1.5, ditch: 1, drain: 1,
+}
+
+// Trees scattered procedurally inside wood/forest polygons (the POI layer only
+// carries individually-mapped trees, which leaves forests as bare green fields).
+const FOREST_CLASSES = new Set(['wood', 'forest'])
+const FOREST_TREE_STEP = 18       // scatter grid spacing (m)
+const FOREST_TREE_CAP = 400       // hard cap — tree billboarding is O(n) per frame
 
 const HOUSE_BUILDING_TAGS = new Set(['house', 'detached', 'semidetached_house', 'bungalow', 'cabin', 'farm'])
 
@@ -32,7 +44,7 @@ export interface RoadStrip {
   // quad corners in local XZ (Y=0.05 to sit above ground)
   corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3]
   uvLength: number  // segment length in meters, for UV tiling
-  kind?: 'road' | 'path'  // 'path' = pedestrian/footway/cycleway/etc.; undefined treated as 'road'
+  kind?: 'road' | 'path' | 'rail' | 'waterway'  // undefined treated as 'road'
 }
 
 export interface SceneryData {
@@ -92,52 +104,73 @@ export class PlanetaryScenery {
     this.lastLng = lng
     this.lastLat = lat
     this._rebuildVersion += 1
+    const green = this.extractGreenAreas()
     this._data = {
-      roads: this.extractRoads(),
-      treePositions: this.extractTrees(),
-      greenTriangles: this.extractGreenAreas(),
+      roads: [...this.extractRoads(), ...this.extractWaterways()],
+      treePositions: [...this.extractTrees(), ...green.forestTrees],
+      greenTriangles: green.triangles,
       waterTriangles: this.extractWaterAreas(),
       buildings: this.extractBuildings(),
     }
     return this._data
   }
 
+  /** Expand a feature's line(s) into quad strips of the given half-width. */
+  private stripsFromFeature(f: MapGeoJSONFeature, halfWidth: number, kind: RoadStrip['kind'], y: number, strips: RoadStrip[]): void {
+    const lines: [number, number][][] =
+      f.geometry.type === 'LineString'
+        ? [f.geometry.coordinates as [number, number][]]
+        : f.geometry.type === 'MultiLineString'
+        ? (f.geometry.coordinates as [number, number][][])
+        : []
+    for (const line of lines) {
+      for (let i = 0; i < line.length - 1; i++) {
+        const [ax, az] = this.toLocal(line[i][0], line[i][1])
+        const [bx, bz] = this.toLocal(line[i + 1][0], line[i + 1][1])
+        const dx = bx - ax
+        const dz = bz - az
+        const len = Math.sqrt(dx * dx + dz * dz)
+        if (len < 0.1) continue
+        // Normal in XZ plane (perpendicular to segment)
+        const nx = (-dz / len) * halfWidth
+        const nz = (dx / len) * halfWidth
+        strips.push({
+          corners: [
+            new THREE.Vector3(ax + nx, y, az + nz),
+            new THREE.Vector3(ax - nx, y, az - nz),
+            new THREE.Vector3(bx - nx, y, bz - nz),
+            new THREE.Vector3(bx + nx, y, bz + nz),
+          ],
+          uvLength: len,
+          kind,
+        })
+      }
+    }
+  }
+
   private extractRoads(): RoadStrip[] {
     const strips: RoadStrip[] = []
     const features = this.queryBySourceLayer(ROAD_SOURCE_LAYER)
     for (const f of features) {
+      // Tunnels (subway lines, underpasses) are underground — drawing them on the
+      // surface paints phantom roads/rails across the map.
+      if (f.properties?.brunnel === 'tunnel') continue
       const cls = (f.properties?.subclass ?? f.properties?.class ?? 'residential') as string
-      const halfWidth = ROAD_HALF_WIDTHS[cls] ?? DEFAULT_HALF_WIDTH
-      const kind: 'road' | 'path' = PATH_CLASSES.has(cls) ? 'path' : 'road'
-      const lines: [number, number][][] =
-        f.geometry.type === 'LineString'
-          ? [f.geometry.coordinates as [number, number][]]
-          : f.geometry.type === 'MultiLineString'
-          ? (f.geometry.coordinates as [number, number][][])
-          : []
-      for (const line of lines) {
-        for (let i = 0; i < line.length - 1; i++) {
-          const [ax, az] = this.toLocal(line[i][0], line[i][1])
-          const [bx, bz] = this.toLocal(line[i + 1][0], line[i + 1][1])
-          const dx = bx - ax
-          const dz = bz - az
-          const len = Math.sqrt(dx * dx + dz * dz)
-          if (len < 0.1) continue
-          // Normal in XZ plane (perpendicular to segment)
-          const nx = (-dz / len) * halfWidth
-          const nz = (dx / len) * halfWidth
-          strips.push({
-            corners: [
-              new THREE.Vector3(ax + nx, 0.05, az + nz),
-              new THREE.Vector3(ax - nx, 0.05, az - nz),
-              new THREE.Vector3(bx - nx, 0.05, bz - nz),
-              new THREE.Vector3(bx + nx, 0.05, bz + nz),
-            ],
-            uvLength: len,
-            kind,
-          })
-        }
-      }
+      const isRail = RAIL_CLASSES.has(cls)
+      const halfWidth = isRail ? 1.5 : ROAD_HALF_WIDTHS[cls] ?? DEFAULT_HALF_WIDTH
+      const kind: RoadStrip['kind'] = isRail ? 'rail' : PATH_CLASSES.has(cls) ? 'path' : 'road'
+      this.stripsFromFeature(f, halfWidth, kind, 0.05, strips)
+    }
+    return strips
+  }
+
+  private extractWaterways(): RoadStrip[] {
+    const strips: RoadStrip[] = []
+    for (const f of this.queryBySourceLayer(WATERWAY_SOURCE_LAYER)) {
+      if (f.properties?.brunnel === 'tunnel') continue
+      const cls = (f.properties?.class ?? 'stream') as string
+      // Slightly below roads so bridges/crossings resolve in the road's favour.
+      this.stripsFromFeature(f, WATERWAY_HALF_WIDTHS[cls] ?? 1.5, 'waterway', 0.04, strips)
     }
     return strips
   }
@@ -156,9 +189,10 @@ export class PlanetaryScenery {
     return positions
   }
 
-  private extractGreenAreas(): Float32Array {
+  private extractGreenAreas(): { triangles: Float32Array; forestTrees: THREE.Vector3[] } {
     const GREEN_CLASSES = new Set(['grass', 'park', 'wood', 'forest', 'farmland', 'scrub', 'meadow', 'vegetation'])
     const verts: number[] = []
+    const forestTrees: THREE.Vector3[] = []
     const features = this.queryBySourceLayer(GREEN_SOURCE_LAYERS)
     for (const f of features) {
       const cls = f.properties?.class ?? f.properties?.landuse ?? f.properties?.landcover
@@ -178,9 +212,43 @@ export class PlanetaryScenery {
           verts.push(local[j][0], local[j][1])
           verts.push(local[k][0], local[k][1])
         }
+        if (FOREST_CLASSES.has(cls)) this.scatterForestTrees(local, forestTrees)
       }
     }
-    return new Float32Array(verts)
+    return { triangles: new Float32Array(verts), forestTrees }
+  }
+
+  /** Deterministic grid scatter of tree positions inside a forest polygon. */
+  private scatterForestTrees(poly: [number, number][], out: THREE.Vector3[]): void {
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity
+    for (const [x, z] of poly) {
+      if (x < minX) minX = x
+      if (x > maxX) maxX = x
+      if (z < minZ) minZ = z
+      if (z > maxZ) maxZ = z
+    }
+    for (let gx = Math.ceil(minX / FOREST_TREE_STEP); gx * FOREST_TREE_STEP < maxX; gx++) {
+      for (let gz = Math.ceil(minZ / FOREST_TREE_STEP); gz * FOREST_TREE_STEP < maxZ; gz++) {
+        if (out.length >= FOREST_TREE_CAP) return
+        // Hash-based jitter keyed on the grid cell so rebuilds don't reshuffle trees.
+        const h = Math.sin(gx * 127.1 + gz * 311.7) * 43758.5453
+        const j1 = h - Math.floor(h)
+        const j2 = (h * 1.618) - Math.floor(h * 1.618)
+        const x = gx * FOREST_TREE_STEP + (j1 - 0.5) * FOREST_TREE_STEP * 0.8
+        const z = gz * FOREST_TREE_STEP + (j2 - 0.5) * FOREST_TREE_STEP * 0.8
+        if (this.pointInPolygon(x, z, poly)) out.push(new THREE.Vector3(x, 0, z))
+      }
+    }
+  }
+
+  private pointInPolygon(x: number, z: number, poly: [number, number][]): boolean {
+    let inside = false
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, zi] = poly[i]
+      const [xj, zj] = poly[j]
+      if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside
+    }
+    return inside
   }
 
   private extractWaterAreas(): Float32Array {
