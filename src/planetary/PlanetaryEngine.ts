@@ -370,13 +370,14 @@ export class PlanetaryEngine {
     const pos = new Float32Array(vertCount * 3)
     for (let i = 0; i < vertCount; i++) {
       pos[i * 3] = triangles[i * 2]
-      pos[i * 3 + 1] = 0.015
+      pos[i * 3 + 1] = 0.03
       pos[i * 3 + 2] = triangles[i * 2 + 1]
     }
     const geo = new THREE.BufferGeometry()
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
     geo.computeVertexNormals()
     this.waterAreas = new THREE.Mesh(geo, this.waterMat)
+    this.waterAreas.receiveShadow = true
     this.scene.add(this.waterAreas)
   }
 

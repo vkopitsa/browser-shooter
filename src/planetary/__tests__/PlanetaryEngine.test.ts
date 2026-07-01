@@ -251,6 +251,26 @@ describe('PlanetaryEngine — setRoads / setTrees / setGreenAreas', () => {
     engine.dispose()
   })
 
+  it('setRoads uses pathMat (not roadMat) for the path strip surface mesh', () => {
+    const container = document.createElement('div')
+    const engine = new PlanetaryEngine(container)
+    ;(engine.map as any)._triggerLoad()
+
+    const before: THREE.Mesh[] = []
+    engine.scene.traverse(o => { if (o instanceof THREE.Mesh) before.push(o) })
+    engine.setRoads([makePathStrip()])
+    const after: THREE.Mesh[] = []
+    engine.scene.traverse(o => { if (o instanceof THREE.Mesh) after.push(o) })
+
+    const pathMeshes = after.filter(m => !before.includes(m))
+    expect(pathMeshes).toHaveLength(1)
+
+    const material = pathMeshes[0].material as THREE.MeshStandardMaterial
+    expect(material.color.getHex()).toBe(0xb0aca4)
+
+    engine.dispose()
+  })
+
   it('setTrees adds an InstancedMesh to scene', () => {
     const container = document.createElement('div')
     const engine = new PlanetaryEngine(container)
