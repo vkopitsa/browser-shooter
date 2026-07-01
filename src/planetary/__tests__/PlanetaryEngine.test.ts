@@ -108,6 +108,30 @@ describe('PlanetaryEngine', () => {
     engine.dispose()
   })
 
+  it('uses a distinct wall material for buildingType "house" vs "other"', () => {
+    const container = document.createElement('div')
+    const engine = new PlanetaryEngine(container)
+
+    const specs: BuildingSpec[] = [
+      { footprint: [[0,0],[8,0],[8,8],[0,8]], height: 6, roofShape: 'flat', buildingType: 'house' },
+      { footprint: [[20,0],[28,0],[28,8],[20,8]], height: 12, roofShape: 'flat', buildingType: 'other' },
+    ]
+    engine.setBuildings(specs)
+
+    const buildingMeshes: THREE.Mesh[] = []
+    engine.scene.traverse(o => {
+      if (o instanceof THREE.Mesh && Array.isArray(o.material) && o.material.length === 2) buildingMeshes.push(o)
+    })
+    expect(buildingMeshes).toHaveLength(2)
+
+    const houseWall = (buildingMeshes[0].material as THREE.Material[])[0] as THREE.MeshStandardMaterial
+    const otherWall = (buildingMeshes[1].material as THREE.Material[])[0] as THREE.MeshStandardMaterial
+    expect(houseWall.color.getHex()).toBe(0xe8dcc0)
+    expect(otherWall.color.getHex()).not.toBe(0xe8dcc0)
+
+    engine.dispose()
+  })
+
   it('places the camera at the player eye position and faces yaw/pitch', () => {
     const container = document.createElement('div')
     const engine = new PlanetaryEngine(container)

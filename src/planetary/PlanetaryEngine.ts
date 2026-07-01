@@ -43,6 +43,7 @@ export class PlanetaryEngine {
   private waterAreas: THREE.Mesh | null = null
   private hemi: THREE.HemisphereLight
   private wallMat: THREE.MeshStandardMaterial
+  private houseWallMat: THREE.MeshStandardMaterial
   private roofMat: THREE.MeshStandardMaterial
   private roadMat: THREE.MeshStandardMaterial
   private pathMat: THREE.MeshStandardMaterial
@@ -103,6 +104,12 @@ export class PlanetaryEngine {
       map: facadeTex ?? undefined,
       roughness: 0.85,
       metalness: 0.05,
+      side: THREE.DoubleSide,
+    })
+    this.houseWallMat = new THREE.MeshStandardMaterial({
+      color: 0xe8dcc0,
+      roughness: 0.9,
+      metalness: 0,
       side: THREE.DoubleSide,
     })
     this.roofMat = new THREE.MeshStandardMaterial({
@@ -222,7 +229,8 @@ export class PlanetaryEngine {
       } catch {
         continue
       }
-      const mesh = new THREE.Mesh(geo, [this.wallMat, this.roofMat])
+      const wallMaterial = spec.buildingType === 'house' ? this.houseWallMat : this.wallMat
+      const mesh = new THREE.Mesh(geo, [wallMaterial, this.roofMat])
       // DO NOT set mesh.position — footprints are absolute local XZ
       mesh.castShadow = true
       mesh.receiveShadow = true
@@ -458,6 +466,7 @@ export class PlanetaryEngine {
     if (this.waterAreas) { this.waterAreas.geometry.dispose(); this.scene.remove(this.waterAreas) }
     this.postProcess?.dispose()
     this.wallMat.dispose()
+    this.houseWallMat.dispose()
     this.roofMat.dispose()
     this.laneMat.dispose()
     this.renderer?.domElement.remove()
