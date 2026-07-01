@@ -20,6 +20,7 @@ import { Controls } from '../player/Controls'
 import { mobileControlsActive, loadSettings } from '../settings/Settings'
 import type { EntityState } from '../session/protocol'
 import { ParticleSystem } from '../effects/ParticleSystem'
+import { renderRemoteShot, renderLocalTracer } from '../effects/shotEffects'
 import { SoundEffects } from '../audio/SoundEffects'
 import { AudioManager } from '../audio/AudioManager'
 import { weaponVisual } from '../weapons/WeaponDefs'
@@ -257,6 +258,37 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
             case 'bombExploded':
             case 'bombDefused':
               break
+            case 'wallImpact':
+              particleSystemRef.current?.bulletImpact(new THREE.Vector3(ev.point.x, ev.point.y, ev.point.z))
+              break
+            case 'playerShot':
+              if (particleSystemRef.current) {
+                if (ev.shooterId === session.localId) renderLocalTracer(particleSystemRef.current, ev)
+                else if (audioRef.current) renderRemoteShot(particleSystemRef.current, audioRef.current, ev)
+              }
+              break
+            case 'playerHitEnemy': {
+              const hp = ev.hit.point
+              const point = new THREE.Vector3(hp.x, hp.y, hp.z)
+              if (ev.hit.killed) particleSystemRef.current?.explosion(point, ev.enemyType)
+              else particleSystemRef.current?.bloodSplatter(point)
+              break
+            }
+            case 'playerHitPlayer': {
+              const hp = ev.hit.point
+              const point = new THREE.Vector3(hp.x, hp.y, hp.z)
+              if (ev.hit.killed) particleSystemRef.current?.explosion(point, 'player')
+              else particleSystemRef.current?.bloodSplatter(point)
+              break
+            }
+            case 'enemyShoot': {
+              const from = new THREE.Vector3(ev.from.x, ev.from.y, ev.from.z)
+              const to = new THREE.Vector3(ev.to.x, ev.to.y, ev.to.z)
+              const dir = to.clone().sub(from).normalize()
+              audioRef.current?.playWeaponShoot('rifle', from)
+              particleSystemRef.current?.muzzleFlash(from, dir, 0xffcf6a, 4, 7)
+              break
+            }
           }
         }
 
@@ -346,6 +378,10 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           audioRef.current.updateListenerPosition(p.x, p.y, p.z)
           audioRef.current.updateListenerOrientation(fwd.x, fwd.y, fwd.z, 0, 1, 0)
         }
+
+        // 11b. Animate/expire particles (muzzle flash, tracers, impacts) — without this
+        // they spawn once and never move or get removed ("stuck in air").
+        particleSystemRef.current?.update(dt)
 
         // 12. Crosshair bloom: grow on fire/movement/jump, recover when still.
         setBloom(prev => stepBloom(prev, dt, {

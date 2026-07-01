@@ -8,11 +8,12 @@ import { Viewmodel } from './weapons/Viewmodel'
 import { Pickup } from './systems/Pickup'
 import type { PickupType } from './systems/Pickup'
 import { ParticleSystem } from './effects/ParticleSystem'
+import { renderRemoteShot, renderLocalTracer } from './effects/shotEffects'
 import { AudioManager } from './audio/AudioManager'
 import { SoundEffects } from './audio/SoundEffects'
 import { createDamageIndicatorState, triggerDamage, updateDamageIndicator, type DamageIndicatorState } from './effects/DamageIndicator'
 import { createFlashEffect, triggerFlash, updateFlash, type FlashEffectState } from './effects/FlashEffect'
-import type { GameState, Team, GrenadeType, Vec3 } from './types'
+import type { GameState, Team, GrenadeType } from './types'
 import { GameSession, ARENA_SIZE } from './session/GameSession'
 import { pickSpawn } from './session/Spawns'
 import { emptyInput, type EntityState, type GrenadeState } from './session/protocol'
@@ -96,23 +97,6 @@ function allyDots(players: EntityState[], localId: string): { x: number; z: numb
   return players
     .filter((p) => p.id !== localId && !p.isDead && p.team === localTeam)
     .map((p) => ({ x: p.position.x, z: p.position.z }))
-}
-
-/** Render another player's/bot's gunfire (audio + muzzle flash). No tracer: tracers are
- *  reserved for the local player's own shots so they can read their own fire. */
-function renderRemoteShot(particleSystem: ParticleSystem, audio: SoundEffects, ev: { from: Vec3; to: Vec3 }) {
-  const from = new THREE.Vector3(ev.from.x, ev.from.y, ev.from.z)
-  const to = new THREE.Vector3(ev.to.x, ev.to.y, ev.to.z)
-  const dir = to.clone().sub(from).normalize()
-  audio.playWeaponShoot('rifle', from)
-  particleSystem.muzzleFlash(from.clone().add(dir.clone().multiplyScalar(0.4)), dir)
-}
-
-/** Tracer for the local player's own shot — the only gunfire that draws a tracer. */
-function renderLocalTracer(particleSystem: ParticleSystem, ev: { from: Vec3; to: Vec3 }) {
-  particleSystem.tracer(
-    new THREE.Vector3(ev.from.x, ev.from.y, ev.from.z),
-    new THREE.Vector3(ev.to.x, ev.to.y, ev.to.z), 0xfff0a0, 0.2)
 }
 
 /** Dispose geometries/materials under a Group so removed client meshes don't leak GPU memory. */
