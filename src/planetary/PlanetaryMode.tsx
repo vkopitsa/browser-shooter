@@ -10,6 +10,7 @@ import { RoundBoundary } from './RoundBoundary'
 import { GameSession } from '../session/GameSession'
 import { defaultCompetitiveConfig } from '../session/MatchConfig'
 import { Bombsite } from '../session/Bombsite'
+import { findSpawnPoints } from './PlanetarySpawns'
 import { RoundState } from '../session/RoundManager'
 import { HUD } from '../ui/HUD'
 import { BuyMenu } from '../ui/BuyMenu'
@@ -128,8 +129,30 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
         new Bombsite('B', { x: -20, y: 0, z: -20 }),
       ]
 
-      // ponytail: large enough to never clamp in open-world play
-      session.map.arenaSize = 5000
+      // session.map is the shared zone singleton (getZone('arid')) — clone it
+      // rather than mutating in place, and replace its indoor spawn points
+      // (fixed offsets like [-4,-36], meaningless on the real map) with ones
+      // found on the actual terrain. Otherwise a mid-round respawn can land
+      // the player inside whatever real building happens to sit at that
+      // arena-local coordinate — the "stuck, nothing visible" bug.
+      const findLocalSpawns = (team: 'ct' | 't') =>
+        findSpawnPoints(engine.map, startCenter[0], startCenter[1], team)
+          .map(([lng, lat]) => engine.lngLatToLocal(lng, lat)) as [number, number][]
+      session.map = {
+        ...session.map,
+        arenaSize: 5000, // large enough to never clamp in open-world play
+        ctSpawns: findLocalSpawns('ct'),
+        tSpawns: findLocalSpawns('t'),
+      }
+      // Building/park tiles aren't rendered yet at map 'load' (same reason
+      // collision re-scans on 'idle'), so redo the spawn search once they are.
+      engine.map.once('idle', () => {
+        session.map = {
+          ...session.map,
+          ctSpawns: findLocalSpawns('ct'),
+          tSpawns: findLocalSpawns('t'),
+        }
+      })
 
       // Set up round manager for competitive play
       if (session.roundManager) {
