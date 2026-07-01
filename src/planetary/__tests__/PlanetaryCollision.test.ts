@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { PlanetaryCollision } from '../PlanetaryCollision'
+import { PLANETARY_CONFIG } from '../PlanetaryConfig'
 
 function makeMap(features: object[]) {
   return { queryRenderedFeatures: vi.fn(() => features) }
@@ -75,6 +76,46 @@ describe('PlanetaryCollision', () => {
     pc.markStale()
     pc.update(0.0001, 0.0001) // same spot, but stale → re-scans
     expect(map.queryRenderedFeatures).toHaveBeenCalledTimes(2)
+  })
+
+  it('skips buildings shorter than the render-side minimum height (BuildingGeometry rejects and never meshes them)', () => {
+    const shortBuilding = {
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[[0, 0], [0.0001, 0], [0.0001, 0.0001], [0, 0.0001], [0, 0]]],
+      },
+      properties: { height: PLANETARY_CONFIG.building.minHeight - 1 },
+    }
+    const map = makeMap([shortBuilding])
+    const pc = new PlanetaryCollision(map as any)
+    const world = pc.update(0, 0)
+    expect(world.boxes.length).toBe(0)
+  })
+
+  it('culls by the same point (footprint centroid) as render culling, not the AABB center', () => {
+    // Lopsided ring: one far corner at x=-1200 balances a cluster of points
+    // near x=1180-1200, so the AABB center sits near x=0 (well within the
+    // 600m fog-far cull radius) while the arithmetic-mean centroid — what
+    // PlanetaryEngine.footprintCentroid uses for render culling — sits at
+    // x~792 (beyond it). Render would cull this building; collision must too.
+    const lopsided = {
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-1200 / 111320, 0],
+          [1200 / 111320, 0],
+          [1195 / 111320, -10 / 111320],
+          [1190 / 111320, 0],
+          [1185 / 111320, -10 / 111320],
+          [1180 / 111320, 0],
+        ]],
+      },
+      properties: { height: 20 },
+    }
+    const map = makeMap([lopsided])
+    const pc = new PlanetaryCollision(map as any)
+    const world = pc.update(0, 0)
+    expect(world.boxes.length).toBe(0)
   })
 
   it('places boxes in the injected origin frame regardless of scan center', () => {

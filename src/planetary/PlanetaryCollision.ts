@@ -67,6 +67,9 @@ export class PlanetaryCollision {
     const features = this.map.queryRenderedFeatures(undefined, { layers: BUILDING_LAYERS })
     for (const f of features) {
       const height = (f.properties?.height as number) ?? (f.properties?.render_height as number) ?? 10
+      // BuildingGeometry.generate() throws (and is skipped, unmeshed) below this
+      // height — mirror that here so short buildings don't get invisible collision.
+      if (height < PLANETARY_CONFIG.building.minHeight) continue
       const rings: [number, number][][] =
         f.geometry.type === 'Polygon'
           ? [f.geometry.coordinates[0] as [number, number][]]
@@ -76,17 +79,24 @@ export class PlanetaryCollision {
 
       for (const ring of rings) {
         let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity
+        let sumX = 0, sumZ = 0
         for (const [bLng, bLat] of ring) {
           const [x, z] = toLocal(bLng, bLat)
           if (x < minX) minX = x
           if (x > maxX) maxX = x
           if (z < minZ) minZ = z
           if (z > maxZ) maxZ = z
+          sumX += x
+          sumZ += z
         }
         const sx = maxX - minX
         const sz = maxZ - minZ
-        const dx = (minX + maxX) / 2 - refX
-        const dz = (minZ + maxZ) / 2 - refZ
+        // Cull from the footprint centroid (mean of ring points), matching
+        // PlanetaryEngine.footprintCentroid — using the AABB center instead
+        // lets irregular/L-shaped buildings' collision outlive their render
+        // cull, since the two points diverge for lopsided footprints.
+        const dx = sumX / ring.length - refX
+        const dz = sumZ / ring.length - refZ
         // Skip buildings beyond render distance — they're invisible, so
         // colliding with them reads as "stuck against nothing".
         if (dx * dx + dz * dz > PLANETARY_CONFIG.fogFar * PLANETARY_CONFIG.fogFar) continue
