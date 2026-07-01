@@ -4,8 +4,13 @@ import type { Team } from '../types'
 import { offsetLngLat } from './geoUtils'
 
 const OPEN_TAGS = ['park', 'playground', 'pitch', 'plaza', 'square', 'garden']
-const OPEN_LAYERS = ['landuse', 'leisure', 'amenity', 'landuse_overlay']
-const ROAD_LAYERS = ['road', 'roads', 'transportation']
+// OMT vector-tile *source* layer names — style *render* layer ids (e.g. in the
+// "liberty" style) don't match these, and queryRenderedFeatures throws if
+// asked to filter by a layer id that doesn't exist in the current style. Query
+// everything and filter by the feature's underlying source layer instead
+// (same approach as PlanetaryScenery.queryBySourceLayer).
+const OPEN_SOURCE_LAYERS = new Set(['landuse', 'landcover', 'park'])
+const ROAD_SOURCE_LAYER = 'transportation'
 const SPAWN_SPREAD = 30  // meters between spawn points around centroid
 
 export function findSpawnPoints(
@@ -14,9 +19,10 @@ export function findSpawnPoints(
   centerLat: number,
   team: Team,
 ): [number, number][] {
-  const features = map.queryRenderedFeatures(undefined, { layers: OPEN_LAYERS })
+  const features = map.queryRenderedFeatures(undefined)
   const open = features.filter(
     f =>
+      OPEN_SOURCE_LAYERS.has(f.sourceLayer as string) &&
       f.geometry.type === 'Polygon' &&
       OPEN_TAGS.some(
         t =>
@@ -37,9 +43,8 @@ export function findSpawnPoints(
   }
 
   // Fallback: road midpoints
-  const roads = map.queryRenderedFeatures(undefined, { layers: ROAD_LAYERS })
-  const points: [number, number][] = roads
-    .filter(r => r.geometry.type === 'LineString')
+  const points: [number, number][] = features
+    .filter(r => r.sourceLayer === ROAD_SOURCE_LAYER && r.geometry.type === 'LineString')
     .slice(0, 10)
     .map(r => {
       const coords = (r.geometry as GeoJSON.LineString).coordinates as [number, number][]
