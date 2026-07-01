@@ -44,6 +44,7 @@ export class PlanetaryEngine {
   private wallMat: THREE.MeshStandardMaterial
   private roofMat: THREE.MeshStandardMaterial
   private roadMat: THREE.MeshStandardMaterial
+  private pathMat: THREE.MeshStandardMaterial
   private treeMat: THREE.MeshBasicMaterial
   private greenMat: THREE.MeshStandardMaterial
   private laneMat = new THREE.MeshBasicMaterial({ color: 0xffffff })
@@ -114,6 +115,8 @@ export class PlanetaryEngine {
       roadTex.wrapS = roadTex.wrapT = THREE.RepeatWrapping
     }
     this.roadMat = new THREE.MeshStandardMaterial({ map: roadTex ?? undefined, roughness: 1, metalness: 0 })
+
+    this.pathMat = new THREE.MeshStandardMaterial({ color: 0xb0aca4, roughness: 1, metalness: 0 })
 
     const treeTex = this.loadTex(treeSpriteUrl)
     this.treeMat = new THREE.MeshBasicMaterial({ map: treeTex ?? undefined, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide })
@@ -251,42 +254,44 @@ export class PlanetaryEngine {
       geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
       geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
       geo.computeVertexNormals()
-      const mesh = new THREE.Mesh(geo, this.roadMat)
+      const mesh = new THREE.Mesh(geo, strip.kind === 'path' ? this.pathMat : this.roadMat)
       mesh.receiveShadow = true
       this.roads.add(mesh)
 
       // Center-line marking: a 0.12 m-wide white quad strip raised +0.02 Y above the road.
       // Corners [a, b, c, d]: a and b share v=0 (one short edge), d and c share v=uvLen (other short edge).
       // Centerline endpoints are midpoints of the two short (cross-strip) edges.
-      const yOffset = 0.02
-      const mid1x = (a.x + b.x) / 2
-      const mid1y = (a.y + b.y) / 2 + yOffset
-      const mid1z = (a.z + b.z) / 2
-      const mid2x = (d.x + c.x) / 2
-      const mid2y = (d.y + c.y) / 2 + yOffset
-      const mid2z = (d.z + c.z) / 2
+      if (strip.kind !== 'path') {
+        const yOffset = 0.02
+        const mid1x = (a.x + b.x) / 2
+        const mid1y = (a.y + b.y) / 2 + yOffset
+        const mid1z = (a.z + b.z) / 2
+        const mid2x = (d.x + c.x) / 2
+        const mid2y = (d.y + c.y) / 2 + yOffset
+        const mid2z = (d.z + c.z) / 2
 
-      const cdx = mid2x - mid1x
-      const cdz = mid2z - mid1z
-      const clen = Math.sqrt(cdx * cdx + cdz * cdz)
-      if (clen > 1e-6) {
-        // Perpendicular offset of 0.06 m (half of 0.12 m width)
-        const px = (-cdz / clen) * 0.06
-        const pz = (cdx / clen) * 0.06
+        const cdx = mid2x - mid1x
+        const cdz = mid2z - mid1z
+        const clen = Math.sqrt(cdx * cdx + cdz * cdz)
+        if (clen > 1e-6) {
+          // Perpendicular offset of 0.06 m (half of 0.12 m width)
+          const px = (-cdz / clen) * 0.06
+          const pz = (cdx / clen) * 0.06
 
-        const lanePos = new Float32Array([
-          mid1x + px, mid1y, mid1z + pz,
-          mid1x - px, mid1y, mid1z - pz,
-          mid2x + px, mid2y, mid2z + pz,
-          mid1x - px, mid1y, mid1z - pz,
-          mid2x - px, mid2y, mid2z - pz,
-          mid2x + px, mid2y, mid2z + pz,
-        ])
-        const laneGeo = new THREE.BufferGeometry()
-        laneGeo.setAttribute('position', new THREE.BufferAttribute(lanePos, 3))
-        laneGeo.computeVertexNormals()
-        const laneMesh = new THREE.Mesh(laneGeo, this.laneMat)
-        this.roads.add(laneMesh)
+          const lanePos = new Float32Array([
+            mid1x + px, mid1y, mid1z + pz,
+            mid1x - px, mid1y, mid1z - pz,
+            mid2x + px, mid2y, mid2z + pz,
+            mid1x - px, mid1y, mid1z - pz,
+            mid2x - px, mid2y, mid2z - pz,
+            mid2x + px, mid2y, mid2z + pz,
+          ])
+          const laneGeo = new THREE.BufferGeometry()
+          laneGeo.setAttribute('position', new THREE.BufferAttribute(lanePos, 3))
+          laneGeo.computeVertexNormals()
+          const laneMesh = new THREE.Mesh(laneGeo, this.laneMat)
+          this.roads.add(laneMesh)
+        }
       }
     }
   }

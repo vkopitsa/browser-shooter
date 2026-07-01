@@ -166,6 +166,19 @@ function makeFarRoadStrip(): RoadStrip {
   }
 }
 
+function makePathStrip(): RoadStrip {
+  return {
+    corners: [
+      new THREE.Vector3(0, 0.05, 0),
+      new THREE.Vector3(0, 0.05, 2),
+      new THREE.Vector3(10, 0.05, 2),
+      new THREE.Vector3(10, 0.05, 0),
+    ],
+    uvLength: 10,
+    kind: 'path',
+  }
+}
+
 describe('PlanetaryEngine — setRoads / setTrees / setGreenAreas', () => {
   it('setRoads adds meshes to scene', () => {
     const container = document.createElement('div')
@@ -199,6 +212,18 @@ describe('PlanetaryEngine — setRoads / setTrees / setGreenAreas', () => {
 
     // near strip adds a road mesh + a lane-marking mesh; far strip adds none
     expect(after - before).toBe(2)
+    engine.dispose()
+  })
+
+  it('setRoads skips the centerline mesh for path strips', () => {
+    const container = document.createElement('div')
+    const engine = new PlanetaryEngine(container)
+    ;(engine.map as any)._triggerLoad()
+    let before = 0; engine.scene.traverse(o => { if (o instanceof THREE.Mesh) before++ })
+    engine.setRoads([makePathStrip()])
+    let after = 0; engine.scene.traverse(o => { if (o instanceof THREE.Mesh) after++ })
+    // path strip adds only the surface mesh, no centerline
+    expect(after - before).toBe(1)
     engine.dispose()
   })
 
