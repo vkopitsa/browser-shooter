@@ -23,10 +23,13 @@ const ROAD_HALF_WIDTHS: Record<string, number> = {
 }
 const DEFAULT_HALF_WIDTH = 3
 
+const PATH_CLASSES = new Set(['pedestrian', 'path', 'footway', 'cycleway', 'steps', 'bridleway'])
+
 export interface RoadStrip {
   // quad corners in local XZ (Y=0.05 to sit above ground)
   corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3]
   uvLength: number  // segment length in meters, for UV tiling
+  kind?: 'road' | 'path'  // 'path' = pedestrian/footway/cycleway/etc.; undefined treated as 'road'
 }
 
 export interface SceneryData {
@@ -100,6 +103,7 @@ export class PlanetaryScenery {
     for (const f of features) {
       const cls = (f.properties?.subclass ?? f.properties?.class ?? 'residential') as string
       const halfWidth = ROAD_HALF_WIDTHS[cls] ?? DEFAULT_HALF_WIDTH
+      const kind: 'road' | 'path' = PATH_CLASSES.has(cls) ? 'path' : 'road'
       const lines: [number, number][][] =
         f.geometry.type === 'LineString'
           ? [f.geometry.coordinates as [number, number][]]
@@ -125,6 +129,7 @@ export class PlanetaryScenery {
               new THREE.Vector3(bx + nx, 0.05, bz + nz),
             ],
             uvLength: len,
+            kind,
           })
         }
       }

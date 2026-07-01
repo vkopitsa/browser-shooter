@@ -113,6 +113,27 @@ describe('PlanetaryScenery — roads', () => {
   })
 })
 
+describe('PlanetaryScenery — road kind', () => {
+  it('classifies footway class as kind "path"', () => {
+    const footway = {
+      sourceLayer: 'transportation',
+      geometry: { type: 'LineString', coordinates: [[0, 0], [0.001, 0]] },
+      properties: { class: 'footway' },
+    }
+    const map = makeMap([footway])
+    const sc = new PlanetaryScenery(map as any, identity)
+    const { roads } = sc.update(0, 0)
+    expect(roads[0].kind).toBe('path')
+  })
+
+  it('classifies residential class as kind "road"', () => {
+    const map = makeMap([roadFeature])
+    const sc = new PlanetaryScenery(map as any, identity)
+    const { roads } = sc.update(0, 0)
+    expect(roads[0].kind).toBe('road')
+  })
+})
+
 const treeFeature = {
   sourceLayer: 'poi',
   geometry: { type: 'Point', coordinates: [0.001, 0.001] },
