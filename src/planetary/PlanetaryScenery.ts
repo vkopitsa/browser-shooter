@@ -25,6 +25,7 @@ const ROAD_HALF_WIDTHS: Record<string, number> = {
   track: 1.5, pedestrian: 1.5, steps: 1,
 }
 const DEFAULT_HALF_WIDTH = 3
+const SIDEWALK_HALF_WIDTH = 0.75  // 1.5 m sidewalks, streets-gl look
 
 const PATH_CLASSES = new Set(['pedestrian', 'path', 'footway', 'cycleway', 'steps', 'bridleway', 'track'])
 const RAIL_CLASSES = new Set(['rail', 'transit', 'tram', 'subway', 'light_rail', 'narrow_gauge', 'funicular', 'monorail'])
@@ -118,8 +119,9 @@ export class PlanetaryScenery {
     return this._data
   }
 
-  /** Expand a feature's line(s) into quad strips of the given half-width. */
-  private stripsFromFeature(f: MapGeoJSONFeature, halfWidth: number, kind: RoadStrip['kind'], y: number, strips: RoadStrip[]): void {
+  /** Expand a feature's line(s) into quad strips of the given half-width,
+   *  with the strip centerline shifted `lateralOffset` m along the segment normal. */
+  private stripsFromFeature(f: MapGeoJSONFeature, halfWidth: number, kind: RoadStrip['kind'], y: number, strips: RoadStrip[], lateralOffset = 0): void {
     const lines: [number, number][][] =
       f.geometry.type === 'LineString'
         ? [f.geometry.coordinates as [number, number][]]
@@ -134,15 +136,17 @@ export class PlanetaryScenery {
         const dz = bz - az
         const len = Math.sqrt(dx * dx + dz * dz)
         if (len < 0.1) continue
-        // Normal in XZ plane (perpendicular to segment)
-        const nx = (-dz / len) * halfWidth
-        const nz = (dx / len) * halfWidth
+        // Unit normal in XZ plane (perpendicular to segment)
+        const ux = -dz / len
+        const uz = dx / len
+        const outer = lateralOffset + halfWidth
+        const inner = lateralOffset - halfWidth
         strips.push({
           corners: [
-            new THREE.Vector3(ax + nx, y, az + nz),
-            new THREE.Vector3(ax - nx, y, az - nz),
-            new THREE.Vector3(bx - nx, y, bz - nz),
-            new THREE.Vector3(bx + nx, y, bz + nz),
+            new THREE.Vector3(ax + ux * outer, y, az + uz * outer),
+            new THREE.Vector3(ax + ux * inner, y, az + uz * inner),
+            new THREE.Vector3(bx + ux * inner, y, bz + uz * inner),
+            new THREE.Vector3(bx + ux * outer, y, bz + uz * outer),
           ],
           uvLength: len,
           kind,
@@ -164,7 +168,14 @@ export class PlanetaryScenery {
       const halfWidth = isRail ? 1.5 : ROAD_HALF_WIDTHS[cls] ?? DEFAULT_HALF_WIDTH
       const kind: RoadStrip['kind'] = isRail ? 'rail' : PATH_CLASSES.has(cls) ? 'path' : 'road'
       this.stripsFromFeature(f, halfWidth, kind, 0.05, strips)
+      // Sidewalks flank car roads only (not paths/rails). y=0.04 so roads win overlaps.
+      if (kind === 'road') {
+        const off = halfWidth + 1
+        this.stripsFromFeature(f, SIDEWALK_HALF_WIDTH, 'path', 0.04, strips, off)
+        this.stripsFromFeature(f, SIDEWALK_HALF_WIDTH, 'path', 0.04, strips, -off)
+      }
     }
+    // ponytail: sidewalks triple the per-segment mesh count in setRoads; if draw calls ever dominate frame time, merge strips per material into one geometry there.
     return strips
   }
 

@@ -110,7 +110,7 @@ describe('PlanetaryScenery — roads', () => {
     const map = makeMap([casing, fill])
     const sc = new PlanetaryScenery(map as any, identity)
     const { roads } = sc.update(0, 0)
-    expect(roads).toHaveLength(1)
+    expect(roads.filter(r => r.kind === 'road')).toHaveLength(1)
   })
 })
 
@@ -446,5 +446,35 @@ describe('PlanetaryScenery — road coverage tuning', () => {
   it('skips ferry lines (no phantom roads across water)', () => {
     const sc = new PlanetaryScenery(makeMap([feat('ferry')]) as any, identity)
     expect(sc.update(0, 0).roads).toHaveLength(0)
+  })
+})
+
+describe('PlanetaryScenery — sidewalks', () => {
+  it('emits two path strips flanking each car road segment', () => {
+    const sc = new PlanetaryScenery(makeMap([roadFeature]) as any, identity)
+    const { roads } = sc.update(0, 0)
+    expect(roads.filter(r => r.kind === 'road')).toHaveLength(1)
+    expect(roads.filter(r => r.kind === 'path')).toHaveLength(2)
+  })
+
+  it('sidewalks are 1.5 m wide at y=0.04, centered 5 m either side of a residential centerline', () => {
+    const sc = new PlanetaryScenery(makeMap([roadFeature]) as any, identity)
+    const sidewalks = sc.update(0, 0).roads.filter(r => r.kind === 'path')
+    for (const s of sidewalks) {
+      expect(s.corners[0].y).toBeCloseTo(0.04)
+      expect(s.corners[0].distanceTo(s.corners[1])).toBeCloseTo(1.5, 1)
+    }
+    // roadFeature runs along +X at z=0; residential halfWidth 4 → centers at z = ±5
+    const centerZ = (s: (typeof sidewalks)[0]) => (s.corners[0].z + s.corners[1].z) / 2
+    const zs = sidewalks.map(centerZ).sort((a, b) => a - b)
+    expect(zs[0]).toBeCloseTo(-5, 1)
+    expect(zs[1]).toBeCloseTo(5, 1)
+  })
+
+  it('does not add sidewalks to footways or rails', () => {
+    const footway = { id: 'f1', sourceLayer: 'transportation', geometry: { type: 'LineString', coordinates: [[0, 0], [0.001, 0]] }, properties: { class: 'footway' } }
+    const rail = { id: 'r1', sourceLayer: 'transportation', geometry: { type: 'LineString', coordinates: [[0, 0.001], [0.001, 0.001]] }, properties: { class: 'rail' } }
+    const sc = new PlanetaryScenery(makeMap([footway, rail]) as any, identity)
+    expect(sc.update(0, 0).roads).toHaveLength(2)
   })
 })
