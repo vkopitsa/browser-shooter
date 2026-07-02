@@ -17,6 +17,7 @@ export interface DirectoryEntry {
   mode?: string
   joinPolicy?: JoinPolicy   // 'lobby' (default) | 'free'
   protected?: boolean       // true when a game has a non-empty password
+  planetaryCenter?: [number, number]  // [lng, lat] drop-in point; lets players at the same spot find each other
 }
 
 /** Messages carried on the directory channel (distinct from the game NetMessage protocol). */

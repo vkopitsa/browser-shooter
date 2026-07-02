@@ -64,7 +64,7 @@ import { MatchOver } from './ui/MatchOver'
 import { defaultMatchConfig, type MatchConfig } from './session/MatchConfig'
 import type { MatchScores } from './session/protocol'
 import { BombState } from './session/BombCarrier'
-import { findMatch } from './net/Matchmaker'
+import { findMatch, findPlanetaryMatch } from './net/Matchmaker'
 import { GrenadeManager } from './weapons/GrenadeManager'
 import { GRENADE_DEFS } from './weapons/GrenadeDefs'
 
@@ -463,7 +463,7 @@ function App() {
     updateGameState('playing')
   }, [updateGameState])
 
-  const hostGame = useCallback(async (config: MatchConfig) => {
+  const hostGame = useCallback(async (config: MatchConfig): Promise<string | null> => {
     const data = gameDataRef.current
     data.role = 'host'
     // Generate seed once so all clients build the same random map
@@ -552,7 +552,7 @@ function App() {
       data.role = 'single'
       setIsHost(false)
       setJoinError('Could not reach the multiplayer server. Check your connection, or self-host the broker (see README).')
-      return
+      return null
     }
     setRoomCode(code)
     const hostDirectory = new HostDirectory()
@@ -565,7 +565,9 @@ function App() {
       mode: config.planetaryCenter ? `planetary-${config.mode}` : config.mode,
       joinPolicy: config.joinPolicy ?? 'lobby',
       protected: !!config.password,
+      planetaryCenter: config.planetaryCenter,
     }).catch(() => {})
+    return code
   }, [myTeam])
 
   const joinGame = useCallback(async (code: string, opts?: { team?: Team; password?: string }) => {
@@ -794,6 +796,49 @@ function App() {
       setShowMatchSetup(true)
     }
   }, [joinGame])
+
+  /** Host-side match start: flip the directory to in-progress, wire voice, enter the game. */
+  const startHostedMatch = useCallback((code: string | null) => {
+    const data = gameDataRef.current
+    data.hostDirectory?.setStatus('in-progress')
+    data.netHost?.startMatch()
+    const hostPeer = data.peerHost?.peer
+    if (data.netHost && hostPeer && code) {
+      const { voice: chat, video: videoChat } = startVoice(data.session.localId, hostPeer)
+      data.netHost.onHostRoster((r) => { chat.setRoster(r); videoChat.setRoster(r) })
+      data.netHost.onRemoteVoiceStart((id, name) => chat.remoteStart(id, name))
+      data.netHost.onRemoteVoiceStop((id) => chat.remoteStop(id))
+      data.netHost.setHostVoice(data.session.localId, code)
+    }
+    if (data.matchConfig.planetaryCenter) updateGameState('planetary')
+    else startNetGame('host')
+  }, [startVoice, updateGameState, startNetGame])
+
+  /** Planetary drop-in: join an existing match at this spot if one is open, else host one
+   * (auto-started with free join so later players at the same spot drop straight in). */
+  const dropIntoPlanet = useCallback(async (lng: number, lat: number, draft: MatchConfig) => {
+    const dialed = await dialDirectory()
+    if (dialed) {
+      const match = await findPlanetaryMatch(dialed.client, [lng, lat])
+      dialed.peer.destroy()
+      if (match) {
+        try {
+          await joinGame(match.roomCode)
+          return
+        } catch {
+          // Stale directory entry (host just left) — clean up and host instead.
+          gameDataRef.current.peerClient?.stop()
+          gameDataRef.current.peerClient = null
+          gameDataRef.current.netClient = null
+        }
+      }
+    }
+    const cfg: MatchConfig = { ...draft, zoneId: 'arid', joinPolicy: 'free', planetaryCenter: [lng, lat] }
+    const code = await hostGame(cfg)
+    if (code) startHostedMatch(code)
+    // ponytail: broker unreachable → fall back to solo planetary (re-picks the spot in-game)
+    else updateGameState('planetary')
+  }, [joinGame, hostGame, startHostedMatch, updateGameState])
 
   const leaveMultiplayer = useCallback(() => {
     resetNetworking()
@@ -1516,7 +1561,7 @@ function App() {
           <MainMenu
             onSingleplayer={() => updateGameState('teamselect')}
             onMultiplayer={() => updateGameState('mpmenu')}
-            onPlanetary={() => updateGameState('planetary')}
+            onPlanetary={() => setPlanetaryDraft(defaultMatchConfig())}
             onSettings={() => { settingsReturnRef.current = 'menu'; updateGameState('settings') }}
             onAbout={() => setShowAbout(true)}
             onHelp={() => setShowHelp(true)}
@@ -1580,21 +1625,7 @@ function App() {
             onJoinFree={(code, team, password) => joinGame(code, { team, password })}
             joinError={joinError}
             onCancelJoin={() => setJoinError(null)}
-            onStart={() => {
-              const data = gameDataRef.current
-              data.hostDirectory?.setStatus('in-progress')
-              data.netHost?.startMatch()
-              const hostPeer = data.peerHost?.peer
-              if (data.netHost && hostPeer && roomCode) {
-                const { voice: chat, video: videoChat } = startVoice(data.session.localId, hostPeer)
-                data.netHost.onHostRoster((r) => { chat.setRoster(r); videoChat.setRoster(r) })
-                data.netHost.onRemoteVoiceStart((id, name) => chat.remoteStart(id, name))
-                data.netHost.onRemoteVoiceStop((id) => chat.remoteStop(id))
-                data.netHost.setHostVoice(data.session.localId, roomCode)
-              }
-              if (data.matchConfig.planetaryCenter) updateGameState('planetary')
-              else startNetGame('host')
-            }}
+            onStart={() => startHostedMatch(roomCode)}
             onBack={leaveMultiplayer}
             onRefresh={refreshServers}
             onQuickMatch={handleQuickMatch}
@@ -1635,15 +1666,15 @@ function App() {
           onEditMap={(map) => { setEditingMap(map); setShowMatchSetup(false); updateGameState('mapeditor') }}
         />
       )}
-      {gameState === 'mpmenu' && planetaryDraft && (
+      {(gameState === 'menu' || gameState === 'mpmenu') && planetaryDraft && (
         <MapPicker
           playerPositions={[]}
           onTeleport={(lng, lat) => {
-            const cfg: MatchConfig = { ...planetaryDraft, zoneId: 'arid', planetaryCenter: [lng, lat] }
+            const draft = planetaryDraft
             setPlanetaryDraft(null)
-            void hostGame(cfg).catch(() => setJoinError('Could not start hosting.'))
+            void dropIntoPlanet(lng, lat, draft).catch(() => setJoinError('Could not start hosting.'))
           }}
-          onClose={() => { setPlanetaryDraft(null); setShowMatchSetup(true) }}
+          onClose={() => { setPlanetaryDraft(null); if (gameState === 'mpmenu') setShowMatchSetup(true) }}
         />
       )}
       {gameState === 'mapeditor' && (
