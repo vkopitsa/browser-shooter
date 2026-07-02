@@ -357,6 +357,7 @@ export class PlanetaryEngine {
   setTrees(positions: THREE.Vector3[]): void {
     if (this.trees) {
       this.trees.geometry.dispose()
+      this.trees.dispose()
       this.scene.remove(this.trees)
       this.trees = null
     }
@@ -476,10 +477,7 @@ export class PlanetaryEngine {
 
   /** Instanced street furniture: lamp posts along car roads, benches along footpaths. */
   setStreetObjects(lamps: THREE.Vector3[], benches: BenchSpec[]): void {
-    for (const m of this.streetObjects.children) {
-      if (m instanceof THREE.Mesh) m.geometry.dispose()
-    }
-    this.streetObjects.clear()
+    this.disposeGroup(this.streetObjects)
     const far = this.cullFar()
     const dummy = new THREE.Object3D()
 
@@ -595,6 +593,7 @@ export class PlanetaryEngine {
   private disposeGroup(group: THREE.Group) {
     for (const m of group.children) {
       if (m instanceof THREE.Mesh) m.geometry.dispose()
+      if (m instanceof THREE.InstancedMesh) m.dispose()
     }
     group.clear()
   }
@@ -604,7 +603,7 @@ export class PlanetaryEngine {
     this.setStreetObjects([], [])
     this.disposeGroup(this.buildings)
     this.disposeGroup(this.roads)
-    if (this.trees) { this.trees.geometry.dispose(); this.scene.remove(this.trees) }
+    if (this.trees) { this.trees.geometry.dispose(); this.trees.dispose(); this.scene.remove(this.trees) }
     if (this.greenAreas) { this.greenAreas.geometry.dispose(); this.scene.remove(this.greenAreas) }
     if (this.waterAreas) { this.waterAreas.geometry.dispose(); this.scene.remove(this.waterAreas) }
     this.postProcess?.dispose()

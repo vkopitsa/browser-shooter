@@ -230,12 +230,13 @@ export class PlanetaryScenery {
       // surface paints phantom roads/rails across the map.
       if (f.properties?.brunnel === 'tunnel') continue
       const cls = (f.properties?.subclass ?? f.properties?.class ?? 'residential') as string
-      if (SKIP_ROAD_CLASSES.has(cls)) continue
+      if (SKIP_ROAD_CLASSES.has(cls) || SKIP_ROAD_CLASSES.has(String(f.properties?.class ?? ''))) continue
       const isRail = RAIL_CLASSES.has(cls)
       const halfWidth = isRail ? 1.5 : ROAD_HALF_WIDTHS[cls] ?? DEFAULT_HALF_WIDTH
       const kind: RoadStrip['kind'] = isRail ? 'rail' : PATH_CLASSES.has(cls) ? 'path' : 'road'
       this.stripsFromFeature(f, halfWidth, kind, 0.05, strips)
       // Sidewalks flank car roads only (not paths/rails). y=0.04 so roads win overlaps.
+      // ponytail: sidewalks triple the per-segment mesh count in setRoads; if draw calls ever dominate frame time, merge strips per material into one geometry there.
       if (kind === 'road') {
         const off = halfWidth + 1
         this.stripsFromFeature(f, SIDEWALK_HALF_WIDTH, 'path', 0.04, strips, off)

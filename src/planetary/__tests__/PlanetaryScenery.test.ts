@@ -447,6 +447,16 @@ describe('PlanetaryScenery — road coverage tuning', () => {
     const sc = new PlanetaryScenery(makeMap([feat('ferry')]) as any, identity)
     expect(sc.update(0, 0).roads).toHaveLength(0)
   })
+
+  it('skips aerialway lines even when subclass carries the specific type', () => {
+    const gondola = {
+      sourceLayer: 'transportation',
+      geometry: { type: 'LineString', coordinates: [[0, 0], [0.001, 0]] },
+      properties: { class: 'aerialway', subclass: 'gondola' },
+    }
+    const sc = new PlanetaryScenery(makeMap([gondola]) as any, identity)
+    expect(sc.update(0, 0).roads).toHaveLength(0)
+  })
 })
 
 describe('PlanetaryScenery — sidewalks', () => {
