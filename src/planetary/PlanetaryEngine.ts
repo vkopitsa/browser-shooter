@@ -10,6 +10,7 @@ import type { BuildingSpec } from './BuildingGeometry'
 import { PostProcessing } from './PostProcessing'
 import type { PostQuality } from './PostProcessing'
 import { PLANETARY_CONFIG } from './PlanetaryConfig'
+import { GroundTiles } from './GroundTiles'
 import buildingFacadeUrl from './assets/building-facade.png'
 import roadAsphaltUrl from './assets/road-asphalt.png'
 import treeSpriteUrl from './assets/tree-sprite.png'
@@ -63,6 +64,7 @@ export class PlanetaryEngine {
   private loader = new THREE.TextureLoader()
   private readyCbs: (() => void)[] = []
   private originMercator: [number, number] = [0, 0]
+  private groundTiles = new GroundTiles((lng, lat) => this.lngLatToLocal(lng, lat))
   private billboardDummy = new THREE.Object3D()
   private billboardMat = new THREE.Matrix4()
   private sizeVec = new THREE.Vector2()
@@ -143,14 +145,18 @@ export class PlanetaryEngine {
     this.greenMat = new THREE.MeshStandardMaterial({ color: 0x4a6b38, roughness: 1, metalness: 0 })
     this.waterMat = new THREE.MeshStandardMaterial({ color: 0x2f6690, roughness: 0.15, metalness: 0.1 })
 
-    // Ground (fallback for areas without OSM green data)
+    // Ground (fallback beyond the tile grid) — sunk 0.5 m so the OSM raster
+    // tiles at y=0 never z-fight with it.
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(4000, 4000),
       new THREE.MeshStandardMaterial({ color: 0x3a5228, roughness: 1 }),
     )
     ground.rotation.x = -Math.PI / 2
+    ground.position.y = -0.5
     ground.receiveShadow = true
     this.scene.add(ground)
+
+    this.scene.add(this.groundTiles.group)
 
     this.scene.add(this.buildings)
     this.scene.add(this.roads)
@@ -537,6 +543,10 @@ export class PlanetaryEngine {
         if (this.postProcess.active) this.renderer.toneMapping = THREE.NoToneMapping
       }
     }
+    // OSM ground tiles follow the camera (no-op until the center tile changes)
+    const [gLng, gLat] = this.localToLngLat(this.camera.position.x, this.camera.position.z)
+    this.groundTiles.update(gLng, gLat)
+
     // Billboard trees: rotate each instance to face camera each frame
     if (this.trees) {
       const camPos = this.camera.position
@@ -606,6 +616,7 @@ export class PlanetaryEngine {
     if (this.trees) { this.trees.geometry.dispose(); this.trees.dispose(); this.scene.remove(this.trees) }
     if (this.greenAreas) { this.greenAreas.geometry.dispose(); this.scene.remove(this.greenAreas) }
     if (this.waterAreas) { this.waterAreas.geometry.dispose(); this.scene.remove(this.waterAreas) }
+    this.groundTiles.dispose()
     this.postProcess?.dispose()
     this.wallMat.dispose()
     this.houseWallMat.dispose()

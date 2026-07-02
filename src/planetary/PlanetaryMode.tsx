@@ -863,6 +863,14 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
           mobile={mobileControls}
         />
       )}
+      {/* Required by OSM tile usage policy — ground tiles are © OSM */}
+      <div style={{
+        position: 'absolute', right: 4, bottom: 2, fontSize: 10,
+        color: 'rgba(255,255,255,0.75)', textShadow: '0 0 2px #000', pointerEvents: 'none',
+      }}>
+        © OpenStreetMap contributors
+      </div>
+
       {!showPicker && <DamageOverlay indicator={damageIndicator} />}
       {!showPicker && <FlashOverlay flash={flashEffect} />}
 
