@@ -6,7 +6,6 @@ import { PlanetaryCollision } from './PlanetaryCollision'
 import { PlanetaryScenery } from './PlanetaryScenery'
 import { SunSystem } from './SunSystem'
 import { MapPicker } from './MapPicker'
-import { RoundBoundary } from './RoundBoundary'
 import { GameSession } from '../session/GameSession'
 import { defaultCompetitiveConfig } from '../session/MatchConfig'
 import { Bombsite } from '../session/Bombsite'
@@ -64,7 +63,6 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
   const controlsRef = useRef<GeoControls | null>(null)
   const collisionRef = useRef<PlanetaryCollision | null>(null)
   const sessionRef = useRef<GameSession | null>(null)
-  const boundaryRef = useRef<RoundBoundary>(new RoundBoundary())
   const rafRef = useRef<number>(0)
   const touchLookRef = useRef({ yaw: 0, pitch: 0 })
   const desktopControlsRef = useRef<Controls | null>(null)
@@ -80,7 +78,6 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
 
   const [showPicker, setShowPicker] = useState(true)
   const [startCenter, setStartCenter] = useState<[number, number] | null>(null)
-  const [boundaryStatus, setBoundaryStatus] = useState<'safe' | 'warn' | 'out'>('safe')
   const [hudState, setHudState] = useState<HudState>({
     health: 100, maxHealth: 100, ammo: 30, maxAmmo: 30, weaponName: 'pistol', money: 800,
   })
@@ -494,17 +491,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
         // 6c. Update sun angle from current time-of-day
         engine.setSunAngle(sunSystemRef.current.compute(sunHourRef.current))
 
-        // 7. Round boundary check
-        const status = boundaryRef.current.check(lng, lat)
-        setBoundaryStatus(status)
-        if (status === 'out' && !session.player.isDead) {
-          session.player.takeDamage(50 * dt)
-          if (session.player.isDead) {
-            session.handleDeath(session.localId)
-          }
-        }
-
-        // 8. Update HUD state
+        // 7. Update HUD state
         setHudState({
           health: session.player.health,
           maxHealth: session.player.maxHealth,
@@ -652,8 +639,6 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
   }, [showPicker, openScoreboard])
 
   const handleTeleport = useCallback((lng: number, lat: number) => {
-    // Anchor the boundary immediately so the game loop never sees [0,0] as center
-    boundaryRef.current.update([[lng, lat]])
     setShowPicker(false)
     // Wait for React to unmount the picker, then focus the game canvas so
     // keydown/keyup events reach GeoControls without requiring a click first.
@@ -812,17 +797,6 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
               Respawn in {Math.ceil(respawnIn)}s
             </div>
           )}
-        </div>
-      )}
-
-      {!showPicker && boundaryStatus !== 'safe' && (
-        <div style={{
-          position: 'absolute', top: '20%', left: '50%', transform: 'translateX(-50%)',
-          color: boundaryStatus === 'out' ? '#ff3300' : '#ffaa00',
-          fontSize: 20, fontFamily: 'monospace', fontWeight: 'bold',
-          textShadow: '0 0 8px rgba(0,0,0,0.8)', pointerEvents: 'none',
-        }}>
-          {boundaryStatus === 'out' ? '⚠ OUT OF BOUNDS — TAKING DAMAGE' : '⚠ LEAVING PLAY AREA'}
         </div>
       )}
 
