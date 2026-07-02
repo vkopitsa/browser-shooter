@@ -11,6 +11,7 @@ import { PostProcessing } from './PostProcessing'
 import type { PostQuality } from './PostProcessing'
 import { PLANETARY_CONFIG } from './PlanetaryConfig'
 import { GroundTiles } from './GroundTiles'
+import { Elevation } from './Elevation'
 import buildingFacadeUrl from './assets/building-facade.png'
 import roadAsphaltUrl from './assets/road-asphalt.png'
 import treeSpriteUrl from './assets/tree-sprite.png'
@@ -63,14 +64,29 @@ export class PlanetaryEngine {
   private postPreset: PostQuality = PLANETARY_CONFIG.post.defaultPreset
   private loader = new THREE.TextureLoader()
   private readyCbs: (() => void)[] = []
+  private elevationCbs: (() => void)[] = []
   private originMercator: [number, number] = [0, 0]
-  private groundTiles = new GroundTiles((lng, lat) => this.lngLatToLocal(lng, lat))
+  readonly elevation = new Elevation()
+  private groundTiles = new GroundTiles(
+    (lng, lat) => this.lngLatToLocal(lng, lat),
+    (lng, lat) => this.elevation.heightAt(lng, lat),
+  )
+  private fallbackGround!: THREE.Mesh
   private billboardDummy = new THREE.Object3D()
   private billboardMat = new THREE.Matrix4()
   private sizeVec = new THREE.Vector2()
 
   constructor(private container: HTMLElement, center: [number, number] = [0, 0]) {
     this.originMercator = lngLatToMercator(center[0], center[1])
+
+    // DEM tiles decode async — re-drape the ground and notify listeners
+    // (scenery/collision re-scan) whenever new heights arrive.
+    this.elevation.onChange = () => {
+      this.groundTiles.refresh()
+      this.fallbackGround.position.y = Math.min(-0.5, this.elevation.min - 0.5)
+      this.elevationCbs.forEach(cb => cb())
+    }
+    this.elevation.setCenter(center[0], center[1])
 
     this.scene = new THREE.Scene()
     this.scene.fog = new THREE.Fog(0x9ec7e8, 120, PLANETARY_CONFIG.fogFar)
@@ -145,8 +161,8 @@ export class PlanetaryEngine {
     this.greenMat = new THREE.MeshStandardMaterial({ color: 0x4a6b38, roughness: 1, metalness: 0 })
     this.waterMat = new THREE.MeshStandardMaterial({ color: 0x2f6690, roughness: 0.15, metalness: 0.1 })
 
-    // Ground (fallback beyond the tile grid) — sunk 0.5 m so the OSM raster
-    // tiles at y=0 never z-fight with it.
+    // Ground (fallback beyond the tile grid) — sunk 0.5 m below the lowest
+    // loaded terrain so the displaced OSM raster tiles never z-fight or clip it.
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(4000, 4000),
       new THREE.MeshStandardMaterial({ color: 0x3a5228, roughness: 1 }),
@@ -155,6 +171,7 @@ export class PlanetaryEngine {
     ground.position.y = -0.5
     ground.receiveShadow = true
     this.scene.add(ground)
+    this.fallbackGround = ground
 
     this.scene.add(this.groundTiles.group)
 
@@ -219,6 +236,17 @@ export class PlanetaryEngine {
     this.readyCbs.push(cb)
   }
 
+  /** Fired when new DEM data lands — scenery/collision should re-drape. */
+  onElevationChange(cb: () => void) {
+    this.elevationCbs.push(cb)
+  }
+
+  /** Terrain height at a local world XZ, relative to the center's elevation. */
+  heightAt(x: number, z: number): number {
+    const [lng, lat] = this.localToLngLat(x, z)
+    return this.elevation.heightAt(lng, lat)
+  }
+
   setSunAngle(state: SunState): void {
     const d = state.direction
     this.sun.position.set(d.x * 200, d.y * 200, d.z * 200)
@@ -279,7 +307,9 @@ export class PlanetaryEngine {
       }
       const wallMaterial = spec.buildingType === 'house' ? this.houseWallMat : this.wallMat
       const mesh = new THREE.Mesh(geo, [wallMaterial, this.roofMat])
-      // DO NOT set mesh.position — footprints are absolute local XZ
+      // Only Y may be set — footprints are absolute local XZ. Whole building
+      // sits on the terrain at its centroid (matches PlanetaryCollision boxes).
+      mesh.position.y = this.heightAt(cx, cz)
       mesh.castShadow = true
       mesh.receiveShadow = true
       this.buildings.add(mesh)
@@ -295,14 +325,20 @@ export class PlanetaryEngine {
       const mz = (a.z + b.z + c.z + d.z) / 4
       if (this.isBeyond(mx, mz, far)) continue
       const geo = new THREE.BufferGeometry()
+      // Drape per corner onto the terrain. ponytail: long strips can still cut
+      // into a crest between corners — subdivide strips if it ever shows.
+      const ay = a.y + this.heightAt(a.x, a.z)
+      const by = b.y + this.heightAt(b.x, b.z)
+      const cy = c.y + this.heightAt(c.x, c.z)
+      const dy = d.y + this.heightAt(d.x, d.z)
       // Two triangles: ABD and BCD
       const positions = new Float32Array([
-        a.x, a.y, a.z,
-        b.x, b.y, b.z,
-        d.x, d.y, d.z,
-        b.x, b.y, b.z,
-        c.x, c.y, c.z,
-        d.x, d.y, d.z,
+        a.x, ay, a.z,
+        b.x, by, b.z,
+        d.x, dy, d.z,
+        b.x, by, b.z,
+        c.x, cy, c.z,
+        d.x, dy, d.z,
       ])
       // UV: tile along length, road width = 1 UV unit
       const uvLen = strip.uvLength / 4  // tile every 4 m
@@ -328,10 +364,10 @@ export class PlanetaryEngine {
       if (kind === 'road') {
         const yOffset = 0.02
         const mid1x = (a.x + b.x) / 2
-        const mid1y = (a.y + b.y) / 2 + yOffset
+        const mid1y = (ay + by) / 2 + yOffset
         const mid1z = (a.z + b.z) / 2
         const mid2x = (d.x + c.x) / 2
-        const mid2y = (d.y + c.y) / 2 + yOffset
+        const mid2y = (dy + cy) / 2 + yOffset
         const mid2z = (d.z + c.z) / 2
 
         const cdx = mid2x - mid1x
@@ -376,7 +412,7 @@ export class PlanetaryEngine {
     const dummy = new THREE.Object3D()
     for (let i = 0; i < visible.length; i++) {
       dummy.position.copy(visible[i])
-      dummy.position.y = 5  // center of 10 m tall plane
+      dummy.position.y = 5 + this.heightAt(visible[i].x, visible[i].z)  // center of 10 m tall plane, on terrain
       dummy.updateMatrix()
       mesh.setMatrixAt(i, dummy.matrix)
     }
@@ -399,7 +435,7 @@ export class PlanetaryEngine {
       const x = triangles[i * 2]
       const z = triangles[i * 2 + 1]
       pos[i * 3] = x
-      pos[i * 3 + 1] = 0.01
+      pos[i * 3 + 1] = 0.01 + this.heightAt(x, z)
       pos[i * 3 + 2] = z
       uvArr[i * 2] = x / 4
       uvArr[i * 2 + 1] = z / 4
@@ -423,9 +459,11 @@ export class PlanetaryEngine {
     const vertCount = triangles.length / 2
     const pos = new Float32Array(vertCount * 3)
     for (let i = 0; i < vertCount; i++) {
-      pos[i * 3] = triangles[i * 2]
-      pos[i * 3 + 1] = 0.03
-      pos[i * 3 + 2] = triangles[i * 2 + 1]
+      const x = triangles[i * 2]
+      const z = triangles[i * 2 + 1]
+      pos[i * 3] = x
+      pos[i * 3 + 1] = 0.03 + this.heightAt(x, z)
+      pos[i * 3 + 2] = z
     }
     const geo = new THREE.BufferGeometry()
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
@@ -447,7 +485,7 @@ export class PlanetaryEngine {
       if (this.isBeyond(spec.x, spec.z, 300)) continue  // labels read badly beyond 300 m
       const sprite = this.makeLabelSprite(spec.text)
       if (!sprite) continue  // 2D context unavailable or stubbed (jsdom/test envs) — labels are cosmetic, skip
-      sprite.position.set(spec.x, 10, spec.z)
+      sprite.position.set(spec.x, 10 + this.heightAt(spec.x, spec.z), spec.z)
       this.labels.add(sprite)
     }
   }
@@ -495,7 +533,7 @@ export class PlanetaryEngine {
       const poles = new THREE.InstancedMesh(poleGeo, this.lampPoleMat, nearLamps.length)
       const heads = new THREE.InstancedMesh(headGeo, this.lampHeadMat, nearLamps.length)
       for (let i = 0; i < nearLamps.length; i++) {
-        dummy.position.set(nearLamps[i].x, 0, nearLamps[i].z)
+        dummy.position.set(nearLamps[i].x, this.heightAt(nearLamps[i].x, nearLamps[i].z), nearLamps[i].z)
         dummy.rotation.set(0, 0, 0)
         dummy.updateMatrix()
         poles.setMatrixAt(i, dummy.matrix)
@@ -513,7 +551,7 @@ export class PlanetaryEngine {
       const seats = new THREE.InstancedMesh(seatGeo, this.benchMat, nearBenches.length)
       const backs = new THREE.InstancedMesh(backGeo, this.benchMat, nearBenches.length)
       for (let i = 0; i < nearBenches.length; i++) {
-        dummy.position.set(nearBenches[i].x, 0, nearBenches[i].z)
+        dummy.position.set(nearBenches[i].x, this.heightAt(nearBenches[i].x, nearBenches[i].z), nearBenches[i].z)
         dummy.rotation.set(0, nearBenches[i].yaw, 0)
         dummy.updateMatrix()
         seats.setMatrixAt(i, dummy.matrix)

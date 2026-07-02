@@ -22,6 +22,7 @@ export class PlanetaryCollision {
   constructor(
     private map: Pick<maplibregl.Map, 'queryRenderedFeatures'>,
     private toLocal?: (lng: number, lat: number) => [number, number],
+    private terrainAt?: (x: number, z: number) => number,
   ) {}
 
   get collisionWorld(): CollisionWorld { return this.world }
@@ -106,6 +107,12 @@ export class PlanetaryCollision {
         if (dx * dx + dz * dz > PLANETARY_CONFIG.fogFar * PLANETARY_CONFIG.fogFar) continue
         if (!(sx > 0.5 && sz > 0.5) || pts.length < 3) continue
 
+        // ponytail: whole building offset by terrain at its centroid — matches the
+        // rendered mesh offset; per-corner draping if sloped footprints ever matter.
+        const baseY = this.terrainAt
+          ? this.terrainAt(sumX / ring.length, sumZ / ring.length)
+          : 0
+
         // A single AABB is only valid when it hugs the footprint. Diagonal or
         // L/U-shaped buildings have AABBs far larger than the building itself,
         // and that phantom volume blocks the streets around them (the "stuck
@@ -119,7 +126,7 @@ export class PlanetaryCollision {
         const polyArea = Math.abs(area2) / 2
         if (polyArea >= 0.7 * sx * sz) {
           this.world.addBox(
-            new THREE.Vector3((minX + maxX) / 2, height / 2, (minZ + maxZ) / 2),
+            new THREE.Vector3((minX + maxX) / 2, baseY + height / 2, (minZ + maxZ) / 2),
             new THREE.Vector3(sx, height, sz),
           )
         } else {
@@ -138,7 +145,7 @@ export class PlanetaryCollision {
               const bx = x1 + ((x2 - x1) * (s + 1)) / n
               const bz = z1 + ((z2 - z1) * (s + 1)) / n
               this.world.addBox(
-                new THREE.Vector3((ax + bx) / 2, height / 2, (az + bz) / 2),
+                new THREE.Vector3((ax + bx) / 2, baseY + height / 2, (az + bz) / 2),
                 new THREE.Vector3(Math.max(Math.abs(bx - ax), THICK), height, Math.max(Math.abs(bz - az), THICK)),
               )
             }

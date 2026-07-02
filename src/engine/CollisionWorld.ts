@@ -14,6 +14,9 @@ export const PLAYER_HEIGHT = 2.2
 export class CollisionWorld {
   readonly boxes: BoxCollider[] = []
 
+  /** Optional terrain height sampler (world x,z → ground Y). Unset = flat floor at 0 (arena). */
+  terrain: ((x: number, z: number) => number) | null = null
+
   addBox(center: THREE.Vector3, size: THREE.Vector3): void {
     const half = size.clone().multiplyScalar(0.5)
     this.boxes.push({
@@ -72,11 +75,11 @@ export class CollisionWorld {
    * Height of the surface the player is standing on at `pos`, given their feet are at
    * `feetY`. Returns the highest box top whose XZ footprint is within `radius` of the
    * player and that sits at or below `feetY + STEP_TOLERANCE` (i.e. reachable from above
-   * without clipping through a taller wall). Returns `0` (the floor) when nothing supports
-   * the player.
+   * without clipping through a taller wall). Returns the terrain height (or `0` when no
+   * terrain sampler is set) when nothing else supports the player.
    */
   supportHeight(pos: THREE.Vector3, radius: number, feetY: number): number {
-    let support = 0
+    let support = this.terrain ? this.terrain(pos.x, pos.z) : 0
     const reach = feetY + STEP_TOLERANCE
     for (const box of this.boxes) {
       if (box.max.y > reach) continue // top is above what the player can land on / step onto

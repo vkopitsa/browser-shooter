@@ -163,7 +163,10 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
       collisionRef.current = new PlanetaryCollision(
         engine.map,
         (lng, lat) => engine.lngLatToLocal(lng, lat),
+        (x, z) => engine.heightAt(x, z),
       )
+      // Walkable floor follows the terrain relief instead of flat y=0
+      collisionRef.current.collisionWorld.terrain = (x, z) => engine.heightAt(x, z)
 
       // Building tiles aren't rendered yet at map 'load', so the first scan finds
       // nothing. Re-scan whenever the map settles (tiles done) — the loop's version
@@ -176,6 +179,13 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
       )
       sceneryRef.current = scenery
       engine.map.on('idle', () => sceneryRef.current?.markStale())
+
+      // DEM tiles decode after the initial build — re-drape scenery and
+      // collision boxes onto the terrain once heights are known.
+      engine.onElevationChange(() => {
+        collisionRef.current?.markStale()
+        sceneryRef.current?.markStale()
+      })
 
       const config = net?.config ?? defaultCompetitiveConfig()
       const session = net?.session ?? new GameSession(config)

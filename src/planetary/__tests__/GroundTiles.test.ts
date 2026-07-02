@@ -40,4 +40,22 @@ describe('GroundTiles', () => {
     gt.dispose()
     expect(gt.group.children.length).toBe(0)
   })
+
+  it('displaces grid vertices by the height sampler and rebuilds on refresh', () => {
+    let h = 7
+    const gt = new GroundTiles(proj, () => h)
+    gt.update(13.4, 52.5)
+    const mesh = gt.group.children[0] as import('three').Mesh
+    const pos = mesh.geometry.getAttribute('position')
+    expect(pos.count).toBe(81) // 9×9 grid per tile
+    expect(pos.getY(0)).toBe(7)
+
+    h = 3
+    gt.refresh()
+    expect(gt.group.children.length).toBe(0)
+    gt.update(13.4, 52.5)
+    const mesh2 = gt.group.children[0] as import('three').Mesh
+    expect(mesh2.geometry.getAttribute('position').getY(0)).toBe(3)
+    gt.dispose()
+  })
 })

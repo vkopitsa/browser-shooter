@@ -27,9 +27,22 @@ export class GroundTiles {
   private loader = new THREE.TextureLoader()
   private centerKey = ''
 
-  constructor(private lngLatToLocal: (lng: number, lat: number) => [number, number]) {
+  constructor(
+    private lngLatToLocal: (lng: number, lat: number) => [number, number],
+    private heightAt: (lng: number, lat: number) => number = () => 0,
+  ) {
     this.group.name = 'ground-tiles'
     this.loader.setCrossOrigin('anonymous')
+  }
+
+  /** Drop all tiles so the next update() rebuilds them (new elevation data arrived). */
+  refresh(): void {
+    for (const mesh of this.tiles.values()) {
+      this.group.remove(mesh)
+      this.disposeMesh(mesh)
+    }
+    this.tiles.clear()
+    this.centerKey = ''
   }
 
   /** Rebuilds the tile grid around the given position. No-op until the center tile changes. */
@@ -56,26 +69,40 @@ export class GroundTiles {
   }
 
   private addTile(x: number, y: number): void {
-    // All 4 corners through the engine projection — the local frame is not true
-    // web mercator, so a tile is a warped quad, not a rectangle. Neighbors share
-    // exact corner values, so edges stay seam-free.
-    const [wLng, nLat] = tileToLngLat(x, y)
-    const [eLng, sLat] = tileToLngLat(x + 1, y + 1)
-    const nw = this.lngLatToLocal(wLng, nLat)
-    const ne = this.lngLatToLocal(eLng, nLat)
-    const sw = this.lngLatToLocal(wLng, sLat)
-    const se = this.lngLatToLocal(eLng, sLat)
+    // Grid vertices go through the engine projection — the local frame is not
+    // true web mercator, so a tile is a warped patch, not a rectangle. Neighbors
+    // share exact edge lng/lats, so edges stay seam-free. Y comes from the DEM.
+    const N = 8 // ~19 m vertex spacing at z17 — matches terrarium z13 resolution
+    const verts = new Float32Array((N + 1) * (N + 1) * 3)
+    const uvs = new Float32Array((N + 1) * (N + 1) * 2)
+    for (let j = 0; j <= N; j++) {
+      for (let i = 0; i <= N; i++) {
+        const [lng, lat] = tileToLngLat(x + i / N, y + j / N)
+        const [lx, lz] = this.lngLatToLocal(lng, lat)
+        const k = j * (N + 1) + i
+        verts[k * 3] = lx
+        verts[k * 3 + 1] = this.heightAt(lng, lat)
+        verts[k * 3 + 2] = lz
+        // flipY default: v=1 samples the image top row = tile north edge
+        uvs[k * 2] = i / N
+        uvs[k * 2 + 1] = 1 - j / N
+      }
+    }
+    const indices: number[] = []
+    for (let j = 0; j < N; j++) {
+      for (let i = 0; i < N; i++) {
+        const a = j * (N + 1) + i // nw
+        const b = a + N + 1 // sw
+        const c = b + 1 // se
+        const d = a + 1 // ne
+        // CCW from above (+y normal): nw→sw→se, nw→se→ne
+        indices.push(a, b, c, a, c, d)
+      }
+    }
     const geo = new THREE.BufferGeometry()
-    // CCW from above (+y normal): nw→sw→se, nw→se→ne
-    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
-      nw[0], 0, nw[1], sw[0], 0, sw[1], se[0], 0, se[1],
-      nw[0], 0, nw[1], se[0], 0, se[1], ne[0], 0, ne[1],
-    ]), 3))
-    // flipY default: v=1 samples the image top row = tile north edge
-    geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array([
-      0, 1, 0, 0, 1, 0,
-      0, 1, 1, 0, 1, 1,
-    ]), 2))
+    geo.setAttribute('position', new THREE.BufferAttribute(verts, 3))
+    geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2))
+    geo.setIndex(indices)
     geo.computeVertexNormals()
     // Dark green until the texture arrives — matches the old fallback ground
     const mat = new THREE.MeshStandardMaterial({ color: 0x3a5228, roughness: 1, metalness: 0 })
