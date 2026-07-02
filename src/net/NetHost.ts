@@ -153,6 +153,9 @@ export class NetHost {
         this.session.tryDefuse(playerId, msg.hasKit)
       } else if (msg.type === 'throwGrenade' && msg.playerId === playerId) {
         this.session.throwGrenade(playerId, msg.grenadeType, msg.mode)
+      } else if (msg.type === 'teleport' && msg.playerId === playerId) {
+        const entity = this.session.getPlayer(playerId)
+        if (entity) entity.player.position.set(msg.x, msg.y, msg.z)
       } else if (msg.type === 'voiceStart' && msg.playerId === playerId) {
         this.relayVoice(msg, playerId)
       } else if (msg.type === 'voiceStop' && msg.playerId === playerId) {

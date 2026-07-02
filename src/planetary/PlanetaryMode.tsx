@@ -5,7 +5,7 @@ import { GeoControls } from './GeoControls'
 import { PlanetaryCollision } from './PlanetaryCollision'
 import { PlanetaryScenery } from './PlanetaryScenery'
 import { SunSystem } from './SunSystem'
-import { MapPicker } from './MapPicker'
+import { MapPicker, type PlayerDot } from './MapPicker'
 import { GameSession } from '../session/GameSession'
 import { defaultCompetitiveConfig } from '../session/MatchConfig'
 import type { MatchConfig } from '../session/MatchConfig'
@@ -20,6 +20,7 @@ import { Scoreboard } from '../ui/Scoreboard'
 import { TouchControls } from '../ui/TouchControls'
 import { Viewmodel } from '../weapons/Viewmodel'
 import { Controls } from '../player/Controls'
+import { EYE_HEIGHT } from '../player/Player'
 import { mobileControlsActive, loadSettings } from '../settings/Settings'
 import type { EntityState, GrenadeState, SessionEvent, Snapshot } from '../session/protocol'
 import { ParticleSystem } from '../effects/ParticleSystem'
@@ -91,6 +92,7 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
 
   const [showPicker, setShowPicker] = useState(!net)
   const [startCenter, setStartCenter] = useState<[number, number] | null>(net?.config.planetaryCenter ?? null)
+  const [pickerPlayers, setPickerPlayers] = useState<PlayerDot[]>([])
   const [hudState, setHudState] = useState<HudState>({
     health: 100, maxHealth: 100, ammo: 30, maxAmmo: 30, weaponName: 'pistol', money: 800,
   })
@@ -814,6 +816,66 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
     }
   }, [showPicker, openScoreboard])
 
+  // Refresh other players' map dots while the picker is open (positions are in
+  // shared local space anchored at planetaryCenter, so localToLngLat is valid
+  // for everyone). ponytail: 1s polling, switch to snapshot events if it lags.
+  useEffect(() => {
+    if (!showPicker) { setPickerPlayers([]); return }
+    const collect = () => {
+      const engine = engineRef.current
+      if (!engine) return
+      const snap = netRef.current?.netClient?.latestSnapshot ?? sessionRef.current?.getSnapshot()
+      const localId = netRef.current?.netClient?.playerId ?? sessionRef.current?.localId
+      if (!snap) return
+      setPickerPlayers(snap.players
+        .filter(p => p.id !== localId)
+        .map(p => {
+          const [lng, lat] = engine.localToLngLat(p.position.x, p.position.z)
+          return { id: p.id, name: p.name ?? 'Player', team: p.team ?? 'ct', lng, lat }
+        }))
+    }
+    collect()
+    const id = setInterval(collect, 1000)
+    return () => clearInterval(id)
+  }, [showPicker])
+
+  // Moves the local player in the shared world: direct for host/solo, via the
+  // host-authoritative teleport message for clients (with an optimistic local set).
+  const moveLocalPlayer = useCallback((x: number, y: number, z: number) => {
+    const netv = netRef.current
+    if (netv?.role === 'client' && netv.netClient) {
+      netv.netClient.transport.send({ type: 'teleport', playerId: netv.netClient.playerId!, x, y, z })
+      netv.netClient.getLocalPosition().set(x, y, z) // optimistic; host snapshot confirms
+    } else if (sessionRef.current) {
+      sessionRef.current.player.position.set(x, y, z)
+    }
+  }, [])
+
+  // Recenter the hidden map on the moved player and rebuild collision once tiles settle
+  const recenterAt = useCallback((x: number, z: number) => {
+    const engine = engineRef.current
+    if (!engine) return
+    const [lng, lat] = engine.localToLngLat(x, z)
+    lastMapCenterRef.current = { x, z }
+    engine.map.jumpTo({ center: [lng, lat], zoom: 17, pitch: 0 })
+    engine.map.once('idle', () => collisionRef.current?.update(lng, lat))
+  }, [])
+
+  const handleJumpToPlayer = useCallback((targetId: string) => {
+    const engine = engineRef.current
+    const snap = netRef.current?.netClient?.latestSnapshot ?? sessionRef.current?.getSnapshot()
+    const target = snap?.players.find(p => p.id === targetId)
+    if (!engine || !target) return
+    setShowPicker(false)
+    requestAnimationFrame(() => containerRef.current?.focus())
+
+    // Land 2m to the side so we don't spawn inside the target
+    const x = target.position.x + 2
+    const z = target.position.z + 2
+    moveLocalPlayer(x, target.position.y, z)
+    recenterAt(x, z)
+  }, [moveLocalPlayer, recenterAt])
+
   const handleTeleport = useCallback((lng: number, lat: number) => {
     setShowPicker(false)
     // Wait for React to unmount the picker, then focus the game canvas so
@@ -823,8 +885,17 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
     if (!engineRef.current) {
       // First drop-in: create the engine at the chosen location
       setStartCenter([lng, lat])
+    } else if (netRef.current) {
+      // Multiplayer: the shared world is anchored at planetaryCenter and clamped
+      // to arenaSize, so walk the player there instead of re-anchoring the map.
+      // ponytail: clicks outside the shared arena are silently ignored
+      const engine = engineRef.current
+      const [x, z] = engine.lngLatToLocal(lng, lat)
+      if (Math.abs(x) > 2400 || Math.abs(z) > 2400) return
+      moveLocalPlayer(x, engine.heightAt(x, z) + EYE_HEIGHT, z)
+      recenterAt(x, z)
     } else {
-      // Re-teleport: fly to the new location; rebuild collision after tiles settle
+      // Solo re-drop: fly to the new location; rebuild collision after tiles settle
       engineRef.current.map.flyTo({ center: [lng, lat], zoom: 17, pitch: 0, duration: 1500 })
       engineRef.current.map.once('idle', () => {
         if (collisionRef.current && engineRef.current) {
@@ -833,7 +904,7 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
         }
       })
     }
-  }, [])
+  }, [moveLocalPlayer, recenterAt])
 
   return (
     <div
@@ -849,8 +920,9 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
 
       {showPicker && (
         <MapPicker
-          playerPositions={[]}
+          playerPositions={pickerPlayers}
           onTeleport={handleTeleport}
+          onJumpToPlayer={handleJumpToPlayer}
           onClose={() => setShowPicker(false)}
         />
       )}
@@ -1029,12 +1101,12 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
         </div>
       )}
 
-      {!net && (
+      {!showPicker && (
         <button
           onClick={() => setShowPicker(true)}
           onPointerDown={(e) => e.stopPropagation()}
           style={{
-            position: 'absolute', top: showPicker ? 16 : 52, left: 16, padding: '6px 12px',
+            position: 'absolute', top: 88, left: 16, padding: '6px 12px',
             background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid #555',
             borderRadius: 4, cursor: 'pointer', fontSize: 12, fontFamily: 'monospace',
             zIndex: 100,

@@ -145,6 +145,7 @@ export type NetMessage =
   | { type: 'plantBomb'; playerId: string }
   | { type: 'defuseBomb'; playerId: string; hasKit: boolean }
   | { type: 'throwGrenade'; playerId: string; grenadeType: 'he' | 'flash' | 'smoke'; mode: 'long' | 'short' }
+  | { type: 'teleport'; playerId: string; x: number; y: number; z: number }  // planetary map jump
   | { type: 'voiceRoster'; teammates: VoiceRosterEntry[] }
   | { type: 'voiceStart'; playerId: string; name: string }
   | { type: 'voiceStop'; playerId: string }
