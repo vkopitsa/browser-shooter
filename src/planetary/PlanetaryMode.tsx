@@ -8,6 +8,9 @@ import { SunSystem } from './SunSystem'
 import { MapPicker } from './MapPicker'
 import { GameSession } from '../session/GameSession'
 import { defaultCompetitiveConfig } from '../session/MatchConfig'
+import type { MatchConfig } from '../session/MatchConfig'
+import type { NetHost } from '../net/NetHost'
+import type { NetClient } from '../net/NetClient'
 import { Bombsite } from '../session/Bombsite'
 import { findSpawnPoints } from './PlanetarySpawns'
 import { RoundState } from '../session/RoundManager'
@@ -44,8 +47,18 @@ const GRENADE_ITEM_KEY: Record<string, GrenadeType> = {
   smoke_grenade: 'smoke',
 }
 
+export interface PlanetaryNet {
+  role: 'host' | 'client'
+  config: MatchConfig
+  netHost: NetHost | null      // set when role === 'host'
+  netClient: NetClient | null  // set when role === 'client'
+  session: GameSession | null  // host: the NetHost-attached session from App; client: null
+  onRemotePlayers?: (rp: RemotePlayerManager | null) => void
+}
+
 interface PlanetaryModeProps {
   onExit: () => void
+  net?: PlanetaryNet
 }
 
 interface HudState {
@@ -57,7 +70,7 @@ interface HudState {
   money: number
 }
 
-export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
+export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const engineRef = useRef<PlanetaryEngine | null>(null)
   const controlsRef = useRef<GeoControls | null>(null)
@@ -76,8 +89,8 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
   const lastSceneryVersionRef = useRef(-1)
   useEffect(() => { sunHourRef.current = sunHour }, [sunHour])
 
-  const [showPicker, setShowPicker] = useState(true)
-  const [startCenter, setStartCenter] = useState<[number, number] | null>(null)
+  const [showPicker, setShowPicker] = useState(!net)
+  const [startCenter, setStartCenter] = useState<[number, number] | null>(net?.config.planetaryCenter ?? null)
   const [hudState, setHudState] = useState<HudState>({
     health: 100, maxHealth: 100, ammo: 30, maxAmmo: 30, weaponName: 'pistol', money: 800,
   })
@@ -99,6 +112,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
   const flashStateRef = useRef(createFlashEffect())
   const lastMapCenterRef = useRef({ x: 0, z: 0 })
   const perfRef = useRef({ level: 0 as 0 | 1 | 2, acc: 0, n: 0, warm: false })
+  const pingAccumRef = useRef(0)
   const [damageIndicator, setDamageIndicator] = useState<DamageIndicatorState | null>(null)
   const [flashEffect, setFlashEffect] = useState<FlashEffectState | null>(null)
   const [grenadeInventory, setGrenadeInventory] = useState({ he: 0, flash: 0, smoke: 0 })
@@ -163,8 +177,8 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       sceneryRef.current = scenery
       engine.map.on('idle', () => sceneryRef.current?.markStale())
 
-      const config = defaultCompetitiveConfig()
-      const session = new GameSession(config)
+      const config = net?.config ?? defaultCompetitiveConfig()
+      const session = net?.session ?? new GameSession(config)
       session.collisionWorld = collisionRef.current.collisionWorld
 
       // Place 2 bombsites near the drop location (in meters from origin)
@@ -236,6 +250,12 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       gameControls.onRemoveBot = () => { session.removeBot() }
 
       sessionRef.current = session
+      net?.onRemotePlayers?.(remotePlayersRef.current)
+      // hostGame() disables auto waves for the arena lobby; planetary has no
+      // manual wave button, so co-op/hybrid AI must auto-spawn here.
+      if (net?.role === 'host' && (config.mode === 'coop' || config.mode === 'hybrid')) {
+        session.waveManager.auto = true
+      }
 
       let last = performance.now()
       function loop(now: number) {
@@ -293,6 +313,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
         // 4. Step the session (movement, combat, bots)
         const grenadesBefore = new Set(session.activeGrenades)
         const smokeCloudsBefore = new Set(session.smokeClouds)
+        const enemiesBefore = [...session.enemies]
         const events = session.step(dt)
 
         // 4. Update the Three.js camera from player state (eye pos + look).
@@ -427,11 +448,26 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
           if (!session.smokeClouds.includes(s)) engine.scene.remove(s.meshRef)
         }
 
+        // AI wave enemies (co-op/hybrid): session owns the meshes; mirror into the scene.
+        for (const e of session.enemies) {
+          if (!e.mesh.parent) engine.scene.add(e.mesh)
+        }
+        for (const e of enemiesBefore) {
+          if (!session.enemies.includes(e)) { engine.scene.remove(e.mesh); e.dispose() }
+        }
+
         // Render bots/other players (they exist in the session but have no mesh otherwise)
         const snap = session.getSnapshot()
         if (remotePlayersRef.current) {
           remotePlayersRef.current.sync(snap.players)
           remotePlayersRef.current.update(dt)
+        }
+
+        // Host: broadcast the authoritative snapshot to all clients.
+        if (net?.role === 'host' && net.netHost) {
+          net.netHost.broadcastSnapshot(snap, events)
+          pingAccumRef.current += dt
+          if (pingAccumRef.current >= 1) { pingAccumRef.current = 0; net.netHost.pingClients() }
         }
 
         // Only update timers per-frame; event handlers own state/scores
@@ -562,6 +598,7 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
       desktopControlsRef.current?.destroy()
       particleSystemRef.current?.clear()
       remotePlayersRef.current?.clear()
+      net?.onRemotePlayers?.(null)
       remotePlayersRef.current = null
       grenadeManagerRef.current = null
       viewmodelRef.current = null
@@ -840,18 +877,20 @@ export function PlanetaryMode({ onExit }: PlanetaryModeProps) {
         </div>
       )}
 
-      <button
-        onClick={() => setShowPicker(true)}
-        onPointerDown={(e) => e.stopPropagation()}
-        style={{
-          position: 'absolute', top: showPicker ? 16 : 52, left: 16, padding: '6px 12px',
-          background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid #555',
-          borderRadius: 4, cursor: 'pointer', fontSize: 12, fontFamily: 'monospace',
-          zIndex: 100,
-        }}
-      >
-        [M] Map
-      </button>
+      {!net && (
+        <button
+          onClick={() => setShowPicker(true)}
+          onPointerDown={(e) => e.stopPropagation()}
+          style={{
+            position: 'absolute', top: showPicker ? 16 : 52, left: 16, padding: '6px 12px',
+            background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid #555',
+            borderRadius: 4, cursor: 'pointer', fontSize: 12, fontFamily: 'monospace',
+            zIndex: 100,
+          }}
+        >
+          [M] Map
+        </button>
+      )}
 
       <button
         onClick={() => setCsMode(v => !v)}
