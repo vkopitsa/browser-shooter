@@ -54,6 +54,7 @@ import { stepBloom } from './weapons/CrosshairBloom'
 import { MatchSetup } from './ui/MatchSetup'
 import { MapEditor } from './ui/MapEditor'
 import { PlanetaryMode } from './planetary/PlanetaryMode'
+import { MapPicker } from './planetary/MapPicker'
 import { KeybindsScreen } from './ui/KeybindsScreen'
 import { RoundState } from './session/RoundManager'
 import { KillFeed, type KillLine } from './ui/KillFeed'
@@ -149,6 +150,7 @@ function App() {
   const [showInGameHelp, setShowInGameHelp] = useState(false)
   const [scoreboardPlayers, setScoreboardPlayers] = useState<EntityState[]>([])
   const [showMatchSetup, setShowMatchSetup] = useState(false)
+  const [planetaryDraft, setPlanetaryDraft] = useState<MatchConfig | null>(null)
   const [editingMap, setEditingMap] = useState<import('./zones/mapStore').SavedMap | undefined>(undefined)
   const [myTeam, setMyTeam] = useState<Team>('ct')
   const [roster, setRoster] = useState<{ ct: string[]; t: string[] }>({ ct: [], t: [] })
@@ -548,7 +550,9 @@ function App() {
     // A directory failure is non-fatal: the host can still share the room code directly.
     await hostDirectory.start({
       roomCode: code, hostName: settingsRef.current.playerName, players: 1, maxPlayers: 8,
-      status: 'lobby', mode: config.mode,
+      status: 'lobby',
+      // ponytail: string-tag planetary into mode rather than extending DirectoryEntry
+      mode: config.planetaryCenter ? `planetary-${config.mode}` : config.mode,
       joinPolicy: config.joinPolicy ?? 'lobby',
       protected: !!config.password,
     }).catch(() => {})
@@ -699,7 +703,10 @@ function App() {
       }
       void mode; void _started
     })
-    client.onStart(() => startNetGame('client'))
+    client.onStart(() => {
+      if (gameDataRef.current.netClient?.config?.planetaryCenter) updateGameState('planetary')
+      else startNetGame('client')
+    })
     client.onJoinRejected((reason) => {
       setJoinError(reason === 'full' ? 'Game is full' : 'Wrong password')
       data.role = 'single'
@@ -1463,10 +1470,13 @@ function App() {
     )
     keepAliveWorker.onmessage = () => {
       if (document.visibilityState !== 'hidden') return
-      if (gameStateRef.current !== 'playing') return
       if (data.role !== 'host' || !data.netHost) return
+      const state = gameStateRef.current
+      if (state !== 'playing' && state !== 'planetary') return
       const session = data.session
-      session.applyInput(session.localId, captureLocalInput())
+      // Arena captures fresh local input; planetary input lives in GeoControls
+      // (unreachable here), so step with last-applied inputs — fine while hidden.
+      if (state === 'playing') session.applyInput(session.localId, captureLocalInput())
       const events = session.step(1 / HIDDEN_TICK_HZ)
       data.netHost.broadcastSnapshot(session.getSnapshot(), events)
     }
@@ -1558,7 +1568,6 @@ function App() {
               const data = gameDataRef.current
               data.hostDirectory?.setStatus('in-progress')
               data.netHost?.startMatch()
-              startNetGame('host')
               const hostPeer = data.peerHost?.peer
               if (data.netHost && hostPeer && roomCode) {
                 const { voice: chat, video: videoChat } = startVoice(data.session.localId, hostPeer)
@@ -1567,6 +1576,8 @@ function App() {
                 data.netHost.onRemoteVoiceStop((id) => chat.remoteStop(id))
                 data.netHost.setHostVoice(data.session.localId, roomCode)
               }
+              if (data.matchConfig.planetaryCenter) updateGameState('planetary')
+              else startNetGame('host')
             }}
             onBack={leaveMultiplayer}
             onRefresh={refreshServers}
@@ -1599,9 +1610,24 @@ function App() {
       {gameState === 'mpmenu' && showMatchSetup && (
         <MatchSetup
           onBack={() => setShowMatchSetup(false)}
-          onConfirm={(c) => { setShowMatchSetup(false); void hostGame(c).catch(() => setJoinError('Could not start hosting.')) }}
+          onConfirm={(c) => {
+            setShowMatchSetup(false)
+            if (c.zoneId === 'planetary') { setPlanetaryDraft(c); return }
+            void hostGame(c).catch(() => setJoinError('Could not start hosting.'))
+          }}
           onCreateMap={() => { setEditingMap(undefined); setShowMatchSetup(false); updateGameState('mapeditor') }}
           onEditMap={(map) => { setEditingMap(map); setShowMatchSetup(false); updateGameState('mapeditor') }}
+        />
+      )}
+      {gameState === 'mpmenu' && planetaryDraft && (
+        <MapPicker
+          playerPositions={[]}
+          onTeleport={(lng, lat) => {
+            const cfg: MatchConfig = { ...planetaryDraft, zoneId: 'arid', planetaryCenter: [lng, lat] }
+            setPlanetaryDraft(null)
+            void hostGame(cfg).catch(() => setJoinError('Could not start hosting.'))
+          }}
+          onClose={() => { setPlanetaryDraft(null); setShowMatchSetup(true) }}
         />
       )}
       {gameState === 'mapeditor' && (
@@ -1627,7 +1653,22 @@ function App() {
       )}
 
       {gameState === 'planetary' && (
-        <PlanetaryMode onExit={() => updateGameState('menu')} />
+        <PlanetaryMode
+          onExit={() => {
+            if (gameDataRef.current.role !== 'single') leaveMultiplayer()
+            updateGameState('menu')
+          }}
+          net={gameDataRef.current.role === 'single' ? undefined : {
+            role: gameDataRef.current.role as 'host' | 'client',
+            config: gameDataRef.current.role === 'client'
+              ? (gameDataRef.current.netClient?.config ?? gameDataRef.current.matchConfig)
+              : gameDataRef.current.matchConfig,
+            netHost: gameDataRef.current.netHost,
+            netClient: gameDataRef.current.netClient,
+            session: gameDataRef.current.role === 'host' ? gameDataRef.current.session : null,
+            onRemotePlayers: (rp) => { gameDataRef.current.remotePlayers = rp },
+          }}
+        />
       )}
 
       {gameState === 'playing' && (
