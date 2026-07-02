@@ -44,11 +44,20 @@ const FOREST_TREE_CAP = 400       // hard cap — tree billboarding is O(n) per 
 
 const HOUSE_BUILDING_TAGS = new Set(['house', 'detached', 'semidetached_house', 'bungalow', 'cabin', 'farm'])
 
+const LABEL_SOURCE_LAYERS = new Set(['poi', 'place'])
+const LABEL_CAP = 40  // nearest named features get floating labels
+
 export interface RoadStrip {
   // quad corners in local XZ (Y=0.05 to sit above ground)
   corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3]
   uvLength: number  // segment length in meters, for UV tiling
   kind?: 'road' | 'path' | 'rail' | 'waterway'  // undefined treated as 'road'
+}
+
+export interface LabelSpec {
+  text: string
+  x: number
+  z: number
 }
 
 export interface SceneryData {
@@ -57,13 +66,14 @@ export interface SceneryData {
   greenTriangles: Float32Array  // flat [x,z, x,z, ...] for triangulated green areas
   waterTriangles: Float32Array  // flat [x,z, x,z, ...] for triangulated water areas
   buildings: BuildingSpec[]
+  labels: LabelSpec[]
 }
 
 export class PlanetaryScenery {
   private lastLng = NaN
   private lastLat = NaN
   private _rebuildVersion = 0
-  private _data: SceneryData = { roads: [], treePositions: [], greenTriangles: new Float32Array(0), waterTriangles: new Float32Array(0), buildings: [] }
+  private _data: SceneryData = { roads: [], treePositions: [], greenTriangles: new Float32Array(0), waterTriangles: new Float32Array(0), buildings: [], labels: [] }
 
   get rebuildVersion(): number { return this._rebuildVersion }
   get data(): SceneryData { return this._data }
@@ -108,6 +118,7 @@ export class PlanetaryScenery {
     this.lastLng = lng
     this.lastLat = lat
     this._rebuildVersion += 1
+    const [px, pz] = this.toLocal(lng, lat)
     const green = this.extractGreenAreas()
     this._data = {
       roads: [...this.extractRoads(), ...this.extractWaterways()],
@@ -115,6 +126,7 @@ export class PlanetaryScenery {
       greenTriangles: green.triangles,
       waterTriangles: this.extractWaterAreas(),
       buildings: this.extractBuildings(),
+      labels: this.extractLabels(px, pz),
     }
     return this._data
   }
@@ -202,6 +214,21 @@ export class PlanetaryScenery {
       positions.push(new THREE.Vector3(x, 0, z))
     }
     return positions
+  }
+
+  private extractLabels(px: number, pz: number): LabelSpec[] {
+    const out: LabelSpec[] = []
+    for (const f of this.queryBySourceLayer(LABEL_SOURCE_LAYERS)) {
+      if (f.geometry.type !== 'Point') continue
+      const name = f.properties?.name
+      if (typeof name !== 'string' || name.length === 0) continue
+      const [lng, lat] = f.geometry.coordinates as [number, number]
+      const [x, z] = this.toLocal(lng, lat)
+      out.push({ text: name, x, z })
+    }
+    out.sort((a, b) =>
+      ((a.x - px) ** 2 + (a.z - pz) ** 2) - ((b.x - px) ** 2 + (b.z - pz) ** 2))
+    return out.slice(0, LABEL_CAP)
   }
 
   private extractGreenAreas(): { triangles: Float32Array; forestTrees: THREE.Vector3[] } {

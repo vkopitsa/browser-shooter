@@ -59,8 +59,8 @@ describe('PlanetaryScenery — roads', () => {
     const sc = new PlanetaryScenery(map as any, identity)
     sc.update(0, 0)
     sc.update(0.0001, 0.0001)  // ~15 m
-    // one query per extractor (roads, waterways, trees, green, water, buildings)
-    expect(map.queryRenderedFeatures).toHaveBeenCalledTimes(6)
+    // one query per extractor (roads, waterways, trees, green, water, buildings, labels)
+    expect(map.queryRenderedFeatures).toHaveBeenCalledTimes(7)
   })
 
   it('bumps rebuildVersion only on actual rebuild', () => {
@@ -80,7 +80,7 @@ describe('PlanetaryScenery — roads', () => {
     sc.update(0, 0)
     sc.markStale()
     sc.update(0.0001, 0.0001)
-    expect(map.queryRenderedFeatures).toHaveBeenCalledTimes(12)
+    expect(map.queryRenderedFeatures).toHaveBeenCalledTimes(14)
   })
 
   it('ignores non-road geometry types', () => {
@@ -476,5 +476,41 @@ describe('PlanetaryScenery — sidewalks', () => {
     const rail = { id: 'r1', sourceLayer: 'transportation', geometry: { type: 'LineString', coordinates: [[0, 0.001], [0.001, 0.001]] }, properties: { class: 'rail' } }
     const sc = new PlanetaryScenery(makeMap([footway, rail]) as any, identity)
     expect(sc.update(0, 0).roads).toHaveLength(2)
+  })
+})
+
+describe('PlanetaryScenery — labels', () => {
+  const poi = (name: string | undefined, lng: number, id?: number) => ({
+    id,
+    sourceLayer: 'poi',
+    geometry: { type: 'Point', coordinates: [lng, 0] },
+    properties: name === undefined ? {} : { name },
+  })
+
+  it('extracts named POIs as labels with local coords', () => {
+    const sc = new PlanetaryScenery(makeMap([poi('Cafe Mars', 0.0001)]) as any, identity)
+    const { labels } = sc.update(0, 0)
+    expect(labels).toHaveLength(1)
+    expect(labels[0].text).toBe('Cafe Mars')
+    expect(labels[0].x).toBeCloseTo(11.1, 0)
+  })
+
+  it('extracts named place features (e.g. suburb names)', () => {
+    const place = { sourceLayer: 'place', geometry: { type: 'Point', coordinates: [0.0002, 0] }, properties: { name: 'Old Town' } }
+    const sc = new PlanetaryScenery(makeMap([place]) as any, identity)
+    expect(sc.update(0, 0).labels.map(l => l.text)).toEqual(['Old Town'])
+  })
+
+  it('ignores unnamed features', () => {
+    const sc = new PlanetaryScenery(makeMap([poi(undefined, 0.0001)]) as any, identity)
+    expect(sc.update(0, 0).labels).toHaveLength(0)
+  })
+
+  it('caps at the 40 labels nearest the player, nearest first', () => {
+    const features = Array.from({ length: 60 }, (_, i) => poi(`p${i}`, 0.0001 * (i + 1), i))
+    const sc = new PlanetaryScenery(makeMap(features) as any, identity)
+    const { labels } = sc.update(0, 0)
+    expect(labels).toHaveLength(40)
+    expect(labels[0].text).toBe('p0')
   })
 })
