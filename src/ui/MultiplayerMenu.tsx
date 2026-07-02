@@ -91,8 +91,8 @@ export const MultiplayerMenu: React.FC<MultiplayerMenuProps> = (p) => {
             )}
             <div style={cardLabel}>PLAYERS</div>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {p.players.map((name) => (
-                <li key={name} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.05)', borderRadius: 4, fontSize: 14 }}>
+              {p.players.map((name, i) => (
+                <li key={i} style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.05)', borderRadius: 4, fontSize: 14 }}>
                   {name}
                 </li>
               ))}
