@@ -35,14 +35,13 @@ Rejected alternatives:
 
 ### 1. Free-for-all mode
 
-- Add `'ffa'` to `GameMode` (`src/session/protocol.ts:6`) and a
-  "Free-for-all" option in `MatchSetup.tsx`.
-- FFA config: `damagePolicy: 'ffa'` — `canDamage()` already supports it
-  (`src/session/MatchConfig.ts`). No AI waves; no team win condition
-  (`fragLimit` counts individual kills or 0 = endless).
-- Bots in FFA target everyone: `BotController.pickTargetPos` currently skips
-  same-team entities (`src/bots/BotController.ts:160`); it must ignore the team
-  check when the session's damage policy is `'ffa'`.
+- **Amended after code review: FFA already exists** as
+  `damagePolicy: 'ffa'` with a "Free-for-all" button in `MatchSetup.tsx:21`,
+  fully enforced by `canDamage()` in damage/raycast paths. No new `GameMode`
+  is added — FFA is `mode: 'pvp'` + `damagePolicy: 'ffa'`.
+- The one gap: bots ignore the policy. `BotController.pickTargetPos` skips
+  same-team entities (`src/bots/BotController.ts:160`); it must include them
+  when the session's damage policy is `'ffa'`.
 - Team pickers (lobby team select, `[`/`]` bot keys) remain functional but teams
   are cosmetic in FFA — damage and targeting ignore them.
 
@@ -80,12 +79,14 @@ Rejected alternatives:
   Joiners use the existing multiplayer browse/join-by-code flow; a planetary
   room routes them into PlanetaryMode instead of the arena.
 
-**Known integration risk — collision coverage.** `PlanetaryCollision` rebuilds
-the collision AABB set *near the local player* each frame. A host simulating
-remote players far away needs collision near *every* living player, or remote
-players fall through buildings. The host-side rebuild must iterate all player
-positions. Perf note: planetary already runs an auto-degrade ladder; rebuild
-radius/frequency per remote player should be conservative.
+**Known limitation — collision coverage (amended after code review).**
+`PlanetaryCollision` builds collision from `queryRenderedFeatures`, which only
+returns buildings in tiles MapLibre has loaded near the *host's* viewport. The
+host cannot have collision data for players far from it, no matter how the
+rebuild iterates. v1 accepts this: players near each other (the case that
+matters for combat and proximity voice) collide correctly; a client roaming
+kilometres from the host may rubber-band through distant buildings. Upgrade
+path if it matters later: client-authoritative movement in planetary matches.
 
 ### 4. Remove out-of-bounds damage
 
