@@ -2,7 +2,7 @@ import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import * as THREE from 'three'
 import { Sky } from 'three/addons/objects/Sky.js'
-import type { RoadStrip } from './PlanetaryScenery'
+import type { RoadStrip, LabelSpec } from './PlanetaryScenery'
 import type { SunState } from './SunSystem'
 import { AtmosphereConfig } from './AtmosphereConfig'
 import { BuildingGeometry } from './BuildingGeometry'
@@ -38,6 +38,7 @@ export class PlanetaryEngine {
   private renderer: THREE.WebGLRenderer | null = null
   private buildings = new THREE.Group()
   private roads = new THREE.Group()
+  private labels = new THREE.Group()
   private trees: THREE.InstancedMesh | null = null
   private greenAreas: THREE.Mesh | null = null
   private waterAreas: THREE.Mesh | null = null
@@ -149,6 +150,8 @@ export class PlanetaryEngine {
 
     this.scene.add(this.buildings)
     this.scene.add(this.roads)
+    this.labels.name = 'labels'
+    this.scene.add(this.labels)
 
     this.map = new maplibregl.Map({
       container,
@@ -177,6 +180,7 @@ export class PlanetaryEngine {
       this.sun.castShadow = false
       if (this.renderer) this.renderer.shadowMap.enabled = false
       this.sky.visible = false
+      this.labels.visible = false
       this.scene.background = this.scene.fog instanceof THREE.Fog ? this.scene.fog.color : null
       // Shadow/lighting shader chunks are baked into compiled materials — recompile once.
       this.scene.traverse(o => {
@@ -417,6 +421,52 @@ export class PlanetaryEngine {
     this.scene.add(this.waterAreas)
   }
 
+  /** Floating place-name labels (streets-gl style). Sprites auto-face the camera. */
+  setLabels(specs: LabelSpec[]): void {
+    for (const child of this.labels.children) {
+      const s = child as THREE.Sprite
+      s.material.map?.dispose()
+      s.material.dispose()
+    }
+    this.labels.clear()
+    for (const spec of specs) {
+      if (this.isBeyond(spec.x, spec.z, 300)) continue  // labels read badly beyond 300 m
+      const sprite = this.makeLabelSprite(spec.text)
+      if (!sprite) continue  // no 2D canvas (jsdom/headless) — labels are cosmetic, skip
+      sprite.position.set(spec.x, 10, spec.z)
+      this.labels.add(sprite)
+    }
+  }
+
+  private makeLabelSprite(text: string): THREE.Sprite | null {
+    try {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return null
+      const font = 'bold 40px sans-serif'
+      ctx.font = font
+      canvas.width = Math.ceil(ctx.measureText(text).width) + 16
+      canvas.height = 56
+      ctx.font = font  // canvas resize resets 2D state
+      ctx.textBaseline = 'middle'
+      ctx.lineWidth = 6
+      ctx.strokeStyle = 'rgba(0,0,0,0.85)'
+      ctx.fillStyle = '#ffffff'
+      ctx.strokeText(text, 8, 28)
+      ctx.fillText(text, 8, 28)
+      const tex = new THREE.CanvasTexture(canvas)
+      // depthTest off + high renderOrder: labels stay readable through buildings,
+      // matching the streets-gl reference.
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false })
+      const sprite = new THREE.Sprite(mat)
+      sprite.renderOrder = 999
+      sprite.scale.set(canvas.width * 0.045, canvas.height * 0.045, 1)  // 40px glyphs ≈ 1.8 m tall
+      return sprite
+    } catch {
+      return null
+    }
+  }
+
   render() {
     if (!this.renderer) {
       // antialias off: SMAA in the postprocessing chain already does AA; MSAA on
@@ -498,6 +548,7 @@ export class PlanetaryEngine {
   }
 
   dispose() {
+    this.setLabels([])
     this.disposeGroup(this.buildings)
     this.disposeGroup(this.roads)
     if (this.trees) { this.trees.geometry.dispose(); this.scene.remove(this.trees) }

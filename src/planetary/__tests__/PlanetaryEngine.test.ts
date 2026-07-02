@@ -321,3 +321,22 @@ describe('PlanetaryEngine — setRoads / setTrees / setGreenAreas', () => {
     engine.dispose()
   })
 })
+
+describe('PlanetaryEngine — labels', () => {
+  it('setLabels survives an environment without 2D canvas and clears previous labels', () => {
+    const container = document.createElement('div')
+    const engine = new PlanetaryEngine(container)
+    expect(() => engine.setLabels([{ text: 'Кафе Марс', x: 10, z: 10 }])).not.toThrow()
+    expect(() => engine.setLabels([])).not.toThrow()
+    expect(engine.scene.getObjectByName('labels')).toBeDefined()
+    engine.dispose()
+  })
+
+  it('setPerfLevel(2) hides the label group', () => {
+    const container = document.createElement('div')
+    const engine = new PlanetaryEngine(container)
+    engine.setPerfLevel(2)
+    expect(engine.scene.getObjectByName('labels')!.visible).toBe(false)
+    engine.dispose()
+  })
+})
