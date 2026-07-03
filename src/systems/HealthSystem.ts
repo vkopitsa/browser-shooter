@@ -12,8 +12,12 @@ export class HealthSystem {
     this.baseMaxHealth = maxHealth
   }
 
-  takeDamage(amount: number): boolean {
-    if (this.invincibleTimer > 0 || this.isDead || amount <= 0) return false
+  /** `pierceInvincible`: PvP bullets/grenades skip the invincibility window —
+      it exists as an anti-spam mercy vs enemy AI, but in PvP it silently ate
+      most hits (0.5s per hit, 1s after respawn = "my shots don't register"). */
+  takeDamage(amount: number, pierceInvincible = false): boolean {
+    if (this.isDead || amount <= 0) return false
+    if (!pierceInvincible && this.invincibleTimer > 0) return false
     let toHealth = amount
     if (this.armor > 0) {
       const toArmor = Math.min(this.armor, amount * 0.5)
@@ -21,7 +25,7 @@ export class HealthSystem {
       toHealth = amount - toArmor
     }
     this.health = Math.max(0, this.health - toHealth)
-    this.invincibleTimer = 0.5
+    if (!pierceInvincible) this.invincibleTimer = 0.5
     if (this.health <= 0) {
       this.isDead = true
     }

@@ -6,6 +6,7 @@ import { PlanetaryCollision } from './PlanetaryCollision'
 import { PlanetaryScenery } from './PlanetaryScenery'
 import { SunSystem } from './SunSystem'
 import { MapPicker, type PlayerDot } from './MapPicker'
+import { MiniMap, type MiniMapData } from './MiniMap'
 import { GameSession } from '../session/GameSession'
 import { defaultCompetitiveConfig } from '../session/MatchConfig'
 import type { MatchConfig } from '../session/MatchConfig'
@@ -845,6 +846,29 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
     return () => clearInterval(id)
   }, [showPicker])
 
+  // Minimap data source — read straight from refs each repaint (no React churn).
+  const getMiniMapData = useCallback((): MiniMapData | null => {
+    const engine = engineRef.current
+    if (!engine) return null
+    const netv = netRef.current
+    const pos = netv?.role === 'client'
+      ? netv.netClient?.getLocalPosition()
+      : sessionRef.current?.player.position
+    if (!pos) return null
+    const [lng, lat] = engine.localToLngLat(pos.x, pos.z)
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(engine.camera.quaternion)
+    const heading = Math.atan2(fwd.x, -fwd.z) // local -z = north (see localToLngLat)
+    const snap = netv?.netClient?.latestSnapshot ?? sessionRef.current?.getSnapshot()
+    const localId = netv?.netClient?.playerId ?? sessionRef.current?.localId
+    const players = (snap?.players ?? [])
+      .filter(pl => pl.id !== localId && !pl.isDead)
+      .map(pl => {
+        const [plng, plat] = engine.localToLngLat(pl.position.x, pl.position.z)
+        return { lng: plng, lat: plat, team: pl.team }
+      })
+    return { lng, lat, heading, players }
+  }, [])
+
   // Moves the local player in the shared world: direct for host/solo, via the
   // host-authoritative teleport message for clients (with an optimistic local set).
   const moveLocalPlayer = useCallback((x: number, y: number, z: number) => {
@@ -962,7 +986,6 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
           ammo={hudState.ammo}
           maxAmmo={hudState.maxAmmo}
           weaponName={hudState.weaponName}
-          money={hudState.money}
           bombState={bombHud.state}
           bombTimer={bombHud.timer}
           bombSite={bombHud.site ?? undefined}
@@ -980,6 +1003,8 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
       }}>
         © OpenStreetMap contributors
       </div>
+
+      {!showPicker && <MiniMap getData={getMiniMapData} size={mobileControls ? 100 : 160} />}
 
       {!showPicker && <DamageOverlay indicator={damageIndicator} />}
       {!showPicker && <FlashOverlay flash={flashEffect} />}
@@ -1056,8 +1081,8 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
 
       {!showPicker && killFeed.length > 0 && (
         <div style={{
-          position: 'absolute', top: 80, right: 16, display: 'flex', flexDirection: 'column',
-          gap: 4, zIndex: 50, pointerEvents: 'none',
+          position: 'absolute', top: 164, left: 16, display: 'flex', flexDirection: 'column',
+          alignItems: 'flex-start', gap: 4, zIndex: 50, pointerEvents: 'none',
         }}>
           {killFeed.slice(-5).map(k => (
             <div key={k.id} style={{
@@ -1161,8 +1186,8 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
         onClick={onExit}
         onPointerDown={(e) => e.stopPropagation()}
         style={{
-          /* below the HUD money counter (top-right ~10px) so they don't overlap */
-          position: 'absolute', top: 44, right: 16, padding: '6px 12px',
+          /* left column, under the [M] Map button — top-right belongs to the minimap */
+          position: 'absolute', top: 124, left: 16, padding: '6px 12px',
           background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid #555',
           borderRadius: 4, cursor: 'pointer', fontSize: 12, fontFamily: 'monospace',
           zIndex: 100,

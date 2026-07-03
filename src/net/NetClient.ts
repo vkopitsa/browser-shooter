@@ -196,6 +196,9 @@ export class NetClient {
     this.localPlayer.rotation.y = me.rotationY
     this.localPlayer.rotation.x = me.rotationX ?? 0
     this.localPlayer.health = me.health
+    // Host revived us but only health syncs — without this, isDead stays true
+    // and Player.update() early-returns, freezing prediction after respawn.
+    if (!me.isDead && this.localPlayer.isDead) this.localPlayer.revive()
 
     for (const input of this.pendingInputs) {
       this.localPlayer.rotation.y = input.yaw

@@ -45,6 +45,17 @@ describe('HealthSystem', () => {
     expect(health.health).toBe(90)
   })
 
+  it('pierced damage ignores invincibility and grants none (PvP)', () => {
+    health.takeDamage(10, true)
+    expect(health.invincibleTimer).toBe(0)
+    expect(health.takeDamage(10, true)).toBe(true)
+    expect(health.health).toBe(80)
+    // pierces spawn protection too
+    health.revive()
+    expect(health.takeDamage(10, true)).toBe(true)
+    expect(health.health).toBe(90)
+  })
+
   it('invincibility expires after update', () => {
     health.takeDamage(10)
     health.update(0.5)

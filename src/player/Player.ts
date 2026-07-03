@@ -77,8 +77,8 @@ export class Player {
     this.healthSystem.invincibleTimer = value
   }
 
-  takeDamage(amount: number): boolean {
-    return this.healthSystem.takeDamage(amount)
+  takeDamage(amount: number, pierceInvincible = false): boolean {
+    return this.healthSystem.takeDamage(amount, pierceInvincible)
   }
 
   heal(amount: number) {

@@ -366,7 +366,7 @@ export class GameSession {
         if (dist <= grenade.def.effectRadius) {
           const damage = calcHeDamage(dist)
           if (damage <= 0) continue
-          entity.player.takeDamage(damage)
+          entity.player.takeDamage(damage, true) // pierce: PvP grenades ignore the invincibility window
           affectedPlayers.push(entity.id)
           if (entity.player.isDead) {
             events.push({ type: 'playerDied', playerId: entity.id })
@@ -794,7 +794,7 @@ export class GameSession {
       const zone = playerHit!.zone
       const damage = zonedDamage(baseDamage, zone)
       const target = playerHit!.entity
-      target.player.takeDamage(damage)
+      target.player.takeDamage(damage, true) // pierce: PvP bullets ignore the invincibility window
       const killed = target.player.isDead
       events.push({ type: 'playerHitPlayer', victimId: target.id, hit: { targetId: target.id, zone, damage, killed, point: playerHit!.point } })
       if (killed) {
