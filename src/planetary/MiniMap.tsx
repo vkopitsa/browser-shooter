@@ -119,7 +119,7 @@ export function MiniMap({ getData, size = 160 }: { getData: () => MiniMapData | 
     <canvas
       ref={canvasRef}
       style={{
-        position: 'absolute', top: 12, right: 12, width: size, height: size,
+        position: 'absolute', top: 12, left: 12, width: size, height: size,
         borderRadius: '50%', border: '2px solid rgba(255,255,255,0.55)',
         boxShadow: '0 2px 10px rgba(0,0,0,0.55)', background: '#1a2634',
         zIndex: 60, pointerEvents: 'none',

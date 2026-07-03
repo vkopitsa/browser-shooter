@@ -958,6 +958,10 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
     }
   }, [moveLocalPlayer, recenterAt])
 
+  // The minimap owns the top-left corner; the control column stacks below it.
+  const miniMapSize = mobileControls ? 100 : 160
+  const leftColTop = 12 + miniMapSize + 12
+
   return (
     <div
       style={{ position: 'absolute', inset: 0, filter: csMode ? 'saturate(0.7) contrast(1.1)' : 'none' }}
@@ -986,6 +990,7 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
           ammo={hudState.ammo}
           maxAmmo={hudState.maxAmmo}
           weaponName={hudState.weaponName}
+          money={hudState.money}
           bombState={bombHud.state}
           bombTimer={bombHud.timer}
           bombSite={bombHud.site ?? undefined}
@@ -1004,7 +1009,7 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
         © OpenStreetMap contributors
       </div>
 
-      {!showPicker && <MiniMap getData={getMiniMapData} size={mobileControls ? 100 : 160} />}
+      {!showPicker && <MiniMap getData={getMiniMapData} size={miniMapSize} />}
 
       {!showPicker && <DamageOverlay indicator={damageIndicator} />}
       {!showPicker && <FlashOverlay flash={flashEffect} />}
@@ -1081,8 +1086,8 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
 
       {!showPicker && killFeed.length > 0 && (
         <div style={{
-          position: 'absolute', top: 164, left: 16, display: 'flex', flexDirection: 'column',
-          alignItems: 'flex-start', gap: 4, zIndex: 50, pointerEvents: 'none',
+          position: 'absolute', top: 80, right: 16, display: 'flex', flexDirection: 'column',
+          alignItems: 'flex-end', gap: 4, zIndex: 50, pointerEvents: 'none',
         }}>
           {killFeed.slice(-5).map(k => (
             <div key={k.id} style={{
@@ -1119,7 +1124,7 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
         <div
           onPointerDown={(e) => e.stopPropagation()}
           style={{
-            position: 'absolute', top: 16, left: 16, zIndex: 100,
+            position: 'absolute', top: leftColTop, left: 16, zIndex: 100,
             display: 'flex', flexDirection: 'column', gap: 4,
           }}
         >
@@ -1159,7 +1164,7 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
           onClick={() => setShowPicker(true)}
           onPointerDown={(e) => e.stopPropagation()}
           style={{
-            position: 'absolute', top: 88, left: 16, padding: '6px 12px',
+            position: 'absolute', top: leftColTop + 96, left: 16, padding: '6px 12px',
             background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid #555',
             borderRadius: 4, cursor: 'pointer', fontSize: 12, fontFamily: 'monospace',
             zIndex: 100,
@@ -1173,7 +1178,7 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
         onClick={() => setCsMode(v => !v)}
         onPointerDown={(e) => e.stopPropagation()}
         style={{
-          position: 'absolute', top: 52, left: 16, padding: '6px 12px',
+          position: 'absolute', top: leftColTop + 60, left: 16, padding: '6px 12px',
           background: csMode ? '#ff6600' : 'rgba(0,0,0,0.6)', color: 'white',
           border: '1px solid #555', borderRadius: 4, cursor: 'pointer',
           fontSize: 12, fontFamily: 'monospace', zIndex: 100,
@@ -1186,8 +1191,8 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
         onClick={onExit}
         onPointerDown={(e) => e.stopPropagation()}
         style={{
-          /* left column, under the [M] Map button — top-right belongs to the minimap */
-          position: 'absolute', top: 124, left: 16, padding: '6px 12px',
+          /* below the HUD money counter (top-right ~10px) so they don't overlap */
+          position: 'absolute', top: 44, right: 16, padding: '6px 12px',
           background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid #555',
           borderRadius: 4, cursor: 'pointer', fontSize: 12, fontFamily: 'monospace',
           zIndex: 100,
