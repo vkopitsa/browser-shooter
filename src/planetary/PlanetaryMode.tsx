@@ -12,7 +12,7 @@ import type { MatchConfig } from '../session/MatchConfig'
 import type { NetHost } from '../net/NetHost'
 import type { NetClient } from '../net/NetClient'
 import { Bombsite } from '../session/Bombsite'
-import { findSpawnPoints } from './PlanetarySpawns'
+import { findClearSpot, findSpawnPoints } from './PlanetarySpawns'
 import { RoundState } from '../session/RoundManager'
 import { HUD } from '../ui/HUD'
 import { BuyMenu } from '../ui/BuyMenu'
@@ -222,6 +222,9 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
           ctSpawns: findLocalSpawns('ct'),
           tSpawns: findLocalSpawns('t'),
         }
+        // The initial spawn used the pre-tile fallback (the raw picked point),
+        // which may be inside a building — move out now that tiles are visible.
+        unstickRef.current()
       })
 
       // Set up round manager for competitive play
@@ -854,6 +857,25 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
     }
   }, [])
 
+  // A picked point (or a spawn computed before tiles rendered) can sit inside a
+  // building — the camera then shows only the mesh interior ("nothing visible"
+  // bug). Once tiles have rendered, step the player out to the nearest clear spot.
+  const unstickPlayer = useCallback(() => {
+    const engine = engineRef.current
+    if (!engine) return
+    const pos = netRef.current?.role === 'client'
+      ? netRef.current.netClient?.getLocalPosition()
+      : sessionRef.current?.player.position
+    if (!pos) return
+    const [lng, lat] = engine.localToLngLat(pos.x, pos.z)
+    const [cLng, cLat] = findClearSpot(engine.map, lng, lat)
+    if (cLng === lng && cLat === lat) return
+    const [x, z] = engine.lngLatToLocal(cLng, cLat)
+    moveLocalPlayer(x, engine.heightAt(x, z) + EYE_HEIGHT, z)
+  }, [moveLocalPlayer])
+  const unstickRef = useRef(unstickPlayer)
+  unstickRef.current = unstickPlayer
+
   // Recenter the hidden map on the moved player and rebuild collision once tiles settle
   const recenterAt = useCallback((x: number, z: number) => {
     const engine = engineRef.current
@@ -861,7 +883,10 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
     const [lng, lat] = engine.localToLngLat(x, z)
     lastMapCenterRef.current = { x, z }
     engine.map.jumpTo({ center: [lng, lat], zoom: 17, pitch: 0 })
-    engine.map.once('idle', () => collisionRef.current?.update(lng, lat))
+    engine.map.once('idle', () => {
+      collisionRef.current?.update(lng, lat)
+      unstickRef.current()
+    })
   }, [])
 
   const handleJumpToPlayer = useCallback((targetId: string) => {

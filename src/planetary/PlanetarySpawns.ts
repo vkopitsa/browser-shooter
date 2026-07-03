@@ -2,6 +2,7 @@
 import type maplibregl from 'maplibre-gl'
 import type { Team } from '../types'
 import { offsetLngLat } from './geoUtils'
+import { PLANETARY_CONFIG } from './PlanetaryConfig'
 
 const OPEN_TAGS = ['park', 'playground', 'pitch', 'plaza', 'square', 'garden']
 // OMT vector-tile *source* layer names — style *render* layer ids (e.g. in the
@@ -57,6 +58,52 @@ export function findSpawnPoints(
   }
 
   return [[centerLng, centerLat]]
+}
+
+type ClearSpotMap = Pick<maplibregl.Map, 'queryRenderedFeatures' | 'project'>
+
+/** True when a meshed (tall-enough) building's footprint covers or comes
+ * within {@link CLEAR_METERS} of this lng/lat. Queried as a screen-space box,
+ * not a single pixel: a point right at a footprint edge still puts the camera
+ * inside the extruded wall mesh, and a spot with less than a few metres of
+ * clearance (a back-alley slot between tall walls) reads as "nothing visible".
+ * Queries unfiltered and matches by source layer — same missing-style-layer
+ * caveat as findSpawnPoints above. */
+const CLEAR_METERS = 6
+function onBuilding(map: ClearSpotMap, lng: number, lat: number): boolean {
+  const a = map.project(offsetLngLat(lng, lat, -CLEAR_METERS, -CLEAR_METERS))
+  const b = map.project(offsetLngLat(lng, lat, CLEAR_METERS, CLEAR_METERS))
+  const box: [maplibregl.PointLike, maplibregl.PointLike] = [
+    [Math.min(a.x, b.x), Math.min(a.y, b.y)],
+    [Math.max(a.x, b.x), Math.max(a.y, b.y)],
+  ]
+  return map
+    .queryRenderedFeatures(box)
+    .some(
+      f =>
+        f.sourceLayer === 'building' &&
+        ((f.properties?.height as number) ?? (f.properties?.render_height as number) ?? 10) >=
+          PLANETARY_CONFIG.building.minHeight,
+    )
+}
+
+/**
+ * The nearest spot to (lng, lat) not covered by a rendered building, searched
+ * in expanding rings. Tiles must be rendered (map 'idle') for this to see
+ * anything — before that it just returns the input.
+ */
+export function findClearSpot(map: ClearSpotMap, lng: number, lat: number): [number, number] {
+  if (!onBuilding(map, lng, lat)) return [lng, lat]
+  for (let r = 6; r <= 120; r += 6) {
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2
+      const [cLng, cLat] = offsetLngLat(lng, lat, Math.cos(a) * r, Math.sin(a) * r)
+      if (!onBuilding(map, cLng, cLat)) return [cLng, cLat]
+    }
+  }
+  // ponytail: >120 m of solid building in every direction — give up, the
+  // collision resolver's inside-a-box eject is the remaining safety net.
+  return [lng, lat]
 }
 
 function centroid(ring: [number, number][]): [number, number] {
