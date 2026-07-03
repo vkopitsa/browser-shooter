@@ -779,7 +779,9 @@ export class GameSession {
       }
     }
 
-    const playerHit = this.config.mode === 'coop' ? null : this.resolvePlayerHit(shooter, origin, direction, range)
+    // Coop is PvE-only unless the match is explicitly FFA (planetary drop-in).
+    const pvp = this.config.mode !== 'coop' || this.config.damagePolicy === 'ffa'
+    const playerHit = pvp ? this.resolvePlayerHit(shooter, origin, direction, range) : null
 
     const wallDist = this.collisionWorld
       ? this.collisionWorld.segmentBlocked(origin, origin.clone().addScaledVector(direction, range))

@@ -55,6 +55,14 @@ describe('GameSession PvP damage', () => {
     s.step(1 / 30)
     expect(b.player.health).toBe(100)
   })
+
+  it('coop + ffa policy allows PvP damage (planetary drop-in)', () => {
+    const { s, a, b } = twoPlayers({ mode: 'coop', damagePolicy: 'ffa', fragLimit: 0 })
+    b.team = 'ct' // same team — ffa ignores teams
+    s.applyInput(a.id, { ...emptyInputForShoot(), yaw: a.player.rotation.y })
+    s.step(1 / 30)
+    expect(b.player.health).toBeLessThan(100)
+  })
 })
 
 describe('GameSession respawn', () => {

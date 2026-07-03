@@ -54,7 +54,7 @@ import { stepBloom } from './weapons/CrosshairBloom'
 import { MatchSetup } from './ui/MatchSetup'
 import { MapEditor } from './ui/MapEditor'
 import { PlanetaryMode } from './planetary/PlanetaryMode'
-import { MapPicker } from './planetary/MapPicker'
+import { MapPicker, type PlayerDot } from './planetary/MapPicker'
 import { KeybindsScreen } from './ui/KeybindsScreen'
 import { RoundState } from './session/RoundManager'
 import { KillFeed, type KillLine } from './ui/KillFeed'
@@ -151,6 +151,7 @@ function App() {
   const [scoreboardPlayers, setScoreboardPlayers] = useState<EntityState[]>([])
   const [showMatchSetup, setShowMatchSetup] = useState(false)
   const [planetaryDraft, setPlanetaryDraft] = useState<MatchConfig | null>(null)
+  const [planetDots, setPlanetDots] = useState<PlayerDot[]>([])
   const [editingMap, setEditingMap] = useState<import('./zones/mapStore').SavedMap | undefined>(undefined)
   const [myTeam, setMyTeam] = useState<Team>('ct')
   const [roster, setRoster] = useState<{ ct: string[]; t: string[] }>({ ct: [], t: [] })
@@ -833,7 +834,8 @@ function App() {
         }
       }
     }
-    const cfg: MatchConfig = { ...draft, zoneId: 'arid', joinPolicy: 'free', planetaryCenter: [lng, lat] }
+    // Drop-in matches mix strangers into one room, so teams are meaningless — always FFA.
+    const cfg: MatchConfig = { ...draft, zoneId: 'arid', joinPolicy: 'free', damagePolicy: 'ffa', planetaryCenter: [lng, lat] }
     const code = await hostGame(cfg)
     if (code) startHostedMatch(code)
     // ponytail: broker unreachable → fall back to solo planetary (re-picks the spot in-game)
@@ -850,6 +852,29 @@ function App() {
   useEffect(() => {
     if (gameState === 'mpmenu' && roomCode === null) void refreshServers()
   }, [gameState, roomCode, refreshServers])
+
+  // Show live planetary rooms as dots on the menu spot picker (one dot per room, host name + player count).
+  useEffect(() => {
+    if (!planetaryDraft) { setPlanetDots([]); return }
+    let cancelled = false
+    void (async () => {
+      const dialed = await dialDirectory()
+      if (!dialed) return
+      const entries = await dialed.client.fetchList().catch(() => [])
+      dialed.peer.destroy()
+      if (cancelled) return
+      setPlanetDots(entries
+        .filter((e) => e.planetaryCenter)
+        .map((e) => ({
+          id: e.roomCode,
+          name: `${e.hostName} (${e.players}/${e.maxPlayers})`,
+          team: 'ct' as Team,
+          lng: e.planetaryCenter![0],
+          lat: e.planetaryCenter![1],
+        })))
+    })()
+    return () => { cancelled = true }
+  }, [planetaryDraft])
 
   useEffect(() => {
     const container = containerRef.current
@@ -1668,7 +1693,14 @@ function App() {
       )}
       {(gameState === 'menu' || gameState === 'mpmenu') && planetaryDraft && (
         <MapPicker
-          playerPositions={[]}
+          playerPositions={planetDots}
+          onJumpToPlayer={(roomCode) => {
+            const dot = planetDots.find((d) => d.id === roomCode)
+            if (!dot) return
+            const draft = planetaryDraft
+            setPlanetaryDraft(null)
+            void dropIntoPlanet(dot.lng, dot.lat, draft).catch(() => setJoinError('Could not start hosting.'))
+          }}
           onTeleport={(lng, lat) => {
             const draft = planetaryDraft
             setPlanetaryDraft(null)

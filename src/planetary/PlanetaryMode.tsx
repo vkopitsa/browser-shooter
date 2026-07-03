@@ -265,6 +265,9 @@ export function PlanetaryMode({ onExit, net }: PlanetaryModeProps) {
       gameControls.onRemoveBot = () => { if (net?.role === 'client') return; session.removeBot() }
 
       sessionRef.current = session
+      // Debug handle for headless verification scripts (same precedent as window.__eng):
+      // pointer-lock movementX is broken in headless Chromium, so scripts aim via controls.yaw/pitch.
+      ;(window as unknown as { __pm?: object }).__pm = { session, controls, net }
       // Client session events arrive via NetClient (fed from snapshot.events), not
       // session.step. This replaces the arena handler App registered in joinGame —
       // planetary owns effects while mounted; leaveMultiplayer tears down on exit.
