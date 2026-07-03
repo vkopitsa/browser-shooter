@@ -16,7 +16,9 @@ export interface PlayerDot {
 
 interface MapPickerProps {
   playerPositions: PlayerDot[]
-  onTeleport: (lng: number, lat: number) => void
+  /** clickRadiusM: how imprecise this click is on the ground (~16 px at the current zoom),
+   * so callers can treat "visually the same spot" as the same place. */
+  onTeleport: (lng: number, lat: number, clickRadiusM: number) => void
   onJumpToPlayer?: (playerId: string) => void
   onClose: () => void
 }
@@ -133,7 +135,9 @@ export function MapPicker({ playerPositions, onTeleport, onJumpToPlayer, onClose
       const layers = PLAYER_LAYERS.filter(l => map.getLayer(l))
       if (layers.length && map.queryRenderedFeatures(e.point, { layers }).length) return
       setSelectedLocation([e.lngLat.lng, e.lngLat.lat])
-      onTeleport(e.lngLat.lng, e.lngLat.lat)
+      // Web-mercator ground meters per pixel at this zoom/lat, ×16 px of click slop.
+      const metersPerPx = (156543.03392 * Math.cos(e.lngLat.lat * Math.PI / 180)) / 2 ** map.getZoom()
+      onTeleport(e.lngLat.lng, e.lngLat.lat, 16 * metersPerPx)
     })
     mapRef.current = map
     // Debug handle for headless drive scripts (same precedent as window.__eng)

@@ -44,6 +44,13 @@ describe('findPlanetaryMatch', () => {
     expect(result!.roomCode).toBe('close')
   })
 
+  it('widens the radius to the click precision (world-zoom picks still match)', async () => {
+    const rooms = [room('lyon', { planetaryCenter: [4.8357, 45.7640] })] // ~390 km from Paris
+    expect(await findPlanetaryMatch(clientWith(rooms), paris)).toBeNull()
+    const result = await findPlanetaryMatch(clientWith(rooms), paris, 500_000)
+    expect(result!.roomCode).toBe('lyon')
+  })
+
   it('skips full, protected, lobby-policy, and non-planetary rooms', async () => {
     const result = await findPlanetaryMatch(clientWith([
       room('full', { players: 8 }),

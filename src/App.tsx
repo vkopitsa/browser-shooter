@@ -25,6 +25,7 @@ import { PeerClient } from './net/PeerClient'
 import { RemotePlayerManager } from './net/RemotePlayerManager'
 import { HostDirectory } from './net/HostDirectory'
 import { dialDirectory } from './net/directoryPeer'
+import { HEARTBEAT_MS } from './net/directoryProtocol'
 import { measurePing } from './net/probePing'
 import type { ServerRow } from './ui/ServerList'
 import { HUD } from './ui/HUD'
@@ -817,10 +818,10 @@ function App() {
 
   /** Planetary drop-in: join an existing match at this spot if one is open, else host one
    * (auto-started with free join so later players at the same spot drop straight in). */
-  const dropIntoPlanet = useCallback(async (lng: number, lat: number, draft: MatchConfig) => {
+  const dropIntoPlanet = useCallback(async (lng: number, lat: number, draft: MatchConfig, clickRadiusM = 0) => {
     const dialed = await dialDirectory()
     if (dialed) {
-      const match = await findPlanetaryMatch(dialed.client, [lng, lat])
+      const match = await findPlanetaryMatch(dialed.client, [lng, lat], clickRadiusM)
       dialed.peer.destroy()
       if (match) {
         try {
@@ -854,24 +855,36 @@ function App() {
   }, [gameState, roomCode, refreshServers])
 
   // Show live planetary rooms as dots on the menu spot picker (one dot per room, host name + player count).
+  // Polls while the picker is open so a room hosted after the picker opened still shows up.
   useEffect(() => {
     if (!planetaryDraft) { setPlanetDots([]); return }
     let cancelled = false
+    let dialed: Awaited<ReturnType<typeof dialDirectory>> = null
     void (async () => {
-      const dialed = await dialDirectory()
-      if (!dialed) return
-      const entries = await dialed.client.fetchList().catch(() => [])
-      dialed.peer.destroy()
-      if (cancelled) return
-      setPlanetDots(entries
-        .filter((e) => e.planetaryCenter)
-        .map((e) => ({
-          id: e.roomCode,
-          name: `${e.hostName} (${e.players}/${e.maxPlayers})`,
-          team: 'ct' as Team,
-          lng: e.planetaryCenter![0],
-          lat: e.planetaryCenter![1],
-        })))
+      while (!cancelled) {
+        // One peer kept open for the picker's lifetime (re-dialing every poll trips broker rate limits).
+        if (!dialed) {
+          const d = await dialDirectory()
+          if (d) d.client.onClose(() => { d.peer.destroy(); if (dialed === d) dialed = null })
+          dialed = d
+        }
+        if (cancelled) break
+        if (dialed) {
+          const entries = await dialed.client.fetchList().catch(() => [])
+          if (cancelled) break
+          setPlanetDots(entries
+            .filter((e) => e.planetaryCenter)
+            .map((e) => ({
+              id: e.roomCode,
+              name: `${e.hostName} (${e.players}/${e.maxPlayers})`,
+              team: 'ct' as Team,
+              lng: e.planetaryCenter![0],
+              lat: e.planetaryCenter![1],
+            })))
+        }
+        await new Promise((r) => setTimeout(r, HEARTBEAT_MS))
+      }
+      dialed?.peer.destroy()
     })()
     return () => { cancelled = true }
   }, [planetaryDraft])
@@ -1701,10 +1714,10 @@ function App() {
             setPlanetaryDraft(null)
             void dropIntoPlanet(dot.lng, dot.lat, draft).catch(() => setJoinError('Could not start hosting.'))
           }}
-          onTeleport={(lng, lat) => {
+          onTeleport={(lng, lat, clickRadiusM) => {
             const draft = planetaryDraft
             setPlanetaryDraft(null)
-            void dropIntoPlanet(lng, lat, draft).catch(() => setJoinError('Could not start hosting.'))
+            void dropIntoPlanet(lng, lat, draft, clickRadiusM).catch(() => setJoinError('Could not start hosting.'))
           }}
           onClose={() => { setPlanetaryDraft(null); if (gameState === 'mpmenu') setShowMatchSetup(true) }}
         />

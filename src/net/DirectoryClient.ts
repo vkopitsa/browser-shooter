@@ -3,13 +3,21 @@ import type { DirMessage, DirectoryEntry, ServerStatus } from './directoryProtoc
 
 /**
  * Client side of the directory channel: a host announcing, or a browser listing.
- *
- * Short-lived: a browsing client is created fresh per refresh and discarded after one
- * fetchList; the host's long-lived client only registers/heartbeats. fetchList registers
- * a per-call listener on the channel, so do not reuse one client for repeated polling.
+ * One channel listener dispatches to the pending fetchList, so a client can be
+ * kept open and polled repeatedly (the menu picker does this).
  */
 export class DirectoryClient {
-  constructor(private channel: Channel<DirMessage>) {}
+  private pendingList: ((entries: DirectoryEntry[]) => void) | null = null
+
+  constructor(private channel: Channel<DirMessage>) {
+    channel.onMessage((msg) => {
+      if (msg.type === 'listResponse') {
+        const pending = this.pendingList
+        this.pendingList = null
+        pending?.(msg.entries)
+      }
+    })
+  }
 
   register(entry: DirectoryEntry): void {
     this.channel.send({ type: 'register', entry })
@@ -26,16 +34,12 @@ export class DirectoryClient {
   /** Request the roster; resolves [] if no response arrives within timeoutMs. */
   fetchList(timeoutMs = 3000): Promise<DirectoryEntry[]> {
     return new Promise((resolve) => {
-      let settled = false
-      const done = (entries: DirectoryEntry[]) => {
-        if (settled) return
-        settled = true
-        resolve(entries)
-      }
-      const timer = setTimeout(() => done([]), timeoutMs)
-      this.channel.onMessage((msg) => {
-        if (msg.type === 'listResponse') { clearTimeout(timer); done(msg.entries) }
-      })
+      const timer = setTimeout(() => {
+        if (this.pendingList === done) this.pendingList = null
+        resolve([])
+      }, timeoutMs)
+      const done = (entries: DirectoryEntry[]) => { clearTimeout(timer); resolve(entries) }
+      this.pendingList = done
       this.channel.send({ type: 'listRequest' })
     })
   }

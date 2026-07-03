@@ -53,4 +53,15 @@ describe('DirectoryServer + DirectoryClient', () => {
     const entries = await new DirectoryClient(dead).fetchList(10)
     expect(entries).toEqual([])
   })
+
+  it('one client can poll fetchList repeatedly (menu picker keeps its dial open)', async () => {
+    const server = new DirectoryServer()
+    const host = connect(server)
+    const browser = connect(server)
+    expect(await browser.fetchList()).toEqual([])
+    host.register(entry('ROOM1'))
+    expect(await browser.fetchList()).toEqual([entry('ROOM1')])
+    host.unregister('ROOM1')
+    expect(await browser.fetchList()).toEqual([])
+  })
 })
