@@ -152,6 +152,7 @@ function App() {
   const [scoreboardPlayers, setScoreboardPlayers] = useState<EntityState[]>([])
   const [showMatchSetup, setShowMatchSetup] = useState(false)
   const [planetaryDraft, setPlanetaryDraft] = useState<MatchConfig | null>(null)
+  const planetDropRef = useRef(false) // guards double-clicks while a planetary drop-in is connecting
   const [planetDots, setPlanetDots] = useState<PlayerDot[]>([])
   const [editingMap, setEditingMap] = useState<import('./zones/mapStore').SavedMap | undefined>(undefined)
   const [myTeam, setMyTeam] = useState<Team>('ct')
@@ -1710,14 +1711,19 @@ function App() {
           onJumpToPlayer={(roomCode) => {
             const dot = planetDots.find((d) => d.id === roomCode)
             if (!dot) return
-            const draft = planetaryDraft
-            setPlanetaryDraft(null)
-            void dropIntoPlanet(dot.lng, dot.lat, draft).catch(() => setJoinError('Could not start hosting.'))
+            if (planetDropRef.current) return
+            planetDropRef.current = true
+            // Keep the picker up while joining — it unmounts when gameState flips to 'planetary'.
+            void dropIntoPlanet(dot.lng, dot.lat, planetaryDraft)
+              .catch(() => { setJoinError('Could not start hosting.'); setPlanetaryDraft(null) })
+              .finally(() => { planetDropRef.current = false })
           }}
           onTeleport={(lng, lat, clickRadiusM) => {
-            const draft = planetaryDraft
-            setPlanetaryDraft(null)
-            void dropIntoPlanet(lng, lat, draft, clickRadiusM).catch(() => setJoinError('Could not start hosting.'))
+            if (planetDropRef.current) return
+            planetDropRef.current = true
+            void dropIntoPlanet(lng, lat, planetaryDraft, clickRadiusM)
+              .catch(() => { setJoinError('Could not start hosting.'); setPlanetaryDraft(null) })
+              .finally(() => { planetDropRef.current = false })
           }}
           onClose={() => { setPlanetaryDraft(null); if (gameState === 'mpmenu') setShowMatchSetup(true) }}
         />
@@ -1748,6 +1754,7 @@ function App() {
         <PlanetaryMode
           onExit={() => {
             if (gameDataRef.current.role !== 'single') leaveMultiplayer()
+            setPlanetaryDraft(null) // draft outlives the picker so it stays up while connecting; don't re-open it on exit
             updateGameState('menu')
           }}
           net={gameDataRef.current.role === 'single' ? undefined : {
