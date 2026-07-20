@@ -4,10 +4,10 @@
 
 **A 3D first-person shooter that runs entirely in your browser — from solo wave survival to CS-style 5v5 competitive with a bomb objective, an economy, and a buy menu.**
 
-[**▶ Play the Live Demo**](https://hermes98761234.github.io/browser-shooter/)
+[**▶ Play the Live Demo**](https://vkopitsa.github.io/browser-shooter/)
 
-[![CI](https://github.com/hermes98761234/browser-shooter/actions/workflows/ci.yml/badge.svg)](https://github.com/hermes98761234/browser-shooter/actions/workflows/ci.yml)
-[![Deploy](https://github.com/hermes98761234/browser-shooter/actions/workflows/deploy.yml/badge.svg)](https://github.com/hermes98761234/browser-shooter/actions/workflows/deploy.yml)
+[![CI](https://github.com/vkopitsa/browser-shooter/actions/workflows/ci.yml/badge.svg)](https://github.com/vkopitsa/browser-shooter/actions/workflows/ci.yml)
+[![Deploy](https://github.com/vkopitsa/browser-shooter/actions/workflows/deploy.yml/badge.svg)](https://github.com/vkopitsa/browser-shooter/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](#license)
 [![Tests](https://img.shields.io/badge/tests-1000%2B%20unit%20%2B%20E2E-brightgreen.svg)](#testing)
 [![Vibecoded](https://img.shields.io/badge/100%25-vibecoded-ff69b4.svg)](#vibecoding)
@@ -139,7 +139,7 @@ This project is **100% vibecoded**: every line of code, every test, and this REA
 ### Installation
 
 ```bash
-git clone https://github.com/hermes98761234/browser-shooter.git
+git clone https://github.com/vkopitsa/browser-shooter.git
 cd browser-shooter
 npm install
 ```
@@ -213,7 +213,7 @@ browser-shooter/
 Pushing to `main` triggers GitHub Actions:
 
 1. **CI** — Lint, unit tests, E2E tests, and a production build.
-2. **Deploy** — Automatic deployment to [GitHub Pages](https://hermes98761234.github.io/browser-shooter/).
+2. **Deploy** — Automatic deployment to [GitHub Pages](https://vkopitsa.github.io/browser-shooter/).
 
 Tag with `v*` (e.g. `v1.0.0`) to trigger a release build with a distributable zip attached to the GitHub Release.
 
